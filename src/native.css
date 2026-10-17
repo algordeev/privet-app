@@ -122,7 +122,7 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .feedback.incorrect { background: #faecdf; color: #815329; }
 .native-app .lesson-bottom { flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 12px 22px 8px; border-top: 1px solid #e0e6d6; background: #f8f6f0; }
 .native-app .lesson-bottom .button { width: 100%; order: 0; min-height: 52px; font-size: 16px; }
-.native-app .lesson-bottom > .app-audio-note { order: 1; max-width: none; justify-content: center; font-size: 10px; line-height: 1.5; text-align: center; }
+.native-app .lesson-bottom > .app-audio-note { min-height: 18px; order: 1; max-width: none; justify-content: center; font-size: 10px; line-height: 1.5; text-align: center; }
 .native-app .lesson-bottom > .app-audio-note svg { width: 14px; }
 .native-app .app-settings { top: 64px; left: 12px; right: 12px; width: auto; max-height: calc(100% - 80px); overflow-y: auto; padding: 20px; border-radius: 17px; }
 .native-app .app-settings > div:first-child { font-size: 18px; }
@@ -150,3 +150,64 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 /* Leave extra room for the focused input while the system keyboard is up. */
 .native-app[data-keyboard=true] .native-companion-status,
 .native-app[data-keyboard=true] .lesson-bottom > .app-audio-note { display: none; }
+
+/* Native virtual companion: all selectors stay within the app shell. */
+.native-app .native-welcome { margin-block: 24px 18px; }
+.native-app .native-welcome h1 { font-size: 28px; line-height: 1.2; margin: 0; }
+.native-companion-greeting { margin-bottom: 20px; }
+.native-greeting-row { display: flex; align-items: center; gap: 13px; }
+.native-companion-bubble { flex: 1; min-width: 0; position: relative; border: 1px solid #d9e1cf; border-radius: 16px; padding: 15px; background: #fffdf7; color: #39563d; font-size: 14px; line-height: 1.55; }
+.native-companion-bubble:before { content: ''; position: absolute; left: -6px; top: calc(50% - 6px); width: 10px; height: 10px; background: #fffdf7; border-left: 1px solid #d9e1cf; border-bottom: 1px solid #d9e1cf; transform: rotate(45deg); }
+.native-companion-information { margin-top: 9px; text-align: center; color: #65765a; font-size: 10px; line-height: 1.6; }
+.native-robot { position: relative; flex-shrink: 0; width: 62px; height: 58px; --native-robot-scale: .23; }
+.native-robot-greeting { width: 96px; height: 90px; --native-robot-scale: .358; }
+.native-robot-celebration { width: 129px; height: 120px; --native-robot-scale: .48; }
+.native-robot-art { position: absolute; inset: 0; pointer-events: none; }
+.native-app .native-robot .robot-scene { position: absolute; inset: 0; margin: 0; transform: scale(var(--native-robot-scale)); transform-origin: top left; }
+.native-app .native-robot .robot-shadow { opacity: .5; }
+.native-app .native-robot-touch { position: absolute; inset: 0; display: block; width: 100%; height: 100%; min-width: 44px; min-height: 44px; border-radius: 13px; background: transparent; padding: 0; }
+.native-app .native-robot-touch:disabled { cursor: default; }
+.native-app .native-robot[data-expression=idle] .robot-head { animation: native-companion-idle 10s ease-in-out infinite; }
+.native-app .native-robot[data-expression=greeting] .robot-head { animation: native-companion-hello .7s ease-in-out 1; }
+.native-app .native-robot[data-expression=happy] .robot-head { animation: nod .65s ease-in-out 2; }
+.native-app .native-robot[data-expression=encouraging] .robot-head { animation: native-companion-hello 1s ease-in-out 1; }
+.native-app .native-robot[data-expression=celebrating] .robot-head { animation: happy .8s ease-in-out 3; }
+.native-app .native-robot[data-running=false] * { animation-play-state: paused !important; transition: none !important; }
+.native-app .native-robot[data-enabled=false] * { animation: none !important; transition: none !important; }
+.native-app .native-robot[data-enabled=false] .robot-head { transform: none !important; }
+.native-app .native-companion-feedback { position: relative; padding-left: 90px; min-height: 112px; }
+.native-companion-feedback .native-robot { position: absolute; left: 12px; top: 15px; }
+.native-app .native-companion-feedback > strong { display: block; line-height: 1.5; }
+.native-completion-companion { display: flex; flex-direction: column; align-items: center; gap: 7px; margin-bottom: 16px; }
+.native-completion-companion > p { font-size: 14px; line-height: 1.6; color: #4d7042; min-height: 45px; }
+.native-app .native-completion-companion + h3 { margin-top: 10px; }
+@keyframes native-companion-idle { 0%,80%,100% { transform: rotate(0); } 88%,94% { transform: rotate(2deg); } }
+@keyframes native-companion-hello { 0%,100% { transform: rotate(0); } 35% { transform: rotate(-6deg); } 70% { transform: rotate(3deg); } }
+@media (prefers-reduced-motion: reduce) {
+ .native-app .native-robot * { animation: none !important; transition: none !important; }
+ .native-app .native-robot .robot-head { transform: none !important; }
+}
+
+/* Native learning aids popover: settings apply on change, with no save step. */
+.native-app .native-lesson-settings { position: absolute; z-index: 10; top: 62px; inset-inline-start: auto; inset-inline-end: 18px; width: min(286px,calc(100% - 32px)); max-height: calc(100% - 78px); overflow-y: auto; overscroll-behavior: contain; border: 1px solid #dce3d3; border-radius: 16px; padding: 10px 16px 12px; background: #fffdf7; box-shadow: 0 6px 20px #25372d14; transform-origin: top right; animation: native-settings-in 160ms cubic-bezier(.2,.7,.3,1) both; }
+.native-app .native-lesson-settings[data-open=false] { pointer-events: none; animation: native-settings-out 120ms ease-in both; }
+@keyframes native-settings-in { from { opacity: 0; transform: translateY(-5px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes native-settings-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-3px) scale(.98); } }
+.native-settings-options { border-bottom: 1px solid #e3e7da; }
+.native-settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 66px; padding-block: 11px; cursor: pointer; }
+.native-settings-row + .native-settings-row { border-top: 1px solid #e3e7da; }
+.native-settings-row > span { min-width: 0; }
+.native-settings-row strong { display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 1.4; color: #2f4936; font-weight: 500; }
+.native-settings-row small { display: block; margin-top: 4px; color: #68795d; font-size: 11px; line-height: 1.5; }
+.native-settings-example { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 5px; background: #eaf0e1; color: #496d3c; font-weight: 500; }
+.native-app .native-settings-row input[type=checkbox] { appearance: none; -webkit-appearance: none; display: block; position: relative; flex-shrink: 0; width: 44px; height: 27px; margin: 0; border: 1px solid #c9d2c1; border-radius: 20px; background: #dce2d5; cursor: pointer; transition: background .18s ease; }
+.native-app .native-settings-row input[type=checkbox]:before { content: ''; position: absolute; width: 21px; height: 21px; border-radius: 50%; background: #fffdf7; top: 2px; left: 2px; box-shadow: 0 1px 3px #263e3026; transition: transform .18s ease; }
+.native-app .native-settings-row input[type=checkbox]:checked { background: #397756; border-color: #397756; }
+.native-app .native-settings-row input[type=checkbox]:checked:before { transform: translateX(17px); }
+.native-app .native-settings-restart { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 12px 0 0; margin-top: 4px; background: transparent; color: #955b42; font-size: 13px; font-weight: 500; text-align: left; }
+.native-settings-restart svg { width: 18px; height: 18px; flex-shrink: 0; }
+@media (prefers-reduced-motion: reduce) {
+ .native-app .native-settings-row input[type=checkbox],.native-app .native-settings-row input[type=checkbox]:before { transition: none; }
+ .native-app .native-lesson-settings { animation: none; }
+ .native-app .native-lesson-settings[data-open=false] { animation: none; opacity: 0; transform: none; }
+}

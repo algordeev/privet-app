@@ -1,11 +1,11 @@
 import {useEffect,useReducer,useRef,useState} from 'react';
 import {PRODUCT} from './config';
 import {lesson,words} from './lesson';
-import {companionReaction,lessonCompanionEvent,progressReducer,type Action} from './engine';
+import {companionReaction,lessonCompanionEvent,progressReducer,type Action,type Progress} from './engine';
 import {loadSession,NATIVE_SESSION_KEY,readSaved} from './session';
 import {useSpeech} from './useSpeech';
 
-export function useLesson({persistSession=false}:{persistSession?:boolean}={}) {
+export function useLesson({persistSession=false,onTransition}:{persistSession?:boolean;onTransition?:(previous:Progress,next:Progress,action:Action)=>void}={}) {
  const [initial]=useState(()=>loadSession(persistSession));
  const [saved,setSaved]=useState(readSaved);
  const [preferences,setPreferences]=useState(saved.preferences);
@@ -25,7 +25,7 @@ export function useLesson({persistSession=false}:{persistSession?:boolean}={}) {
  const mounted=useRef(false);
  const previousStep=useRef(progress.index);
  const speech=useSpeech();
- function dispatch(action:Action){speech.stop();reduce(action);}
+ function dispatch(action:Action){speech.stop();onTransition?.(progress,progressReducer(progress,action),action);reduce(action);}
  useEffect(()=>{speech.stop();},[progress.index,progress.complete,speech.stop]);
  useEffect(()=>{if(!speech.available||speech.status==='error')setListening(false);},[speech.available,speech.status]);
  const exercise=lesson[Math.min(progress.index,lesson.length-1)];
