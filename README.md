@@ -2,6 +2,16 @@
 
 A responsive React + TypeScript + Vite prototype for an upcoming iOS learning app and an optional ESP32 desk companion. Product naming is centralized in `src/config.ts`.
 
+## Companion concept illustrations
+
+White and coral explorations of the optional desk companion, showing the enclosure and planned OLED, servo, and ESP32 arrangement. These are concept illustrations, not photographs of a completed device. The interactive website companion remains a browser simulation.
+
+| Warm white | Soft coral |
+| --- | --- |
+| [![White desk companion concept with enclosed and open rear views](public/images/companion-white.png)](public/images/companion-white.png) | [![Coral desk companion concept with enclosed and open rear views](public/images/companion-coral.png)](public/images/companion-coral.png) |
+
+Illustrations supplied by the project creator. The original PNGs live in `public/images/` and also appear in the website’s companion gallery. Click an illustration to open it at full size.
+
 ## Run locally
 
 Use Node.js 22.18+ (Node 24 recommended).
@@ -52,7 +62,7 @@ Run `npm run build` and `npm test`. Browser QA should cover a desktop and a 390 
 4. Prototype the ESP32 OLED, servo limits, buttons, reconnect behavior, and battery/power constraints on real hardware.
 5. Run a learner pilot before expanding content or making learning-effectiveness claims.
 
-Typography uses DM Sans and Manrope from Google Fonts with system fallbacks; the lesson works without that network request. No image assets or paid services are required.
+Typography uses DM Sans and Manrope from Google Fonts with system fallbacks; the lesson works without that network request. Companion concept illustrations are bundled locally; no paid services are required.
 
 ## GitHub Pages
 
