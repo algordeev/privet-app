@@ -1,6 +1,6 @@
-# Privet ESP32 OLED companion firmware
+# Privet ESP32 OLED-only companion firmware
 
-[PrivetBLE_Lessons.ino](PrivetBLE_Lessons.ino) is the working electronics-prototype sketch for Privet's optional desk companion. It accepts four predefined face commands over BLE, acknowledges them, and renders an SSD1306 OLED. The phone owns lessons, answer checking, progress and pronunciation. There is **no servo connected yet**, and the sketch contains no servo control, Wi-Fi, arbitrary text transfer or BLE audio.
+[PrivetBLE_Lessons.ino](PrivetBLE_Lessons.ino) is the working electronics-prototype sketch for Privet's optional desk companion. It accepts four predefined face commands over BLE, acknowledges them, and renders an SSD1306 OLED. The phone owns lessons, answer checking, progress and pronunciation. This retained **OLED-only variant does not drive a servo**. For the current moving-screen prototype, use the separate [OLED + servo sketch/setup](../PrivetBLE_Servo/README.md). Neither variant implements Wi-Fi, arbitrary text transfer or BLE audio.
 
 The project owner reports successful real-iPhone discovery/connection, happy testing, matching ACKs, disconnect/reconnect, screen-navigation continuity, lesson faces and the latest lock/background connection preservation. No exact device/software versions or session durations were supplied. Enclosure illustrations in the [main README](../../README.md#companion-concept-illustrations) remain concepts.
 
@@ -19,7 +19,7 @@ The project owner reports successful real-iPhone discovery/connection, happy tes
 | SDA | GPIO21 |
 | SCL | GPIO22 |
 
-The sketch uses `Wire.begin(21, 22)` and no separate OLED reset pin (`-1`). Confirm the module is the intended I2C SSD1306 and follow its pin labels. No servo or interaction buttons are part of this electronics setup.
+The sketch uses `Wire.begin(21, 22)` and no separate OLED reset pin (`-1`). Confirm the module is the intended I2C SSD1306 and follow its pin labels. No servo or interaction buttons are driven by this OLED-only setup; the [servo variant](../PrivetBLE_Servo/README.md#hardware-and-wiring) adds GPIO25 and separate servo power requirements.
 
 ## Arduino IDE setup and upload
 
@@ -122,4 +122,4 @@ Longer/timed sessions, range loss, power loss while locked, Bluetooth toggling a
 | Face stays briefly after the app pauses | A submitted write cannot be recalled. Firmware finishes/expires the temporary face without relying on a last-minute background IDLE. |
 | ACK timeout or rejected command | Compare exact eight-byte packets and echoed ID/code against the protocol; malformed length/version/type and conflicting last-ID reuse receive no ACK. Check subscription and connection; the app does not silently replay commands. |
 
-Do not use these checks to assume successful fault recovery, radio range or endurance. This sketch is an unauthenticated local electronics prototype, with no servo or production enclosure implementation.
+Do not use these checks to assume successful fault recovery, radio range or endurance. This OLED-only sketch is an unauthenticated local electronics prototype. Servo support lives in the separate variant; the production enclosure is not implemented.

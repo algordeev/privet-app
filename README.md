@@ -1,31 +1,31 @@
 # Privet — Russian learning app and companion prototype
 
-Privet is a React + TypeScript + Vite learning prototype with a native Capacitor iOS app and an optional ESP32 OLED desk companion. The project owner has tested the app and electronics on a real iPhone, including lesson reactions and the latest lock/background connection preservation. This is an electronics prototype, not a finished enclosure or production product. Product naming is centralized in `src/config.ts`.
+Privet is a React + TypeScript + Vite learning prototype with a native Capacitor iOS app and an optional ESP32 OLED-and-servo desk companion. The project owner has tested the app and electronics on a real iPhone, including lesson reactions and the latest lock/background connection preservation. This is an electronics prototype, not a finished enclosure or production product. Product naming is centralized in `src/config.ts`.
 
 | Part | Current experience |
 | --- | --- |
 | Browser website | Landing page, interactive café lesson inside a decorative phone, simulated robot, and enclosure concept gallery. No real Bluetooth connection. |
 | Native iOS app | Capacitor selects an app home, profile/statistics and full-screen lesson using `Capacitor.isNativePlatform()`. Content is bundled locally. |
 | Virtual companion | Coral SVG/CSS robot with predefined greetings and reactions; works independently of physical hardware. |
-| Optional physical companion | ESP32 ESP-32S with SSD1306 128×64 OLED, receiving predefined face/animation commands over native iOS BLE. |
+| Optional physical companion | ESP32 ESP-32S with SSD1306 128×64 OLED and SG90-targeted servo firmware, receiving predefined emotion commands over native iOS BLE. |
 
-The **phone** owns lessons, answer checking, progress/statistics and optional synthesized pronunciation. The **ESP32** displays predefined OLED faces and animations; it does not check answers or play audio. Lessons remain fully usable without hardware.
+The **phone** owns lessons, answer checking, progress/statistics and optional synthesized pronunciation. The **ESP32** displays predefined OLED faces/animations and drives the servo motion associated with them; it does not check answers or play audio. Lessons remain fully usable without hardware.
 
-## Physical ESP32 OLED companion
+## Physical ESP32 OLED + servo companion
 
 Open **Physical companion settings** from native home, tap Connect, choose the advertised companion, and use Test happy reaction. Connect through Privet, rather than manually pairing in iPhone Settings. Bluetooth access is requested only after Connect.
 
-| Accepted lesson event | OLED reaction |
+| Accepted lesson event | Companion reaction |
 | --- | --- |
-| Incorrect answer | Gentle encouraging face |
-| Correct answer | Happy face |
-| Continue to another exercise or retry | Neutral/idle face |
-| Actual lesson completion | Celebration with sparkles |
+| Incorrect answer | Gentle encouraging face; servo targets center |
+| Correct answer | Happy face and brief servo tilt/return |
+| Continue to another exercise or retry | Neutral/idle face and return toward center |
+| Actual lesson completion | Celebration with sparkles and alternating servo motion |
 
 Opening/closing a lesson, restart, screen changes and fresh connections synchronize IDLE as defined in the protocol. Final Continue sends CELEBRATE only; reopening saved results does not replay it. Hardware feedback never blocks a lesson or replaces lesson/audio feedback.
 
-- Working sketch: [PrivetBLE_Lessons.ino](firmware/PrivetBLE_Lessons/PrivetBLE_Lessons.ino).
-- Wiring, Arduino setup, upload and first-run checks: [firmware setup](firmware/PrivetBLE_Lessons/README.md).
+- Current OLED + servo sketch: [PrivetBLE_Servo.ino](firmware/PrivetBLE_Servo/PrivetBLE_Servo.ino); [servo wiring, power, dependencies and upload setup](firmware/PrivetBLE_Servo/README.md).
+- OLED-only baseline remains available: [PrivetBLE_Lessons.ino](firmware/PrivetBLE_Lessons/PrivetBLE_Lessons.ino) and [OLED-only setup](firmware/PrivetBLE_Lessons/README.md).
 - UUIDs, exact packet/ACK format, firmware timing, security limits, scheduler and lifecycle: [BLE protocol and lifecycle](docs/companion-ble.md).
 
 ### Locking and backgrounding
@@ -38,7 +38,7 @@ On return, the app waits boundedly for any already-submitted native write, check
 
 ## Companion concept illustrations
 
-White and coral explorations of the optional desk companion, showing a possible enclosure and internal arrangement. The ESP32/OLED electronics prototype is implemented; the enclosure and servo arrangement remain concepts. These are concept illustrations, not photographs of a completed device. The interactive website companion remains a browser simulation.
+White and coral explorations of the optional desk companion, showing a possible enclosure and internal arrangement. The ESP32/OLED/servo electronics prototype is implemented; the pictured enclosure and internal arrangement remain concepts. These are concept illustrations, not photographs of a completed device. The interactive website companion remains a browser simulation.
 
 | Warm white | Soft coral |
 | --- | --- |
@@ -102,7 +102,8 @@ Statistics use `privet-demo-v1-native-stats`; resumable sessions have a separate
 | `src/bleProtocol.ts`, `src/bleTransport.ts` | Binary protocol/IDs, bounded scheduler, connection lifecycle/reconciliation |
 | `src/bleDriver.ts`, `src/usePhysicalCompanion.ts` | Installed BLE plugin adapter and app-wide native lifecycle wiring |
 | `src/physicalLessonEvents.ts`, `src/PhysicalCompanionSettings.tsx` | Accepted lesson-to-BLE mapping; connection/test UI and home status |
-| `firmware/PrivetBLE_Lessons/PrivetBLE_Lessons.ino` | BLE server, latest-face mailbox, OLED drawing and animation timing |
+| `firmware/PrivetBLE_Servo/PrivetBLE_Servo.ino` | Current BLE/OLED/servo variant: loop-driven pulse gestures, centering and PWM release |
+| `firmware/PrivetBLE_Lessons/PrivetBLE_Lessons.ino` | OLED-only baseline with the same BLE protocol |
 | `src/*.test.ts`, `scripts/check-shells.mjs` | Focused regressions and rendered browser/native shell checks |
 | `src/styles.css`, `src/iphone.css`, `src/gallery.css` | Website layout, decorative phone, gallery, focus/reduced-motion styles |
 | `vite.config.ts`, `capacitor.config.ts` | Separate browser/native builds and local Capacitor content |
@@ -119,8 +120,9 @@ The project owner reports that the app runs on a real iPhone and confirms:
 - Explicit disconnect/reconnect and connection continuity across native screens.
 - Incorrect answer → encouraging face; correct answer → happy face; Continue to another exercise → idle; completion → celebration with sparkles.
 - The latest connection-preservation change works during locking/backgrounding.
+- The servo now moves the screen when showing emotions. Gesture timing/pulse bounds below come from the sketch, not measured movement/position feedback.
 
-No specific session duration, iPhone model, iOS/core version, latency, range, endurance or fault-recovery result was supplied. These are user reports, not hardware tests performed by the coding agent. The electronics prototype is confirmed; the illustrated enclosure/servo are concepts.
+No specific session duration, iPhone model, iOS/core version, latency, range, endurance or fault-recovery result was supplied. These are user reports, not hardware tests performed by the coding agent. The electronics prototype includes user-reported servo motion; the illustrated enclosure remains a concept. Servo load, calibration, torque, endurance and mechanical safety have not been established by those reports.
 
 ### Recorded automated checks
 
@@ -146,8 +148,8 @@ Some unchanged app/website copy still labels the physical version as planned, an
 
 1. Run longer lock/background sessions and fault tests: out of range, ESP32 power loss while locked, Bluetooth toggling, delayed notifications and force-quit behavior. These remain unverified; see [the hardware checklist](docs/companion-ble.md#remaining-hardware-tests).
 2. Validate keyboard/safe areas/accessibility on intended iPhones and review Russian content/pronunciation help with an educator; gather learner feedback before expanding lessons or claiming learning effectiveness.
-3. Develop a physical enclosure, safe servo movement, buttons and power/battery design separately. **No servo is connected or controlled by the current firmware.**
-4. Design arbitrary text transfer, BLE audio or stronger authenticated ownership/pairing only as future features; none is in the current eight-byte face-command protocol. Automatic fault recovery and process-termination restoration are also unimplemented.
+3. Develop the enclosure/mount, validate the servo travel and power under the actual screen load, then evaluate buttons and battery design. The current servo sketch uses GPIO25, 1300–1700 µs targets and a 1500 µs center; these are commanded pulses, not measured angles or guarantees of safe mechanical travel.
+4. Design arbitrary text transfer, BLE audio or stronger authenticated ownership/pairing only as future features; none is in the current eight-byte emotion-command protocol; servo movement is chosen locally by firmware, not sent as raw angles/pulses. Automatic fault recovery and process-termination restoration are also unimplemented.
 5. Run a learner pilot. The current app does not collect feedback remotely.
 
 ## GitHub Pages

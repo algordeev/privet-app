@@ -1,12 +1,12 @@
-# Privet ESP32 OLED companion — protocol and lifecycle
+# Privet ESP32 OLED/servo companion — protocol and lifecycle
 
 Native iOS BLE central using `@capacitor-community/bluetooth-le` 8.3.0 with Capacitor 8 and Swift Package Manager. The native app root owns one transport across home, profile, lessons and companion settings. Website behavior, speech, saved progress, statistics and the virtual companion remain independent of hardware. There is no backend, saved device ID, offline queue or automatic reconnect. iOS declares `bluetooth-central` to allow the established native link to remain while the app is inactive; lesson commands remain foreground-only.
 
 ## Implementation and setup
 
-The working sketch is [PrivetBLE_Lessons.ino](../firmware/PrivetBLE_Lessons/PrivetBLE_Lessons.ino). It targets the ESP32 ESP-32S with an SSD1306 128×64 I2C OLED and implements all four face commands below. See [firmware setup](../firmware/PrivetBLE_Lessons/README.md) for wiring, Arduino dependencies, upload, logs and first-run checks. The phone owns lessons, checking, progress and pronunciation; the ESP32 owns predefined OLED rendering and animation timing.
+The current moving-screen variant is [PrivetBLE_Servo.ino](../firmware/PrivetBLE_Servo/PrivetBLE_Servo.ino), with [servo wiring/power/upload instructions](../firmware/PrivetBLE_Servo/README.md). It targets the ESP32 ESP-32S, SSD1306 128×64 I2C OLED and an SG90 servo on GPIO25. The older [PrivetBLE_Lessons.ino](../firmware/PrivetBLE_Lessons/PrivetBLE_Lessons.ino) and [OLED-only setup](../firmware/PrivetBLE_Lessons/README.md) remain as a separate baseline. Both implement the same four emotion commands and packet format; no app/BLE change is needed to select firmware-local gestures.
 
-The project owner reports real-iPhone verification of lesson reactions and the latest lock/background preservation. Automated evidence, user-reported results and remaining hardware tests are listed separately under [Verification](#verification). The illustrated enclosure and servo arrangement remain concepts; only the electronics prototype is confirmed. No servo, arbitrary text payloads or BLE audio are implemented.
+The phone owns lessons, checking, progress and pronunciation. The ESP32 owns predefined OLED rendering, reaction timing and (in the servo variant) pulse-based motion. The project owner reports real-iPhone lesson/lock-background verification and now reports servo movement of the screen during emotions. Automated evidence, user reports and remaining hardware tests are separated under [Verification](#verification). The pictured enclosure remains a concept; no arbitrary text payloads, direct servo-angle/pulse commands or BLE audio are implemented.
 
 ## Peripheral contract (unchanged UUIDs)
 
@@ -37,7 +37,7 @@ Subscribe to Status before sending anything. Successful connection and subscript
 | 3 | CELEBRATE | Lesson completion celebration; user-verified firmware supports this |
 | 4 | IDLE | Immediately cancel a temporary reaction and show a neutral face; user-verified firmware supports this |
 
-An acknowledgement means **command accepted**, not that the animation finished or that the display rendered successfully. OLED initialization can fail while BLE continues accepting commands. The short labels drawn by firmware are predefined; this version carries no arbitrary text, JSON, servo commands or audio.
+An acknowledgement means **command accepted**, not that the animation finished, the display rendered successfully, or the servo reached a position. OLED initialization can fail while BLE continues accepting commands. The short labels drawn by firmware are predefined; this version carries no arbitrary text, JSON, raw servo commands or audio. The existing emotion code selects any servo gesture locally.
 
 Hex examples use consecutive distinct IDs `0x12345678` through `0x1234567D` (little-endian on the wire). Each ACK echoes its command's ID and code. The last two pairs illustrate diagnostic rejection cases; Privet normally sends only codes 1–4 with argument 0.
 
@@ -58,18 +58,37 @@ Invalid argument ACK:     01 02 7D 56 34 12 04 02
 
 Actual requests use distinct, increasing nonzero IDs throughout the running JavaScript process, including across transport instances. IDs never wrap; exhaustion requires an app restart. A fresh process starts new IDs, so connection-generation scoping is also required. Match both request ID and command code against the current, non-obsolete in-flight request and connection. Ignore wrong lengths, versions, message types, command codes, result codes, IDs, duplicate ACKs and old connection callbacks. An ACK arriving before the write-response promise resolves is retained, but acceptance is reported only after the write also succeeds.
 
-## Firmware behavior verified from the sketch
+## Firmware behavior verified from the sketches
 
-| Command | Face/animation | Firmware duration |
-| --- | --- | --- |
-| HAPPY | Joyful eyes, larger smile, `Happy!` | 2000 ms |
-| ENCOURAGE | Relaxed eyes, small smile, `Try again!`; no punitive frown | 2200 ms |
-| CELEBRATE | Joyful face, bobbing and sparkles, `Well done!` | 3200 ms |
-| IDLE | Neutral face with occasional blink; `Connected` or `Ready BLE` | No expiry |
+| Command | Face/animation | OLED-only duration | OLED + servo duration |
+| --- | --- | --- | --- |
+| HAPPY | Joyful eyes, larger smile, `Happy!` | 2000 ms | 2000 ms |
+| ENCOURAGE | Relaxed eyes, small smile, `Try again!`; no punitive frown | 2200 ms | 2200 ms |
+| CELEBRATE | Joyful face, bobbing and sparkles, `Well done!` | 3200 ms | 4500 ms |
+| IDLE | Neutral face with occasional blink; `Connected` or `Ready BLE` | No expiry | No expiry |
 
-Durations are code constants, not measured radio/display latencies. A temporary reaction returns to IDLE after its timer expires; the timer starts when `loop()` observes the new mailbox revision. New commands replace the latest-face mailbox rather than append an animation queue. A new accepted IDLE cancels a temporary reaction on the next loop update and bypasses the normal 50 ms drawing throttle; this is not a claim of zero physical latency. CELEBRATE changes its bob/sparkles on a 180 ms phase; idle blink uses a 4300 ms cycle with a 130 ms blink window. `loop()` has a 10 ms delay. I2C/drawing stay in `loop()`, outside BLE callbacks.
+Durations are code constants, not measured radio/display/movement latencies. A temporary reaction returns to IDLE after its timer expires; its timer starts when `loop()` observes the new mailbox revision. New commands replace the latest-state mailbox rather than append an animation queue. Accepted IDLE replaces the face on the next loop update and bypasses the normal 50 ms drawing throttle. It also requests servo centering in the servo variant; physical motion still slews, so this is not instantaneous arrival at neutral.
 
-A new command with the same reaction but a different request ID advances the mailbox revision and restarts its duration. If several commands arrive before `loop()` consumes them, only the latest face may appear, even though each accepted command can have an ACK. No display-rendering acknowledgement exists.
+CELEBRATE changes its OLED bob/sparkles on a 180 ms phase; idle blink uses a 4300 ms cycle with a 130 ms blink window. `loop()` has a 10 ms delay. I2C/drawing and servo updates stay in `loop()`, outside BLE callbacks. The servo variant rotates the OLED 180° with `display.setRotation(2)` for its upside-down screen mounting; the baseline does not.
+
+A new command with the same reaction but a different request ID advances the mailbox revision and restarts timing. If several commands arrive before `loop()` consumes them, only the latest state may appear/move, even though each accepted command can have an ACK. Duplicate handling below applies to both sketches and does not restart the face or servo gesture.
+
+### Servo motion (servo variant only)
+
+`SERVO_ENABLED` is `true`. GPIO25 drives an ESP32Servo PWM output at 50 Hz. The current command is tracked in microseconds: center 1500 µs, clamped targets 1300–1700 µs. `attach(..., 500, 2500)` configures the library's broader pulse mapping, but the sketch's commanded pulses remain within 1300–1700 µs. No app command supplies a raw angle or pulse.
+
+| Emotion | Servo target sequence from gesture start |
+| --- | --- |
+| HAPPY | 1700 µs for age <900 ms, then 1500 µs |
+| ENCOURAGE | 1500 µs; no punitive head shaking |
+| CELEBRATE | 1300 µs for <900 ms; 1700 for 900–1799; 1300 for 1800–2699; 1700 for 2700–3599; then 1500 |
+| IDLE / disconnect / reaction expiry | Request 1500 µs and return toward center |
+
+The pulse changes by at most 10 µs per update at intervals of at least 20 ms. Target changes therefore produce slewed motion, not immediate jumps to each target. PWM attaches only when HAPPY/CELEBRATE or an off-center last-commanded pulse needs motion. There is no forced centering movement at boot: GPIO25 starts LOW and the software initially assumes a 1500 µs commanded pulse.
+
+When the gesture's release threshold has passed (HAPPY 1500 ms, CELEBRATE 4100 ms, other states 0 ms) and the commanded pulse equals center, a 250 ms settling interval precedes detaching PWM and setting GPIO25 LOW. These are software thresholds, not measured completion times. Detaching releases active holding; gravity/load may move the screen. There is no position feedback, measured angle, stall detection or confirmation of physical centering. An unknown starting position can cause a larger first movement.
+
+The sketch header targets initial **unloaded SG90 testing**. The user reports actual screen movement, but safe loaded travel, mounting clearance, power stability and endurance still need validation. See the [servo setup/checklist](../firmware/PrivetBLE_Servo/README.md) before first use. OLED initialization failure does not disable servo logic; an accepted command can still move a connected servo even with a blank display. A PWM attach failure logs an error while BLE/OLED continue, and an ACK is not a servo-success report.
 
 ### Validation and duplicate handling
 
@@ -160,7 +179,7 @@ Connect through Privet's device picker, not manual pairing in iPhone Settings. T
 
 The sketch uses ordinary `PROPERTY_WRITE` and `PROPERTY_NOTIFY` characteristics and a `BLE2902` notification descriptor. It configures no passkey, bonding, authentication, encrypted-write requirement, owner allowlist or application secret. The app does not initiate bonding or authenticate the peripheral. Do not assume link encryption, authenticated pairing or exclusive ownership. Another compatible nearby BLE central could issue these face commands; the advertised name/UUIDs and request IDs are not credentials. Keep this prototype for a trusted local test environment; it has no protocol facility for sensitive content.
 
-Authenticated ownership/pairing, broader recovery and process-termination restoration are future work. There are no arbitrary text payloads, raw OLED drawing commands, servo instructions or BLE audio in this protocol. Predefined face labels come from the sketch, while pronunciation remains on the phone.
+Authenticated ownership/pairing, broader recovery and process-termination restoration are future work. There are no arbitrary text payloads, raw OLED drawing commands, raw servo instructions or BLE audio in this protocol. The four emotion commands can trigger local servo gestures in the servo variant. Predefined face labels come from the sketch, while pronunciation remains on the phone.
 
 ## Source and native integration
 
@@ -172,7 +191,8 @@ Authenticated ownership/pairing, broader recovery and process-termination restor
 - `src/NativeApp.tsx`: explicit native navigation/lesson callbacks; website not involved.
 - `src/PhysicalCompanionSettings.tsx`: settings and accessible home connection status.
 - `src/bleProtocol.test.ts`, `src/bleTransport.test.ts`, `src/physicalLessonEvents.test.ts`: binary, lifecycle, event and scheduler regression tests.
-- `firmware/PrivetBLE_Lessons/PrivetBLE_Lessons.ino`: BLE server, validation/duplicate cache, latest-face mailbox, OLED rendering and durations.
+- `firmware/PrivetBLE_Servo/PrivetBLE_Servo.ino`: current BLE/OLED/servo variant with clamped pulse targets, loop-driven slew and PWM release.
+- `firmware/PrivetBLE_Lessons/PrivetBLE_Lessons.ino`: retained OLED-only baseline; same packet contract, earlier celebration duration.
 
 The existing local Swift package `CapacitorCommunityBluetoothLe` remains in `ios/App/CapApp-SPM/Package.swift`. `NSBluetoothAlwaysUsageDescription` is unchanged; `UIBackgroundModes` now includes `bluetooth-central`. No signing/app-ID change, new plugin, network service, `server.url` or plugin fork was introduced. Native content remains bundled locally; GitHub Pages keeps its own base path.
 
@@ -210,8 +230,9 @@ The project owner reports:
 - Explicit disconnect/reconnect works; an established connection survives navigation between native screens.
 - Incorrect answer → encouraging face; correct answer → happy face; Continue to another exercise → idle face; lesson completion → celebration with sparkles.
 - The latest change preserving connection during locking/backgrounding works.
+- The added servo moves the screen when showing emotions. Specific pulse/gesture parameters are documented from source, not inferred measurements of the physical screen.
 
-These reports supply no exact lock/background durations, iPhone model, iOS version, Arduino board-package version, latency, range, endurance or successful fault-recovery results. None is inferred. The coding agent did not perform these hardware checks. The ESP32/OLED electronics prototype is confirmed by the reports; enclosure illustrations remain concepts.
+These reports supply no exact lock/background durations, iPhone model, iOS version, Arduino board-package version, latency, range, endurance or successful fault-recovery results. None is inferred. The coding agent did not perform these hardware checks. The ESP32/OLED/servo electronics prototype is user-reported; servo load/angle/torque/endurance results are not supplied; enclosure illustrations remain concepts.
 
 ### Remaining hardware tests
 
@@ -225,6 +246,7 @@ The general lock/background behavior is user-confirmed. The following extended, 
 - Explicit Disconnect during a delayed foreground check/IDLE ACK and through later lock/unlock: it must remain effective. Normal explicit disconnect/reconnect is already user-confirmed; these races are separate tests.
 - Background during scanning, connection or subscription; delay native writes/ACKs and send malformed/wrong-ID/duplicate notifications. Verify bounded failures, no overlapping writes, stale callback rejection and no lesson/audio interruption on hardware.
 - Force-quit/OS termination and relaunch: document actual behavior and manual Connect. No persistence/restoration guarantee is implemented or claimed.
-- Check no background audio or automatic lesson progression; check keyboard, safe areas, accessibility and display-failure behavior on intended devices.
+- Validate unloaded servo travel before the screen load, actual mounting clearance/direction, power stability during motion, safe loaded travel, return/release behavior and endurance. Check IDLE/disconnect interrupts gestures without assuming PWM release holds the screen. These are not confirmed by an ACK.
+- Check no background audio or automatic lesson progression; check keyboard, safe areas, accessibility and display/PWM-failure behavior on intended devices.
 
-Use [firmware setup and first-run checks](../firmware/PrivetBLE_Lessons/README.md#first-run-and-lesson-checklist) for basic bring-up. This checklist is a validation plan, not a list of completed fault-recovery results.
+Use the current [servo setup and first-run checks](../firmware/PrivetBLE_Servo/README.md#first-run-and-lesson-checklist), or the [OLED-only baseline checklist](../firmware/PrivetBLE_Lessons/README.md#first-run-and-lesson-checklist), for the selected variant. This checklist is a validation plan, not a list of completed fault-recovery results.
