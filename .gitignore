@@ -1,4 +1,45 @@
+# Dependencies and generated web output
 node_modules/
 dist/
-.DS_Store
+dist-native/
 *.tsbuildinfo
+coverage/
+.vite/
+.cache/
+
+# Local configuration and credentials (keep sanitized examples shareable)
+.env
+.env.*
+!.env.example
+!.env.*.example
+.npmrc
+.netrc
+
+# Private signing exports and provisioning profiles
+*.p12
+*.pfx
+*.p8
+*.pem
+*.key
+*.mobileprovision
+*.provisionprofile
+*.keystore
+*.jks
+
+# Xcode/Swift build output and per-user workspace state
+build/
+DerivedData/
+.build/
+xcuserdata/
+*.xcuserdatad/
+*.xcuserstate
+*.xcactivitylog
+*.xcarchive/
+*.ipa
+*.dSYM/
+**/xcshareddata/IDEWorkspaceChecks.plist
+
+# Machine-generated files and logs
+.DS_Store
+*.log
+*.log.*

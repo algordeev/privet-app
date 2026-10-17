@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 64 64">
+  <!-- Existing public/icon.svg symbol, centered and enlarged for the home screen.
+       The square background is intentional: iOS applies its own corner mask. -->
+  <rect width="64" height="64" fill="#f8f6f0"/>
+  <g transform="translate(32 32) scale(1.1) translate(-32 -33.5)">
+    <rect x="10" y="14" width="44" height="33" rx="13" fill="#246653"/>
+    <path d="m22 43 12 1-12 9Z" fill="#246653"/>
+    <rect x="23" y="26" width="5" height="10" rx="2.5" fill="#f4e9c9"/>
+    <rect x="36" y="26" width="5" height="10" rx="2.5" fill="#f4e9c9"/>
+  </g>
+</svg>

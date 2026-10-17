@@ -23,6 +23,26 @@ npm run dev
 
 Open the local address printed by Vite. `npm run build` performs TypeScript checks and creates `dist/`. `npm run preview` serves that production build. `npm test` runs the focused Node test suite without an additional test dependency.
 
+## iOS app (existing Capacitor project)
+
+The normal browser always renders the website. `Capacitor.isNativePlatform()` selects a separate app home and full-screen lesson in the native wrapper; neither screen size nor user agent chooses the app shell. The shared `LessonPanel` and `useLesson` controller retain the same exercises, checking, hints, feedback, audio fallback, completion, and replay. The lesson close button returns home without resetting the session.
+
+Rebuild local assets, sync them into the existing iOS project, and open Xcode:
+
+```sh
+npm run build:native
+npx cap sync ios
+npx cap open ios
+```
+
+Or use `npm run sync:ios` for the first two steps. Select your existing simulator/device and press Run in Xcode. The app ID remains `com.algordeev.privet`; the existing iOS project, signing settings, and accounts are untouched.
+
+`build:native` outputs `dist-native/` with relative asset paths. Capacitor's `webDir` points there. **Do not use the Pages build for Capacitor sync.** The native build bundles its assets locally, uses system fonts, and makes no Google Fonts request. There is no `server.url` or hosted-site dependency. `build` and `build:pages` continue to output the browser website to `dist/`.
+
+The stock bridge uses a full-screen WKWebView. Its `ios.contentInset` is explicitly `never` (also the installed SDK default), so only the native root applies the CSS safe-area insets. The native HTML opts into `viewport-fit=cover`. A VisualViewport listener sizes the app to the visible area as the keyboard opens; it does not subtract keyboard height twice. The lesson body scrolls independently while the answer action remains outside that scroller. Keyboard input, safe areas, rotation, and voice playback still need hands-on checks on the intended iPhones.
+
+Native progress, pending input, revealed vocabulary, mistakes, and requested hints are saved locally under a separate session key. Existing completion/preferences are retained; an earlier completion can migrate into the native results screen. Malformed sessions reset safely. Returning home preserves the current lesson, and reset clears progress/preferences. The companion remains a simulation; physical hardware and BLE are planned.
+
 ## What works
 
 - An interactive iPhone-style app screen with device frame, iOS-style status bar, fixed answer action, scrolling lesson content, and a display-settings panel. This is a live web simulation, not a recorded video or a shipping iOS app.
@@ -34,9 +54,11 @@ Open the local address printed by Vite. `npm run build` performs TypeScript chec
 - Keyboard controls, visible focus, announced feedback, mobile layouts, and reduced-motion styles.
 - Display preferences and completion results saved only in localStorage. The footer reset clears saved completion and restores default preferences. No accounts, analytics, backend, or personal data collection. If browser storage is blocked, the lesson still works for the current session.
 
+Audio uses one controller shared by the hero and lesson. Each tap cancels the previous request; lesson actions, close, restart, completion, backgrounding, and unmount cancel both queued and active speech. Voice-list callbacks, utterance events, and the six-second startup timeout are generation-guarded. There are no automatic retries or resume-on-foreground behavior. Loading, playback, timeout, and error messages appear in the audio status area; text remains available. The official Capacitor App plugin supplies native lifecycle events. Simulator voice-installation/engine failures can still prevent audio; these are reported rather than replayed later.
+
 ## What is simulated
 
-The iPhone illustration, OLED, expressive servo movement, buttons, and “Demo connection” are browser concepts. No hardware is paired and no Bluetooth APIs are invoked. The physical ESP32 device, iOS app, BLE integration, adaptive review, and learner pilot are planned. The app concept works independently of the companion.
+The iPhone illustration, OLED, expressive servo movement, buttons, and “Demo connection” are browser concepts. No hardware is paired and no Bluetooth APIs are invoked. The physical ESP32 device, BLE integration, adaptive review, and learner pilot are planned; the Capacitor iOS app shell is now implemented. The app concept works independently of the companion.
 
 ## Source map
 
@@ -44,20 +66,29 @@ The iPhone illustration, OLED, expressive servo movement, buttons, and “Demo c
 - `src/lesson.ts`: structured lesson, canonical expressions, stress marks, pronunciation hints, and feedback.
 - `src/engine.ts`: exact answer normalization/checking, progress reducer, and the lesson-to-companion event interface. Stress accents, capitalization, whitespace, and ending `. ! ? …` are normalized; incorrect words are rejected. Cyrillic letters such as й are preserved.
 - `src/Companion.tsx`: reusable simulated companion with idle, prompting, thinking, correct, try-again, and celebrating states.
-- `src/useSpeech.ts`: progressive browser audio enhancement.
-- `src/App.tsx`: page, activities, preferences, persistence, and event coordination.
+- `src/speechController.ts`: single cancellable speech queue, request generations, bounded six-second startup, and loading/error state.
+- `src/useSpeech.ts`: speech controller lifecycle, voice-list events, browser visibility/page events, and native `@capacitor/app` background cancellation.
+- `src/speechController.test.ts`: delayed initialization, navigation/close cancellation, repeated taps, timeout, errors, background, disposal, and voice fallback regressions.
+- `src/App.tsx`: browser website and decorative lesson phone.
+- `src/RuntimeApp.tsx`: Capacitor runtime selection.
+- `src/NativeApp.tsx` and `src/native.css`: native home, full-screen lesson container, and scoped app styling.
+- `src/LessonPanel.tsx` and `src/useLesson.ts`: shared lesson UI and state controller.
+- `src/session.ts` and `src/session.test.ts`: native resumable sessions, legacy completion migration, and persistence tests.
+- `src/useNativeViewport.ts`: visible viewport sizing and keyboard focus handling.
+- `vite.config.ts`: native-only font import removal and viewport metadata.
+- `scripts/check-shells.mjs`: rendered browser/native branch and shared-exercise checks.
 - `src/styles.css`: responsive page layout, character construction, focus styles, and reduced-motion support.
 - `src/iphone.css`: the interactive iPhone frame, app navigation, settings, and native-style lesson presentation.
 - `src/engine.test.ts`: normalization, invalid answers, retries, first-attempt tracking, explicit progression, completion, reset, and companion event tests.
 
 ## Verification
 
-Run `npm run build` and `npm test`. Browser QA should cover a desktop and a 390 × 844 iPhone viewport, all five steps with a deliberate mistake, keyboard navigation, replay/reset, localStorage persistence, no-Russian-voice fallback, delayed voice availability, and the OS reduced-motion setting. This development session had no available browser surface, so visual/interactive browser verification, live speech playback, and reduced-motion emulation could not be performed. Local HTTP serving and production build are checked separately.
+Run `npm test`, `npm run test:shells`, `npm run build`, `npm run build:pages`, and `npm run build:native`. The shell checks render both Capacitor runtime branches and all five native exercise views; they are component render checks, not browser or device interaction tests. Browser QA should cover a desktop and a 390 × 844 iPhone viewport, all five steps with a deliberate mistake, keyboard navigation, replay/reset, localStorage persistence, no-Russian-voice fallback, delayed voice availability, and the OS reduced-motion setting. This development session had no available browser surface, so visual/interactive browser verification, live speech playback, and reduced-motion emulation could not be performed. The website’s initial rendered HTML matches the pre-refactor baseline after accounting for added accessible audio-status attributes; website CSS and Pages workflow remain unchanged. All 25 logic/persistence/audio tests, rendered-shell checks, three production build commands, and Capacitor sync passed. Audio race regressions use an injected fake speech engine and clock; they do not establish actual iOS audio behavior. No live simulator or real-device audio verification was performed for the audio fix. An unsigned simulator `xcodebuild` was attempted, but Apple’s asset-catalog/storyboard tools stalled with no compiler error; that attempt was stopped. The iOS binary and live simulator/physical-iPhone behavior are therefore unverified.
 
 ## Next steps
 
 1. Gather qualitative feedback on the café flow and companion usefulness in an observed learner session; the prototype does not upload feedback.
-2. Move the lesson dataset and reducer contract into an iOS prototype; validate pedagogy and pronunciation help with a Russian-language educator.
+2. Validate the iOS app shell on smaller iPhones and test the lesson content and pronunciation help with a Russian-language educator.
 3. Define a small BLE message schema around the existing prompt/thinking/correct/incorrect/complete/reset events. The phone remains responsible for answers and audio.
 4. Prototype the ESP32 OLED, servo limits, buttons, reconnect behavior, and battery/power constraints on real hardware.
 5. Run a learner pilot before expanding content or making learning-effectiveness claims.
