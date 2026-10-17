@@ -211,3 +211,46 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
  .native-app .native-lesson-settings { animation: none; }
  .native-app .native-lesson-settings[data-open=false] { animation: none; opacity: 0; transform: none; }
 }
+
+/* Local profile and activity: no account or network connection. */
+.native-home-tools { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
+.native-streak-badge { display: flex; align-items: center; gap: 4px; height: 36px; padding: 7px 9px; border: 1px solid #e4dece; border-radius: 20px; background: #f4eee1; color: #7c5842; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.native-streak-badge svg { width: 18px; height: 20px; color: #bd7252; }
+.native-streak-unit { font-size: 10px; font-weight: 500; }
+.native-app .native-profile-open { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #dce4d2; border-radius: 50%; background: #eaf0e2; color: #42673c; padding: 10px; }
+.native-profile-open svg { width: 22px; height: 22px; }
+.native-profile-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px 22px 28px; -webkit-overflow-scrolling: touch; }
+.native-profile-navigation { display: grid; grid-template-columns: 44px 1fr 44px; gap: 10px; align-items: center; }
+.native-app .native-profile-navigation h1 { text-align: center; font-size: 20px; line-height: 1.3; letter-spacing: -.5px; outline: none; }
+.native-profile-intro { display: flex; align-items: center; gap: 15px; margin: 30px 0 24px; }
+.native-profile-avatar { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 18px; background: #e8eedf; color: #527443; flex-shrink: 0; }
+.native-profile-avatar svg { width: 29px; height: 29px; }
+.native-app .native-profile-intro h2 { font-size: 25px; letter-spacing: -.8px; line-height: 1.3; font-weight: 600; }
+.native-profile-intro p { margin-top: 6px; font-size: 12px; color: #68785e; }
+.native-stat-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 11px; margin: 0; }
+.native-stat-grid > div { min-width: 0; border: 1px solid #dee4d4; border-radius: 17px; padding: 17px 15px; background: #fffdf7; }
+.native-stat-grid > .native-stat-streak { background: #eaf0e1; border-color: #d6e0c9; }
+.native-stat-grid dt { display: flex; align-items: center; gap: 5px; color: #617553; font-size: 12px; line-height: 1.5; }
+.native-stat-grid dt svg { width: 15px; height: 18px; color: #a86c4b; }
+.native-stat-grid dd { display: flex; align-items: baseline; gap: 6px; margin: 9px 0 0; color: #315a3c; font-variant-numeric: tabular-nums; }
+.native-stat-grid dd strong { font-size: 34px; line-height: 1.15; font-weight: 600; letter-spacing: -1px; }
+.native-stat-grid dd span { color: #66785b; font-size: 12px; }
+.native-stat-grid p { margin-top: 6px; color: #6b795f; font-size: 10px; line-height: 1.5; }
+.native-profile-week { margin-top: 26px; }
+.native-app .native-profile-week h2 { font-size: 17px; letter-spacing: -.3px; font-weight: 600; }
+.native-profile-week ol { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 5px; list-style: none; margin: 17px 0 12px; padding: 0; }
+.native-profile-week li { display: flex; align-items: center; flex-direction: column; gap: 8px; font-size: 10px; color: #6b7b60; }
+.native-profile-week i { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid transparent; border-radius: 50%; background: #edf0e5; font-size: 11px; font-style: normal; }
+.native-profile-week .today i { border-color: #628151; }
+.native-profile-week .practised i { background: #397756; color: #fffdf7; }
+.native-profile-week i svg { width: 20px; height: 20px; }
+.native-profile-week > p { font-size: 12px; line-height: 1.7; color: #697b5f; }
+.native-profile-result { margin-top: 24px; padding: 20px; border-radius: 18px; background: #eeeede; border: 1px solid #e0e3d2; }
+.native-profile-result > div > span { font-size: 9px; letter-spacing: 1.1px; font-weight: 600; color: #6a7b5c; }
+.native-app .native-profile-result h2 { font-size: 21px; line-height: 1.4; letter-spacing: -.5px; margin-top: 6px; font-weight: 600; }
+.native-profile-result > p { font-size: 12px; line-height: 1.6; color: #69785f; margin-top: 12px; }
+.native-profile-result .native-profile-score { display: flex; align-items: center; gap: 18px; margin-top: 16px; }
+.native-profile-score > strong { font-size: 34px; line-height: 1.2; color: #3c6d49; font-weight: 600; }
+.native-profile-score strong > span { font-size: 18px; color: #81916e; font-weight: 400; }
+.native-profile-footer { text-align: center; margin-top: 22px; color: #718066; font-size: 11px; line-height: 1.7; }
+.native-profile-footer p + p { margin-top: 10px; }

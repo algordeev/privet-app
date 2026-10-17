@@ -47,6 +47,10 @@ The native virtual companion reuses the existing coral SVG/CSS robot. A compact 
 
 The compact, top-right native lesson settings contain Stress marks and Pronunciation help, presented as labelled switches with short explanations and no heading block. A brief fade/scale animates opening and closing, with motion removed when reduced motion is enabled. Changes apply immediately and persist locally; there is no Done button. Tap outside, use the settings icon again, or press Escape to dismiss the popover. Previously saved companion preferences remain respected, and resetting saved lesson/preferences on the native home restores the default. Motion respects reduced-motion settings and pauses when the robot is outside the viewport or the app is inactive. Generation-guarded reaction timers are canceled on navigation, retry, restart, completion, backgrounding, and unmount. Existing audio cancellation remains unchanged.
 
+The native home includes a top-right profile button and a visible streak badge. The local profile shows current/best streak, recorded lesson finishes (including replays), distinct practice days, a rolling seven-day activity view, and the latest first-attempt result. A streak day is earned by completing a lesson on the iPhone’s local calendar date; multiple same-day completions count once toward the streak. Yesterday’s streak remains current until today ends. Reopening results does not add activity, and resetting saved lesson/preferences also clears statistics.
+
+`privet-demo-v1-native-stats` stores the activity locally. The previous format kept only one result and refreshed its timestamp when restored, so migration preserves that known result without inventing practice dates or streak history. New activity is recorded only on an actual lesson-completion transition. No profile information, account, or network service is required.
+
 ## What works
 
 - An interactive iPhone-style app screen with device frame, iOS-style status bar, fixed answer action, scrolling lesson content, and a display-settings panel. This is a live web simulation, not a recorded video or a shipping iOS app.
@@ -81,6 +85,7 @@ The iPhone illustration, OLED, expressive servo movement, buttons, and “Demo c
 - `src/LessonPanel.tsx` and `src/useLesson.ts`: shared lesson UI and state controller.
 - `src/session.ts` and `src/session.test.ts`: native resumable sessions, legacy completion migration, and persistence tests.
 - `src/useNativeViewport.ts`: visible viewport sizing and keyboard focus handling.
+- `src/nativeStats.ts`, `src/useNativeStats.ts`, and `src/NativeProfile.tsx`: native-only local activity model, persistence/midnight refresh, profile screen and home streak. Focused tests cover dates, streaks, replay deduplication, reset, and legacy data.
 - `vite.config.ts`: native-only font import removal and viewport metadata.
 - `scripts/check-shells.mjs`: rendered browser/native branch and shared-exercise checks.
 - `src/styles.css`: responsive page layout, character construction, focus styles, and reduced-motion support.
@@ -89,7 +94,7 @@ The iPhone illustration, OLED, expressive servo movement, buttons, and “Demo c
 
 ## Verification
 
-Run `npm test`, `npm run test:shells`, `npm run build`, `npm run build:pages`, and `npm run build:native`. The 33 focused logic/persistence/audio/companion tests cover greetings, correct/incorrect/completion reactions, disabled reactions, and stale callback cleanup as well as the existing lesson/audio safeguards. Rendered-shell checks cover both runtime branches, all native exercises, saved progress, the immediate learning-aid settings, static disabled feedback, and completion. These are automated component checks, not device tests.
+Run `npm test`, `npm run test:shells`, `npm run build`, `npm run build:pages`, and `npm run build:native`. The 41 focused logic/persistence/audio/companion/statistics tests cover greetings, correct/incorrect/completion reactions, disabled reactions, and stale callback cleanup as well as the existing lesson/audio safeguards. Rendered-shell checks cover both runtime branches, all native exercises, saved progress, the immediate learning-aid settings, static disabled feedback, and completion. These are automated component checks, not device tests.
 
 The website’s initial HTML was compared byte-for-byte with a baseline captured before the native companion changes. Website source/styles/assets, the original robot, audio controller, dependency lockfiles, app ID/signing, icon, and Pages deployment configuration were preserved. Isolated headless Chromium checks exercised the native branch at 375 × 667 and 430 × 932, using test-only Capacitor platform and audio/lifecycle mocks. They covered all five exercises with a mistake/retry, keyboard robot interaction, saved preferences, offscreen/background motion pausing, reduced motion, stable action positioning, completion/replay, no horizontal overflow, and no automatic speech. Native home, incorrect-feedback, and completion screenshots were visually inspected. The original website also completed all five exercises, retry, and replay in Chromium at 1280 × 900 and 390 × 844, without native controls appearing. At 390px, a two-pixel document overflow was reproduced with the pre-change static HTML and unchanged website styles; it was left unchanged to preserve the website scope.
 
