@@ -13,6 +13,8 @@ const storageDescriptor=Object.getOwnPropertyDescriptor(globalThis,'localStorage
 const storage=new Map();
 Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:key=>storage.get(key)??null}});
 try {
+ const {PhysicalCompanionSettings,PhysicalCompanionHomeStatus}=await server.ssrLoadModule('/src/PhysicalCompanionSettings.tsx');
+ const {initialBleState}=await server.ssrLoadModule('/src/bleTransport.ts');
  const {RuntimeApp}=await server.ssrLoadModule('/src/RuntimeApp.tsx');
  const {useLesson}=await server.ssrLoadModule('/src/useLesson.ts');
  const {useNativeStats}=await server.ssrLoadModule('/src/useNativeStats.ts');
@@ -35,6 +37,35 @@ try {
  for(const marker of ['class="native-app"','Café essentials','Start lesson','Virtual companion','Physical version planned','Привет! Ready for a little Russian?'])assert.ok(home.includes(marker),marker);
  for(const marker of ['site-header','class="hero','lesson-phone','ios-status-bar','dynamic-island','ios-home-area','Demo connection'])assert.ok(!home.includes(marker),marker);
  console.log('PASS: Capacitor runtime renders app home with local lesson entry and simulated companion.');
+ assert.ok(home.includes('Physical companion settings'));
+ assert.ok(!website.includes('Physical companion settings'));
+ const noOp=()=>{};
+ function physical(state){return renderToStaticMarkup(createElement(PhysicalCompanionSettings,{controller:{state,scan:noOp,connect:noOp,disconnect:noOp,testHappy:noOp},onClose:noOp}));}
+ const disconnectedPhysical=physical(initialBleState());
+ assert.ok(disconnectedPhysical.includes('Physical companion'));
+ assert.ok(!disconnectedPhysical.includes('STAGE 1'));
+ assert.ok(disconnectedPhysical.includes('An established connection can stay while your phone is locked.'));
+ for(const phase of ['suspended','reconciling']){
+  const checking=physical({...initialBleState(),phase,device:{deviceId:'test',name:'Privet-ESP32'}});
+  assert.ok(checking.includes('>Disconnect</button>'));
+  const status=renderToStaticMarkup(createElement(PhysicalCompanionHomeStatus,{state:{...initialBleState(),phase},onOpen:noOp}));
+  assert.ok(!status.includes('Physical companion: Connected'));
+ }
+ assert.ok(!disconnectedPhysical.includes('Leaving this screen or backgrounding'));
+ assert.ok(home.includes('Physical companion: Disconnected. Open settings.'));
+ const connectedHomeStatus=renderToStaticMarkup(createElement(PhysicalCompanionHomeStatus,{state:{...initialBleState(),phase:'connected',ready:true,notice:'Companion update needed for all lesson reactions.'},onOpen:noOp}));
+ assert.ok(connectedHomeStatus.includes('Connected · Update needed'));
+ assert.ok(connectedHomeStatus.includes('role="status"'));
+ assert.ok(physical({...initialBleState(),phase:'connected',ready:true,notice:'Companion update needed for all lesson reactions.'}).includes('Companion update needed'));
+ assert.ok(disconnectedPhysical.includes('disabled="">Test happy reaction'));
+ for(const phase of ['scanning','connecting','suspended','reconciling','unavailable','permission-denied','error']){
+  assert.ok(physical({...initialBleState(),phase}).includes('disabled="">Test happy reaction'));
+ }
+ const connectedPhysical=physical({...initialBleState(),phase:'connected',ready:true});
+ assert.ok(connectedPhysical.includes('>Disconnect</button>'));
+ assert.ok(!connectedPhysical.includes('disabled="">Test happy reaction'));
+ assert.ok(physical({...initialBleState(),phase:'connected',ready:true,pending:true}).includes('disabled="">Sending reaction'));
+ console.log('PASS: physical companion settings stay native-only; test requires subscribed connection and no pending command.');
  assert.ok(home.includes('Open your profile and statistics'));
  assert.ok(home.includes('0-day learning streak'));
  function Profile(){const activity=useNativeStats();return createElement(NativeProfile,{activity,onClose:()=>{}});}

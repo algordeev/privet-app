@@ -1,4 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
+import {PhysicalCompanionSettings,PhysicalCompanionHomeStatus} from './PhysicalCompanionSettings';
+import {usePhysicalCompanion,type PhysicalCompanionController} from './usePhysicalCompanion';
 import {NativeProfile,ProfileIcon,StreakIcon} from './NativeProfile';
 import {useNativeStats,type NativeStatsController} from './useNativeStats';
 import {PRODUCT} from './config';
@@ -10,7 +12,7 @@ import {LessonPanel} from './LessonPanel';
 import {useLesson,type LessonController} from './useLesson';
 import {useNativeViewport} from './useNativeViewport';
 
-export function NativeHome({controller,companion,activity,onStart,onReset,onProfile}:{controller:LessonController;companion:NativeCompanionController;activity:NativeStatsController;onStart:()=>void;onReset:()=>void;onProfile:()=>void}) {
+export function NativeHome({controller,companion,activity,onStart,onReset,onProfile,onPhysical,physical}:{controller:LessonController;companion:NativeCompanionController;activity:NativeStatsController;onStart:()=>void;onReset:()=>void;onProfile:()=>void;onPhysical:()=>void;physical:PhysicalCompanionController}) {
  const {progress}=controller;
  const started=lessonStarted(controller);
  const greeting=companion.view.scope==='home'&&companion.view.message?companion.view.message:homeGreeting(controller);
@@ -25,26 +27,27 @@ export function NativeHome({controller,companion,activity,onStart,onReset,onProf
    <progress max={lesson.length} value={progress.index} aria-label="Café essentials lesson progress"/>
    <button className="button teal" onClick={onStart}>{progress.complete?'See your results':started?'Continue lesson':'Start lesson'}<span aria-hidden="true">→</span></button>
   </section>
-  <div className="native-home-footer"><p>Your progress stays on this iPhone.</p><button className="native-text-button" onClick={onReset}>Reset saved lesson &amp; preferences</button></div>
+  <div className="native-home-footer"><PhysicalCompanionHomeStatus state={physical.state} onOpen={onPhysical}/><p>Your progress stays on this iPhone.</p><button className="native-text-button" onClick={onReset}>Reset saved lesson &amp; preferences</button></div>
  </div>;
 }
 
 export function NativeApp() {
+ const physical=usePhysicalCompanion();
  const companion=useNativeCompanion();
  const activity=useNativeStats();
- const controller=useLesson({persistSession:true,onTransition:(previous,next,action)=>{companion.onTransition(previous,next,action);activity.onTransition(previous,next,action);}});
- const [view,setView]=useState<'home'|'lesson'|'profile'>('home');
+ const controller=useLesson({persistSession:true,onTransition:(previous,next,action)=>{companion.onTransition(previous,next,action);activity.onTransition(previous,next,action);physical.onTransition(previous,next,action);}});
+ const [view,setView]=useState<'home'|'lesson'|'profile'|'physical'>('home');
  const root=useRef<HTMLElement>(null);
  const previousView=useRef(view);
  useNativeViewport(root);
  useEffect(()=>{
   if(view==='lesson')controller.lessonHeading.current?.focus({preventScroll:true});
-  else root.current?.querySelector<HTMLElement>(view==='profile'?'#native-profile-title':previousView.current==='profile'?'#native-profile-open':'#native-home-title')?.focus({preventScroll:true});
+  else root.current?.querySelector<HTMLElement>(view==='physical'?'#native-physical-title':view==='profile'?'#native-profile-title':previousView.current==='physical'?'#native-physical-open':previousView.current==='profile'?'#native-profile-open':'#native-home-title')?.focus({preventScroll:true});
   previousView.current=view;
  },[view,controller.lessonHeading]);
- function closeLesson(){companion.navigate('home');controller.speech.stop();controller.setLessonSettings(false);setView('home');}
+ function closeLesson(){physical.navigate('home');companion.navigate('home');controller.speech.stop();controller.setLessonSettings(false);setView('home');}
  return <main className="native-app" ref={root} data-view={view}>
-  {view==='home'?<NativeHome controller={controller} companion={companion} activity={activity} onProfile={()=>{companion.navigate('home');controller.speech.stop();controller.setNotice('');setView('profile');}} onReset={()=>{activity.reset();companion.resetPreference();controller.resetAll();}} onStart={()=>{companion.navigate('lesson');controller.setNotice('');setView('lesson');}}/>:view==='profile'?<NativeProfile activity={activity} onClose={()=>setView('home')}/>:<div className="native-lesson-view"><LessonPanel controller={controller} native nativeCompanion={companion} onClose={closeLesson}/></div>}
+  {view==='home'?<NativeHome physical={physical} onPhysical={()=>{physical.navigate('physical');controller.speech.stop();companion.navigate('home');controller.setNotice('');setView('physical');}} controller={controller} companion={companion} activity={activity} onProfile={()=>{physical.navigate('profile');companion.navigate('home');controller.speech.stop();controller.setNotice('');setView('profile');}} onReset={()=>{activity.reset();companion.resetPreference();controller.resetAll();}} onStart={()=>{physical.navigate('lesson');companion.navigate('lesson');controller.setNotice('');setView('lesson');}}/>:view==='physical'?<PhysicalCompanionSettings controller={physical} onClose={()=>{physical.navigate('home');setView('home');}}/>:view==='profile'?<NativeProfile activity={activity} onClose={()=>{physical.navigate('home');setView('home');}}/>:<div className="native-lesson-view"><LessonPanel controller={controller} native nativeCompanion={companion} onClose={closeLesson}/></div>}
   {controller.notice&&<div className="native-notice" role="status"><span>{controller.notice}</span><button onClick={()=>controller.setNotice('')} aria-label="Dismiss notice">×</button></div>}
  </main>;
 }
