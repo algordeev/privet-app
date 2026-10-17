@@ -73,14 +73,15 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .vocab-grid { display: flex; flex-direction: column; gap: 10px; }
 .native-app .vocab-card { min-height: 86px; background: #fffefa; border-radius: 14px; }
 .native-app .vocab-card.revealed { background: #edf3e5; }
-.native-app .vocab-reveal { flex-direction: row; align-items: center; gap: 12px; min-height: 86px; padding: 13px 40px 13px 12px; }
+.native-app .vocab-reveal { flex-direction: row; align-items: center; gap: 12px; min-height: 86px; padding: 13px 56px 13px 12px; }
 .native-app .vocab-row-icon { display: grid; place-items: center; width: 34px; height: 40px; border-radius: 10px; background: #e9efdf; font-size: 21px; color: #59764b; flex-shrink: 0; }
 .native-app .vocab-row-text { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 5px; }
 .native-app .vocab-row-text > [lang] { color: #31513a; font-size: 22px; font-weight: 500; line-height: 1.2; }
 .native-app .vocab-row-text > small { font-size: 12px; color: #627458; }
 .native-app .vocab-row-text .word-meaning { font-size: 13px; margin: 0; color: #5d7351; }
-.native-app .vocab-row-check { font-size: 17px; color: #5d7d4b; }
-.native-app .word-audio { top: 50%; right: 1px; transform: translateY(-50%); min-height: 44px; width: 36px; padding: 9px; }
+.native-app .vocab-row-check { display: grid; place-items: center; flex-shrink: 0; width: 24px; height: 24px; font-size: 24px; line-height: 1; color: #5d7d4b; }
+.native-app .word-audio { top: 50%; right: 4px; transform: translateY(-50%); min-height: 48px; height: 48px; width: 48px; padding: 12px; border-radius: 12px; }
+.native-app .word-audio svg { width: 24px; height: 24px; }
 .native-app .question-word { min-height: 115px; margin: 5px 0 22px; }
 .native-app .question-word > span { font-size: 34px; text-align: center; }
 .native-app .question-word small { font-size: 14px; }

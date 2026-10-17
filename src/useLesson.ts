@@ -16,7 +16,6 @@ export function useLesson({persistSession=false,onTransition}:{persistSession?:b
  const [selected,setSelected]=useState(initial.selected);
  const [tokens,setTokens]=useState(initial.tokens);
  const [revealed,setRevealed]=useState(initial.revealed);
- const [listening,setListening]=useState(false);
  const [lessonSettings,setLessonSettings]=useState(false);
  const [notice,setNotice]=useState('');
  const lessonScroll=useRef<HTMLDivElement>(null);
@@ -27,13 +26,12 @@ export function useLesson({persistSession=false,onTransition}:{persistSession?:b
  const speech=useSpeech();
  function dispatch(action:Action){speech.stop();onTransition?.(progress,progressReducer(progress,action),action);reduce(action);}
  useEffect(()=>{speech.stop();},[progress.index,progress.complete,speech.stop]);
- useEffect(()=>{if(!speech.available||speech.status==='error')setListening(false);},[speech.available,speech.status]);
  const exercise=lesson[Math.min(progress.index,lesson.length-1)];
  const hintRequested=hintAt===progress.index;
  const reaction=companionReaction(lessonCompanionEvent(progress,{thinking:thinkingAt===progress.index,hintRequested,vocabularyWord}));
  useEffect(()=>{try{localStorage.setItem(PRODUCT.storageKey,JSON.stringify({...saved,preferences}));}catch{/* Storage is optional. */}},[saved,preferences]);
  useEffect(()=>{
-  if(previousStep.current!==progress.index){setSelected('');setTokens([]);setListening(false);setLessonSettings(false);setHintAt(null);}
+  if(previousStep.current!==progress.index){setSelected('');setTokens([]);setLessonSettings(false);setHintAt(null);}
   previousStep.current=progress.index;
   if(lessonScroll.current)lessonScroll.current.scrollTop=0;
   if(mounted.current)lessonHeading.current?.focus({preventScroll:true});
@@ -53,10 +51,10 @@ export function useLesson({persistSession=false,onTransition}:{persistSession?:b
  function check(){if(!ready||progress.feedback)return;if(persistSession)inputRef.current?.blur();dispatch({type:'check',value:exercise.kind==='vocabulary'?'ready':exercise.kind==='sentence'?tokens.join(' '):selected});}
  function restart(){
   if(lessonScroll.current)lessonScroll.current.scrollTop=0;
-  setLessonSettings(false);dispatch({type:'reset'});setRevealed([]);setSelected('');setTokens([]);setListening(false);setThinkingAt(null);setHintAt(null);setVocabularyWord(null);
+  setLessonSettings(false);dispatch({type:'reset'});setRevealed([]);setSelected('');setTokens([]);setThinkingAt(null);setHintAt(null);setVocabularyWord(null);
   setNotice('Lesson reset. Ready for a fresh start.');
  }
  function resetAll(){restart();setPreferences({stress:false,pronunciation:true});setSaved({preferences:{stress:false,pronunciation:true}});try{localStorage.removeItem(PRODUCT.storageKey);if(persistSession)localStorage.removeItem(NATIVE_SESSION_KEY);}catch{}setNotice('Saved completion and display preferences cleared.');}
- return {saved,preferences,setPreferences,progress,dispatch,thinkingAt,setThinkingAt,hintAt,setHintAt,vocabularyWord,setVocabularyWord,selected,setSelected,tokens,setTokens,revealed,setRevealed,listening,setListening,lessonSettings,setLessonSettings,notice,setNotice,lessonScroll,inputRef,lessonHeading,speech,exercise,hintRequested,reaction,display,ready,check,restart,resetAll,incorrect:progress.feedback==='incorrect'};
+ return {saved,preferences,setPreferences,progress,dispatch,thinkingAt,setThinkingAt,hintAt,setHintAt,vocabularyWord,setVocabularyWord,selected,setSelected,tokens,setTokens,revealed,setRevealed,lessonSettings,setLessonSettings,notice,setNotice,lessonScroll,inputRef,lessonHeading,speech,exercise,hintRequested,reaction,display,ready,check,restart,resetAll,incorrect:progress.feedback==='incorrect'};
 }
 export type LessonController=ReturnType<typeof useLesson>;
