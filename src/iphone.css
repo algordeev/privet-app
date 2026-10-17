@@ -245,22 +245,22 @@
 }
 .lesson-phone .app-settings input[type=checkbox]:checked { background: #397756; }
 .lesson-phone .app-settings input[type=checkbox]:checked:before { transform: translateX(16px); }
-/* Fit the complete demo into a laptop viewport. Zoom scales both the device
-   and its layout footprint, retaining phone proportions and the pinned action.
+/* Desktop phone scales are 15% larger than the original viewport presets.
+   Zoom retains phone proportions, its layout footprint, and the pinned action.
    The lesson itself remains scrollable; touch-sized mobile rendering is intact. */
 @media (min-width: 601px) {
   #demo { scroll-margin-top: 20px; }
   .lesson-device-stage { padding-block: 20px 17px; }
   .lesson-device-caption { width: 304px; max-width: 100%; margin-bottom: 16px; }
-  .lesson-phone { height: 812px; zoom: .8; }
+  .lesson-phone { height: 812px; zoom: .92; }
   .lesson-device-note { margin-top: 17px; gap: 4px; }
 }
 @media (min-width: 601px) and (max-height: 900px) {
-  .lesson-phone { zoom: .75; }
+  .lesson-phone { zoom: .8625; }
   .lesson-device-caption { width: 285px; }
 }
 @media (min-width: 601px) and (max-height: 800px) {
-  .lesson-phone { zoom: .7; }
+  .lesson-phone { zoom: .805; }
   .lesson-device-caption { width: 266px; }
   .lesson-device-caption > span:last-child { display: none; }
   .lesson-side { padding-top: 20px; padding-bottom: 17px; }
@@ -269,7 +269,7 @@
   .lesson-side .companion-message { margin-top: 22px; }
 }
 @media (min-width: 601px) and (max-height: 700px) {
-  .lesson-phone { zoom: .6; }
+  .lesson-phone { zoom: .69; }
   .lesson-device-caption { width: 228px; margin-bottom: 12px; }
   .lesson-device-stage { padding-block: 16px 13px; }
   .lesson-device-note { margin-top: 13px; }
@@ -279,7 +279,7 @@
   .lesson-side .solo-note { padding-top: 13px; }
 }
 @media (min-width: 601px) and (max-height: 600px) {
-  .lesson-phone { zoom: .5; }
+  .lesson-phone { zoom: .575; }
   .lesson-device-caption { width: 190px; }
   .lesson-side .robot-scene { zoom: .85; }
   .lesson-side .companion-message { margin-top: 6px; min-height: 0; }
@@ -337,3 +337,79 @@
 }
 .lesson-phone .choice.selected.answer-incorrect .selection-indicator { border-color: #ae7852; }
 .lesson-phone .choice.selected.answer-incorrect .selection-indicator:after { background: #94613f; }
+
+/* Center the whole companion group, keeping the encouragement near the
+   panel midpoint and the solo note grouped beneath the supporting copy. */
+.lesson-companion-details { display: contents; }
+@media (min-width: 901px) {
+  .lesson-layout .lesson-side {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    padding-block: 28px 108px;
+  }
+  .lesson-layout .lesson-side .demo-connection {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    white-space: nowrap;
+  }
+  .lesson-layout .lesson-side .robot-scene {
+    margin-block: 0;
+  }
+  .lesson-companion-details {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+  .lesson-layout .lesson-companion-details > .simulation-tag { margin-top: 3px; }
+  .lesson-layout .lesson-companion-details .companion-message {
+    min-height: 0;
+    margin-top: 14px;
+    line-height: 1.4;
+  }
+  .lesson-layout .lesson-companion-details > p { margin-top: 10px; line-height: 1.8; }
+  .lesson-layout .lesson-companion-details .solo-note {
+    position: absolute;
+    left: 50%;
+    bottom: calc(var(--lesson-stage-bottom) + 87px * var(--lesson-phone-scale));
+    transform: translate(-50%,50%);
+    width: calc(100% - 54px);
+    max-width: 250px;
+    margin: 0;
+    padding-top: 13px;
+  }
+}
+@media (min-width: 901px) and (max-height: 700px) {
+  .lesson-layout .lesson-side { padding-block: 20px 100px; }
+  .lesson-layout .lesson-companion-details .companion-message { margin-top: 9px; }
+}
+
+.lesson-layout .demo-connection,
+.lesson-layout .lesson-device-caption > span:first-child { font-size: 9px; }
+@media (max-width: 1100px) {
+  .lesson-layout .demo-connection,
+  .lesson-layout .lesson-device-caption > span:first-child { font-size: 7px; }
+}
+
+/* Match the note's center to the phone action's center above the home bar. */
+@media (min-width: 901px) {
+  .lesson-layout { --lesson-phone-scale: .92; --lesson-stage-bottom: 17px; }
+}
+@media (min-width: 901px) and (max-height: 900px) {
+  .lesson-layout { --lesson-phone-scale: .8625; }
+}
+@media (min-width: 901px) and (max-height: 800px) {
+  .lesson-layout { --lesson-phone-scale: .805; }
+}
+@media (min-width: 901px) and (max-height: 700px) {
+  .lesson-layout { --lesson-phone-scale: .69; --lesson-stage-bottom: 13px; }
+}
+@media (min-width: 901px) and (max-height: 600px) {
+  .lesson-layout { --lesson-phone-scale: .575; }
+}

@@ -119,9 +119,8 @@ function App(){
         </div>
        </div>
       </div>
-      <div className="lesson-device-note"><span>iOS app concept</span><span>Live in your browser. No download needed.</span></div>
      </div>
-     <aside className="lesson-side"><div className="demo-connection"><span className="live-dot"/> Demo connection</div><Companion state={reaction.state} text={reaction.text}/><span className="simulation-tag">Simulated companion</span><div className="companion-message" aria-live="polite">{progress.complete?'Look at you, making conversation.':incorrect?'No rush. Let’s give it another try.':progress.feedback==='correct'?'One small win. Keep going!':'I’m here for the little wins.'}</div><p>The words stay on your phone.<br/>The encouragement sits on your desk.</p><div className="solo-note"><span>↳</span> More of a solo learner? The app works beautifully on its own.</div></aside>
+     <aside className="lesson-side"><div className="demo-connection"><span className="live-dot"/> Demo connection</div><Companion state={reaction.state} text={reaction.text}/><div className="lesson-companion-details"><span className="simulation-tag">Simulated companion</span><div className="companion-message" aria-live="polite">{progress.complete?'Look at you, making conversation.':incorrect?'No rush. Let’s give it another try.':progress.feedback==='correct'?'One small win. Keep going!':'I’m here for the little wins.'}</div><p>The words stay on your phone.<br/>The encouragement sits on your desk.</p><div className="solo-note"><span>↳</span> More of a solo learner? The app works beautifully on its own.</div></div></aside>
     </div>
     <div className="demo-footnote"><span>✧ A concept you can actually try. No account. No personal data collected.</span><span>{saved.completion?'You’ve completed the demo on this browser.':'Made for curious beginners.'}</span></div>
    </section>
