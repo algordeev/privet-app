@@ -53,3 +53,9 @@ Run `npm run build` and `npm test`. Browser QA should cover a desktop and a 390 
 5. Run a learner pilot before expanding content or making learning-effectiveness claims.
 
 Typography uses DM Sans and Manrope from Google Fonts with system fallbacks; the lesson works without that network request. No image assets or paid services are required.
+
+## GitHub Pages
+
+The GitHub Actions workflow in `.github/workflows/pages.yml` tests, builds, and deploys `main` to https://algordeev.github.io/privet-app/. The repository Pages source must be **GitHub Actions**. Each push to `main` redeploys the demo; the workflow can also be run manually.
+
+`npm run build:pages` builds with Vite’s `/privet-app/` base path, including the favicon and bundled assets. `npm run build` retains the root path for local previews and other hosting. Browser audio still depends on an available Russian system voice.
