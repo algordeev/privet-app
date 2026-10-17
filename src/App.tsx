@@ -22,7 +22,7 @@ function App(){
  const [selected,setSelected]=useState(''); const [tokens,setTokens]=useState<string[]>([]);
  const [revealed,setRevealed]=useState<string[]>([]); const [listening,setListening]=useState(false);
  const [lessonSettings,setLessonSettings]=useState(false);
- const feedbackRef=useRef<HTMLDivElement>(null);
+ const lessonScroll=useRef<HTMLDivElement>(null);
  const [menu,setMenu]=useState(false); const [notice,setNotice]=useState('');
  const speech=useSpeech(); const inputRef=useRef<HTMLInputElement>(null); const lessonHeading=useRef<HTMLHeadingElement>(null);
  const mounted=useRef(false); const wordIndex=useRef(0); const meetTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
@@ -32,7 +32,8 @@ function App(){
  useEffect(()=>{try{localStorage.setItem(PRODUCT.storageKey,JSON.stringify({...saved,preferences}));}catch{/* The demo remains usable when storage is blocked. */}},[saved,preferences]);
  useEffect(()=>{
   setSelected('');setTokens([]);setListening(false);setLessonSettings(false);
-  if(mounted.current) lessonHeading.current?.focus();
+  if(lessonScroll.current) lessonScroll.current.scrollTop=0;
+  if(mounted.current) lessonHeading.current?.focus({preventScroll:true});
   mounted.current=true;
  },[progress.index,progress.complete,exercise.prompt]);
  useEffect(()=>{if(progress.complete) setSaved(s=>({...s,completion:{results:progress.results,date:new Date().toISOString()}}));},[progress.complete,progress.results]);
@@ -40,8 +41,8 @@ function App(){
  const display=(id:string)=>{const w=words.find(w=>w.id===id)!;return preferences.stress?w.stressed:w.text;};
  const ready=exercise.kind==='vocabulary'?revealed.length===words.length:exercise.kind==='sentence'?tokens.length===3:selected.trim().length>0;
  function check(){if(!ready||progress.feedback) return; dispatch({type:'check',value:exercise.kind==='vocabulary'?'ready':exercise.kind==='sentence'?tokens.join(' '):selected});}
- useEffect(()=>{if(progress.feedback)feedbackRef.current?.scrollIntoView({block:'nearest'});},[progress.feedback]);
- function restart(){setLessonSettings(false);dispatch({type:'reset'});setRevealed([]);setSelected('');setTokens([]);setThinkingAt(null);setHintAt(null);setVocabularyWord(null);setNotice('Lesson reset. Ready for a fresh start.');}
+ useEffect(()=>{if(progress.feedback){if(lessonScroll.current)lessonScroll.current.scrollTop=lessonScroll.current.scrollHeight;}},[progress.feedback]);
+ function restart(){if(lessonScroll.current)lessonScroll.current.scrollTop=0;setLessonSettings(false);dispatch({type:'reset'});setRevealed([]);setSelected('');setTokens([]);setThinkingAt(null);setHintAt(null);setVocabularyWord(null);setNotice('Lesson reset. Ready for a fresh start.');}
  function resetAll(){restart();setPreferences({stress:false,pronunciation:true});setSaved({preferences:{stress:false,pronunciation:true}});try{localStorage.removeItem(PRODUCT.storageKey);}catch{}setNotice('Saved completion and display preferences cleared.');}
  function meet(type:'word'|'tilt'|'celebrate'){
   if(meetTimer.current)clearTimeout(meetTimer.current);
@@ -86,15 +87,17 @@ function App(){
    <section className="demo-section wrap" aria-labelledby="demo-title">
     <div className="section-heading"><div><div className="eyebrow">01 / A TASTE OF RUSSIAN</div><h2 id="demo-title">Your first café visit.<br/><span className="serif-accent">On the house.</span></h2></div><p>Five small steps. A few useful words.<br/>And that first “I just said something in Russian” feeling. No account needed.</p></div>
     <div className="lesson-layout" id="demo">
-     <div className="lesson-workspace">
-      <div className="lesson-workspace-caption"><span><i/> INTERACTIVE LESSON</span><span>Learn at your own pace</span></div>
-      <div className="lesson-app">
-       <div className="lesson-app-screen">
+     <div className="lesson-device-stage">
+      <div className="lesson-device-caption"><span><i/> INTERACTIVE APP PREVIEW</span><span>Go on, tap around ↘</span></div>
+      <div className="lesson-phone">
+       <span className="phone-hardware-key key-silent" aria-hidden="true"/><span className="phone-hardware-key key-volume-up" aria-hidden="true"/><span className="phone-hardware-key key-volume-down" aria-hidden="true"/><span className="phone-hardware-key key-power" aria-hidden="true"/>
+       <div className="lesson-phone-screen">
+        <div className="ios-status-bar" aria-hidden="true"><span>9:41</span><div className="ios-island"><i/></div><div className="ios-system-icons"><svg viewBox="0 0 19 13"><path d="M1 12V9h3v3zm5 0V6h3v6zm5 0V3h3v9zm5 0V0h3v12z" fill="currentColor"/></svg><svg viewBox="0 0 17 13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M1 4q7.5-6 15 0M4 7q4.5-4 9 0M7 10q1.5-1.5 3 0"/><circle cx="8.5" cy="12" r=".7" fill="currentColor" stroke="none"/></svg><span className="ios-battery"><i/></span></div></div>
         <div className="lesson-panel">
-         <div className="app-navigation"><div><span>{PRODUCT.name}</span><strong>Café essentials</strong></div><button className={`app-icon-button ${lessonSettings?'active':''}`} onClick={()=>setLessonSettings(v=>!v)} aria-label="Lesson display settings" aria-expanded={lessonSettings} aria-controls="lesson-display-settings"><span>Display</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2.5" fill="currentColor" stroke="none"/><circle cx="15" cy="17" r="2.5" fill="currentColor" stroke="none"/></svg></button></div>
-         {lessonSettings&&<div className="app-settings" id="lesson-display-settings"><div><strong>Make it yours</strong><button onClick={()=>setLessonSettings(false)} aria-label="Close lesson settings">Done</button></div><div className="display-options"><label><input type="checkbox" checked={preferences.stress} onChange={e=>setPreferences(p=>({...p,stress:e.target.checked}))}/> Stress marks</label><label><input type="checkbox" checked={preferences.pronunciation} onChange={e=>setPreferences(p=>({...p,pronunciation:e.target.checked}))}/> Pronunciation help</label></div><button className="app-restart" onClick={()=>{restart();setLessonSettings(false);}}>↻ Start this lesson again</button></div>}
+         <div className="app-navigation"><a href="#demo-title" className="app-icon-button" aria-label="Leave the lesson preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="m7 7 10 10M17 7 7 17"/></svg></a><div><span>{PRODUCT.name}</span><strong>Café essentials</strong></div><button className={`app-icon-button ${lessonSettings?'active':''}`} onClick={()=>setLessonSettings(v=>!v)} aria-label="Lesson display settings" aria-expanded={lessonSettings} aria-controls="lesson-display-settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2.5" fill="currentColor" stroke="none"/><circle cx="15" cy="17" r="2.5" fill="currentColor" stroke="none"/></svg></button></div>
+         {lessonSettings&&<div className="app-settings" id="lesson-display-settings"><div><strong>Make it yours</strong><button onClick={()=>setLessonSettings(false)} aria-label="Close lesson settings">Done</button></div><div className="display-options"><label><input type="checkbox" checked={preferences.stress} onChange={e=>setPreferences(p=>({...p,stress:e.target.checked}))}/> Stress marks</label><label><input type="checkbox" checked={preferences.pronunciation} onChange={e=>setPreferences(p=>({...p,pronunciation:e.target.checked}))}/> Pronunciation help</label></div><button className="app-restart" onClick={()=>{restart();setLessonSettings(false);if(lessonScroll.current)lessonScroll.current.scrollTop=0;}}>↻ Start this lesson again</button></div>}
          <div className="app-progress-track" aria-label={`Lesson progress: ${progress.complete?5:progress.index} of 5 steps complete`}>{lesson.map((step,i)=><span key={step.id} className={i<(progress.complete?5:progress.index)?'done':i===progress.index?'current':''}/>)}</div>
-         <div className="lesson-scroll" key={progress.complete?'complete':exercise.id}>
+         <div className="lesson-scroll" ref={lessonScroll} key={progress.complete?'complete':exercise.id}>
       <div className="lesson-step-count">{progress.complete?'LESSON COMPLETE':`STEP ${progress.index+1} OF 5`}<span>{progress.complete?'Nice work, you.':'BEGINNER · ABOUT 3 MIN'}</span></div>
       {progress.complete?<div className="completion"><span className="completion-mark">✳</span><h3 ref={lessonHeading} tabIndex={-1}>A small lesson.<br/>A real beginning.</h3><p>You greeted someone, ordered tea, and said thank you.</p><div className="score"><strong>{progress.results.filter(Boolean).length}<span>/ 5</span></strong><span>steps completed<br/>on your first try</span></div><div className="review-box"><strong>{progress.results.every(Boolean)?'Everything clicked!':'A little more practice'}</strong>{progress.results.every(Boolean)?<p>Try saying Я хочу чай. next time you make a cup.</p>:<ul>{lesson.filter((_,i)=>!progress.results[i]).map(item=><li key={item.id}>{item.review}</li>)}</ul>}</div><button className="button teal" onClick={restart}>Replay the lesson <span>↻</span></button><p className="local-note">Completion saved on this browser only.</p></div>:<>
        <h3 ref={lessonHeading} tabIndex={-1}>{exercise.title}</h3><p className="exercise-instruction">{listening?'Listen to the word, then choose its meaning.':exercise.instruction}</p>
@@ -107,15 +110,16 @@ function App(){
         {exercise.kind==='typed'&&<><label className="translation-label" htmlFor="translation">“Thank you!”</label><input id="translation" ref={inputRef} className="translation-input" value={selected} placeholder="Type in Russian…" lang="ru" autoComplete="off" autoCapitalize="off" spellCheck={false} disabled={!!progress.feedback} onKeyDown={e=>{if(e.key==='Enter')check();}} onChange={e=>{setSelected(e.target.value);setThinkingAt(progress.index);}}/><div className="letter-bank" aria-label="Russian letter helpers">{['с','п','а','и','б','о'].map(letter=><button disabled={!!progress.feedback} key={letter} onClick={()=>{setSelected(s=>s+letter);inputRef.current?.focus();}} lang="ru">{letter}</button>)}<button aria-label="Delete last letter" disabled={!!progress.feedback||!selected} onClick={()=>setSelected(s=>Array.from(s).slice(0,-1).join(''))}>⌫</button></div>{preferences.pronunciation&&(hintRequested||progress.feedback==='correct')&&<p className="pronunciation-guide">A little hint: spa-SEE-ba</p>}</>}
        </div>
        {'hint' in exercise&&progress.feedback!=='correct'&&<div className="lesson-hint"><button className="lesson-hint-button" onClick={()=>setHintAt(progress.index)} aria-expanded={hintRequested} aria-controls="lesson-hint-text" disabled={hintRequested}>{hintRequested?'Hint shown':'Show a hint'} <span aria-hidden="true">?</span></button>{hintRequested&&<p id="lesson-hint-text" role="status">{exercise.hint}</p>}</div>}
-       <div ref={feedbackRef} className={`feedback ${progress.feedback||''}`} aria-live="polite" aria-atomic="true">{progress.feedback?<><strong>{incorrect?'A little practice. You’ve got this.':'✓  That’s it!'}</strong><p>{incorrect?('retryFeedback' in exercise?exercise.retryFeedback:'Reveal each word and try again.'):exercise.success}</p></>:<p>{exercise.kind==='vocabulary'?`${revealed.length} of ${words.length} expressions explored. Reveal all five, then check in.`:'Take your time. Small steps count.'}</p>}</div>
+       <div className={`feedback ${progress.feedback||''}`} aria-live="polite" aria-atomic="true">{progress.feedback?<><strong>{incorrect?'A little practice. You’ve got this.':'✓  That’s it!'}</strong><p>{incorrect?('retryFeedback' in exercise?exercise.retryFeedback:'Reveal each word and try again.'):exercise.success}</p></>:<p>{exercise.kind==='vocabulary'?`${revealed.length} of ${words.length} expressions explored. Reveal all five, then check in.`:'Take your time. Small steps count.'}</p>}</div>
 
       </>}
          </div>
-         {!progress.complete&&<div className="lesson-bottom"><span className="app-audio-note">{speech.available?<><SoundIcon/> Browser voice · optional</>:'No Russian browser voice · use text'}</span>{progress.feedback?<button className="button teal" onClick={()=>{if(incorrect){dispatch({type:'retry'});setThinkingAt(null);lessonHeading.current?.focus();}else{setSelected('');setTokens([]);setListening(false);dispatch({type:'continue'});}}}>{incorrect?'Try again':'Continue'} <span>→</span></button>:<button className="button teal" disabled={!ready} onClick={check}>Check answer <span>→</span></button>}</div>}
+         {!progress.complete&&<div className="lesson-bottom"><span className="app-audio-note">{speech.available?<><SoundIcon/> Browser voice · optional</>:'No Russian browser voice · use text'}</span>{progress.feedback?<button className="button teal" onClick={()=>{if(incorrect){if(lessonScroll.current)lessonScroll.current.scrollTop=0;dispatch({type:'retry'});setThinkingAt(null);}else{setSelected('');setTokens([]);setListening(false);dispatch({type:'continue'});}}}>{incorrect?'Try again':'Continue'} <span>→</span></button>:<button className="button teal" disabled={!ready} onClick={check}>Check answer <span>→</span></button>}</div>}
+         <div className="ios-home-area" aria-hidden="true"><span/></div>
         </div>
        </div>
       </div>
-      <div className="lesson-workspace-note">Interactive web demo · No download needed.</div>
+      <div className="lesson-device-note"><span>iOS app concept</span><span>Live in your browser. No download needed.</span></div>
      </div>
      <aside className="lesson-side"><div className="demo-connection"><span className="live-dot"/> Demo connection</div><Companion state={reaction.state} text={reaction.text}/><span className="simulation-tag">Simulated companion</span><div className="companion-message" aria-live="polite">{progress.complete?'Look at you, making conversation.':incorrect?'No rush. Let’s give it another try.':progress.feedback==='correct'?'One small win. Keep going!':'I’m here for the little wins.'}</div><p>The words stay on your phone.<br/>The encouragement sits on your desk.</p><div className="solo-note"><span>↳</span> More of a solo learner? The app works beautifully on its own.</div></aside>
     </div>

@@ -25,7 +25,7 @@ Open the local address printed by Vite. `npm run build` performs TypeScript chec
 
 ## What works
 
-- A spacious interactive lesson panel with readable instructions and feedback, large controls, and display settings. The hero retains its illustrative iPhone preview; the playable lesson uses the available browser width without shrinking its text. This is a live web demo, not a shipping iOS app.
+- An interactive iPhone-style app screen with device frame, iOS-style status bar, fixed answer action, scrolling lesson content, and a display-settings panel. This is a live web simulation, not a recorded video or a shipping iOS app.
 - A five-step beginner café lesson: vocabulary reveal, meaning choice, tap-to-build sentence, café reply, and a typed translation with Russian letter helpers.
 - Check, retry, explicit continue, completion, first-attempt results, a mistake practice list, replay, and reset.
 - Optional stress marks and pronunciation hints. Canonical Russian stays separate from display aids.
@@ -47,7 +47,7 @@ The iPhone illustration, OLED, expressive servo movement, buttons, and “Demo c
 - `src/useSpeech.ts`: progressive browser audio enhancement.
 - `src/App.tsx`: page, activities, preferences, persistence, and event coordination.
 - `src/styles.css`: responsive page layout, character construction, focus styles, and reduced-motion support.
-- `src/lesson.css`: the responsive interactive lesson panel, readable typography, navigation, and display settings.
+- `src/iphone.css`: the interactive iPhone frame, app navigation, settings, and native-style lesson presentation.
 - `src/engine.test.ts`: normalization, invalid answers, retries, first-attempt tracking, explicit progression, completion, reset, and companion event tests.
 
 ## Verification
