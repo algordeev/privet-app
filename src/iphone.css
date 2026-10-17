@@ -313,3 +313,27 @@
   font-size: 11px;
   line-height: 1.6;
 }
+/* Selection is a radio-style dot. A tick means a checked, correct answer. */
+.lesson-phone .choice.selected:not(.answer-correct) {
+  background: #f0f2ed;
+  border-color: #798671;
+  box-shadow: 0 0 0 1px #798671;
+}
+.lesson-phone .choice.selected:not(.answer-correct) .selection-indicator {
+  border-color: #798671;
+  background: transparent;
+}
+.lesson-phone .choice.selected:not(.answer-correct) .selection-indicator:after {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #67785d;
+}
+.lesson-phone .choice.selected.answer-incorrect {
+  background: #fff5ed;
+  border-color: #ae7852;
+  box-shadow: 0 0 0 1px #ae7852;
+}
+.lesson-phone .choice.selected.answer-incorrect .selection-indicator { border-color: #ae7852; }
+.lesson-phone .choice.selected.answer-incorrect .selection-indicator:after { background: #94613f; }
