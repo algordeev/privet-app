@@ -10,6 +10,23 @@ export function normalizeAnswer(value:string) { return value.normalize('NFD').re
 export function checkAnswer(index:number, value:string) { return normalizeAnswer(value) === normalizeAnswer(lesson[index].answer); }
 export type Progress = { index:number; attempts:number; results:boolean[]; feedback:'correct'|'incorrect'|null; complete:boolean };
 export const initialProgress = (): Progress => ({ index:0, attempts:0, results:[], feedback:null, complete:false });
+
+// Assessment prompts never carry solutions. An explicit hint or a correct
+// submission is the only way to reveal one on the companion.
+export function lessonCompanionEvent(
+ state: Progress,
+ options: { thinking?:boolean; hintRequested?:boolean; vocabularyWord?:string|null } = {},
+): CompanionEvent {
+ if(state.complete) return {type:'complete'};
+ const exercise=lesson[state.index];
+ if(state.feedback==='incorrect') return {type:'incorrect'};
+ if(state.feedback==='correct') return exercise.kind==='vocabulary'
+  ? {type:'correct'} : {type:'correct',text:exercise.answer};
+ if(exercise.kind==='vocabulary') return {type:'prompt',text:options.vocabularyWord || exercise.prompt};
+ if(options.hintRequested) return {type:'prompt',text:exercise.answer};
+ return options.thinking ? {type:'thinking'} : {type:'prompt',text:'?'};
+}
+
 export type Action = { type:'check'; value:string } | { type:'retry'|'continue'|'reset' };
 export function progressReducer(state:Progress, action:Action):Progress {
  if(action.type==='reset') return initialProgress();

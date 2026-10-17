@@ -285,3 +285,31 @@
   .lesson-side .companion-message { margin-top: 6px; min-height: 0; }
   .lesson-side > p { font-size: 10px; }
 }
+.lesson-phone .lesson-hint { margin-top: 8px; }
+.lesson-phone .lesson-hint-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 40px;
+  padding: 8px 0;
+  background: transparent;
+  color: #496e3f;
+  font-size: 11px;
+}
+.lesson-phone .lesson-hint-button > span {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid #a4b698;
+  border-radius: 50%;
+  font-size: 10px;
+}
+.lesson-phone .lesson-hint p {
+  padding: 12px 14px;
+  border-radius: 13px;
+  background: #eef2e7;
+  color: #536e46;
+  font-size: 11px;
+  line-height: 1.6;
+}

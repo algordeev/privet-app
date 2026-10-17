@@ -20,7 +20,7 @@ Open the local address printed by Vite. `npm run build` performs TypeScript chec
 - Check, retry, explicit continue, completion, first-attempt results, a mistake practice list, replay, and reset.
 - Optional stress marks and pronunciation hints. Canonical Russian stays separate from display aids.
 - Optional browser speech synthesis when a Russian voice is available, including delayed voice loading and a listening variation. With no Russian voice, all text activities remain usable. Audio is synthesized; there is no microphone access or pronunciation assessment.
-- Animated SVG/CSS robot reactions coordinated with the lesson, plus independent word, tilt, and celebration controls.
+- Animated SVG/CSS robot reactions coordinated with the lesson, plus independent word, tilt, and celebration controls. Assessed prompts stay neutral until a correct answer or an explicit hint; incorrect feedback never reveals solutions automatically. Sentence-order and typed-answer pronunciation aids follow the same rule. Vocabulary introduction cards are unchanged.
 - Keyboard controls, visible focus, announced feedback, mobile layouts, and reduced-motion styles.
 - Display preferences and completion results saved only in localStorage. The footer reset clears saved completion and restores default preferences. No accounts, analytics, backend, or personal data collection. If browser storage is blocked, the lesson still works for the current session.
 
