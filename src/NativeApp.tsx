@@ -52,16 +52,27 @@ export function NativeApp() {
  const previousView=useRef(view);
  useNativeViewport(root);
  useEffect(()=>{
-  if(view==='plus'&&plusOrigin==='lesson'&&subscription.plus){controller.revive();setView('lesson');return;}
+  // Recovery follows the selected lesson and entitlement, not the upgrade route.
+  if(subscription.plus&&controller.progress.failed)controller.revive();
+ },[subscription.plus,controller.progress.failed,controller.definition.id]);
+ useEffect(()=>{
+  if(view==='plus'&&plusOrigin==='lesson'&&subscription.plus){setView('lesson');return;}
   if(view==='lesson')controller.lessonHeading.current?.focus({preventScroll:true});
   else root.current?.querySelector<HTMLElement>(view==='physical'?'#native-physical-title':view==='profile'?(previousView.current==='plus'?'#native-profile-plus-open':'#native-profile-title'):view==='plus'?'#native-plus-title':view==='gems'?'#native-gems-title':previousView.current==='gems'?'#native-gems-open':previousView.current==='physical'?'#native-physical-open':previousView.current==='profile'?'#native-profile-open':previousView.current==='plus'?'#native-profile-open':'#native-home-title')?.focus({preventScroll:true});
   previousView.current=view;
  },[view,plusOrigin,subscription.plus,controller.lessonHeading]);
+ function openLesson(id:string){
+  controllers.forEach(item=>{item.speech.stop();item.setLessonSettings(false);item.setNotice('');});
+  setSelectedLesson(id);
+  if(view==='lesson')physical.syncIdle();else physical.navigate('lesson');
+  companion.navigate('lesson');
+  setView('lesson');
+ }
  function closeLesson(){physical.navigate('home');companion.navigate('home');controller.speech.stop();controller.setLessonSettings(false);setView('home');}
  function openPlus(origin:'profile'|'lesson'){setPlusOrigin(origin);controller.speech.stop();setView('plus');}
  function closePlus(){setView(plusOrigin);}
  return <main className="native-app" ref={root} data-view={view}>
-  {view==='home'?<NativeHome physical={physical} plus={subscription.plus} onGems={()=>{controller.speech.stop();setView('gems');}} onPhysical={()=>{physical.navigate('physical');controller.speech.stop();companion.navigate('home');controller.setNotice('');setView('physical');}} controller={controller} controllers={controllers} companion={companion} activity={activity} onProfile={()=>{physical.navigate('profile');companion.navigate('home');controller.speech.stop();controller.setNotice('');setView('profile');}} onReset={()=>{activity.reset();companion.resetPreference();controllers.forEach(item=>item.resetAll());}} onStart={(id)=>{controllers.forEach(item=>item.speech.stop());setSelectedLesson(id);physical.navigate('lesson');companion.navigate('lesson');controller.setNotice('');setView('lesson');}}/>:view==='physical'?<PhysicalCompanionSettings controller={physical} onClose={()=>{physical.navigate('home');setView('home');}}/>:view==='profile'?<NativeProfile activity={activity} subscription={subscription} onPlus={()=>openPlus('profile')} onClose={()=>{physical.navigate('home');setView('home');}}/>:view==='plus'?<PlusScreen subscription={subscription} onClose={closePlus}/>:view==='gems'?<GemsScreen activity={activity} onClose={()=>setView('home')}/>:<div className="native-lesson-view"><LessonPanel key={controller.definition.id} controller={controller} native nativeCompanion={companion} gems={activity.summary.gems} gemAward={activity.stats.latest?.lessonId===controller.definition.id?activity.stats.latest.gemAward:undefined} onRefill={()=>{if(activity.spendForRefill())controller.refill();}} onUpgrade={()=>openPlus('lesson')} onClose={closeLesson}/></div>}
+  {view==='home'?<NativeHome physical={physical} plus={subscription.plus} onGems={()=>{controller.speech.stop();setView('gems');}} onPhysical={()=>{physical.navigate('physical');controller.speech.stop();companion.navigate('home');controller.setNotice('');setView('physical');}} controller={controller} controllers={controllers} companion={companion} activity={activity} onProfile={()=>{physical.navigate('profile');companion.navigate('home');controller.speech.stop();controller.setNotice('');setView('profile');}} onReset={()=>{activity.reset();companion.resetPreference();controllers.forEach(item=>item.resetAll());}} onStart={openLesson}/>:view==='physical'?<PhysicalCompanionSettings controller={physical} onClose={()=>{physical.navigate('home');setView('home');}}/>:view==='profile'?<NativeProfile activity={activity} subscription={subscription} onPlus={()=>openPlus('profile')} onClose={()=>{physical.navigate('home');setView('home');}}/>:view==='plus'?<PlusScreen subscription={subscription} onClose={closePlus}/>:view==='gems'?<GemsScreen activity={activity} onClose={()=>setView('home')}/>:<div className="native-lesson-view"><LessonPanel key={controller.definition.id} controller={controller} native nextLesson={controller.definition.id===cafeLesson.id?{label:introductions.progress.complete?'View Lesson 2 results':'Continue to Lesson 2',onOpen:()=>openLesson(introductionsLesson.id)}:undefined} nativeCompanion={companion} gems={activity.summary.gems} gemAward={activity.stats.latest?.lessonId===controller.definition.id?activity.stats.latest.gemAward:undefined} onRefill={()=>{if(activity.spendForRefill())controller.refill();}} onUpgrade={()=>openPlus('lesson')} onClose={closeLesson}/></div>}
   {controller.notice&&<div className="native-notice" role="status"><span>{controller.notice}</span><button onClick={()=>controller.setNotice('')} aria-label="Dismiss notice">×</button></div>}
  </main>;
 }
