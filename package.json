@@ -11,7 +11,8 @@
     "build:pages": "tsc -b && vite build --base=/privet-app/",
     "build:native": "tsc -b && vite build --mode native --base=./ --outDir dist-native",
     "sync:ios": "npm run build:native && cap sync ios",
-    "test:shells": "node scripts/check-shells.mjs"
+    "test:shells": "node scripts/check-shells.mjs",
+    "test:interactions": "node scripts/check-native-interactions.mjs"
   },
   "dependencies": {
     "@capacitor-community/bluetooth-le": "^8.3.0",
