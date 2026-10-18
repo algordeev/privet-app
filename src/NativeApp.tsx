@@ -25,7 +25,7 @@ export function NativeHome({controller,controllers,companion,activity,plus,onSta
    const {progress,definition}=item;const started=lessonStarted(item);const total=definition.exercises.length;
    const pathState=progress.complete?'Passed':controllers.slice(0,index).every(candidate=>candidate.progress.complete)?'Up next':'Available';
    return <section className="native-lesson-card" aria-labelledby={`native-card-${definition.id}`} key={definition.id}>
-    <div className="native-card-top"><span className="native-cup" aria-hidden="true">{definition.icon}</span><span>LESSON {definition.number} · ABOUT 3 MIN</span><span className={`native-path-state ${progress.complete?'passed':pathState==='Up next'?'up-next':''}`}>{pathState}</span></div>
+    <div className="native-card-top"><span className="native-cup" aria-hidden="true">{definition.icon}</span><span className="native-lesson-meta">LESSON {definition.number} · ABOUT 3 MIN</span><span className={`native-path-state ${progress.complete?'passed':pathState==='Up next'?'up-next':''}`}>{pathState}</span></div>
     <h2 id={`native-card-${definition.id}`}>{definition.title}</h2><p>{definition.description}</p>
     <div className="native-card-progress"><span>{progress.complete?'Lesson complete':started?`Step ${progress.index+1} of ${total}`:'Five small steps'}</span>{started&&<span>{progress.complete?`${progress.results.filter(Boolean).length} / ${total} first try`:'Progress saved'}</span>}</div>
     <progress max={total} value={progress.index} aria-label={`${definition.title} lesson progress`}/>

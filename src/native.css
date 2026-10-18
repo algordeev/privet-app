@@ -43,7 +43,7 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-card-top > .native-path-state.up-next { color: #246653; }
 .native-card-top { display: flex; align-items: center; gap: 12px; }
 .native-cup { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: #f7f3e5; font-size: 25px; }
-.native-card-top > span:last-child { font-size: 9px; font-weight: 600; letter-spacing: 1px; color: #617650; }
+.native-card-top > .native-lesson-meta { font-size: 9px; font-weight: 600; letter-spacing: 1px; color: #617650; }
 .native-app .native-lesson-card h2 { margin-top: 18px; font-size: 27px; font-weight: 600; letter-spacing: -.8px; }
 .native-lesson-card > p { margin-top: 10px; font-size: 15px; line-height: 1.65; color: #627657; }
 .native-card-progress { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 24px; font-size: 11px; color: #5b714e; }
@@ -317,26 +317,27 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .failure-screen { text-align: center; }
 .native-app .failure-screen .button { width: 100%; }
 .native-app .failure-screen .button + .button { margin-top: 9px; }
-.native-app .native-gems-pill { display: inline-flex; align-items: center; gap: 5px; padding: 8px 10px; border: 1px solid #ead89a; border-radius: 999px; background: #fff8dc; color: #806515; font-size: 13px; font-weight: 800; white-space: nowrap; }
+.native-app .native-gems-pill { display: inline-flex; align-items: center; gap: 5px; padding: 8px 10px; border: 1px solid #ead89a; border-radius: 999px; background: #fff8dc; color: #806515; font-size: 13px; font-weight: 600; white-space: nowrap; }
 .native-gems-pill span { color: #d2a72d; }
 .native-gems-balance { display: grid; justify-items: center; margin: 26px 0; padding: 24px; border: 1px solid #ead89a; border-radius: 22px; background: #fff8dc; color: #806515; }
 .native-gems-balance > span { color: #d2a72d; font-size: 28px; }
-.native-gems-balance strong { font-size: 42px; line-height: 1.1; }
+.native-gems-balance strong { font-size: 34px; line-height: 1.15; font-weight: 600; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
 .native-gems-balance p, .native-gems-section > p { margin: 6px 0 0; color: #736746; font-size: 13px; }
 .native-gems-section { margin: 22px 0; }
-.native-app .native-gems-section h2 { margin: 0 0 10px; font-size: 19px; }
+.native-app .native-gems-section h2 { margin: 0 0 10px; font-size: 17px; line-height: 1.4; font-weight: 600; letter-spacing: -.3px; }
 .native-gems-section ul { margin: 0; padding: 0; list-style: none; }
 .native-gems-section li, .native-gem-shop-card, .native-profile-gems { padding: 14px 15px; border: 1px solid #e2e8d9; border-radius: 15px; background: #fffdf7; }
+.native-gems-section li { font-size: 14px; line-height: 1.65; }
 .native-gems-section li + li { margin-top: 8px; }
 .native-gem-shop-card, .native-profile-gems { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.native-gem-shop-card strong, .native-profile-gems strong { color: #315a3c; }
+.native-gem-shop-card strong, .native-profile-gems strong { color: #315a3c; font-size: 15px; font-weight: 600; line-height: 1.4; }
 .native-gem-shop-card p, .native-profile-gems p { margin: 4px 0 0; color: #68785e; font-size: 12px; }
 .native-gem-shop-card .button { flex-shrink: 0; padding: 10px 13px; }
 .native-gem-shop-card .button:disabled { opacity: .48; cursor: default; }
-.native-gems-footer { margin: 28px 0 10px; color: #68785e; font-size: 12px; text-align: center; }
+.native-app .native-gems-footer { display: block; min-height: 0; padding: 0; margin: 28px 0 10px; color: #68785e; font-size: 12px; font-weight: 400; line-height: 1.7; letter-spacing: normal; text-align: center; }
 .native-profile-gems { margin: 14px 0; }
 .native-profile-gems > div { flex: 1; }
-.native-gem-award { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0 16px; color: #806515; font-size: 13px; font-weight: 800; }
+.native-gem-award { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0 16px; color: #806515; font-size: 13px; font-weight: 600; }
 .native-gem-award span { padding: 7px 10px; border-radius: 999px; background: #fff8dc; }
 .native-app .failure-screen .button:disabled { opacity: .48; cursor: default; }
 
