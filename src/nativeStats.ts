@@ -6,7 +6,7 @@ import type {Saved} from './session.ts';
 export const NATIVE_STATS_KEY=`${PRODUCT.storageKey}-native-stats`;
 export const GEM_RULES={finish:5,perfect:5,streakWeek:10,refill:20,freeze:30,maxFreezes:2} as const;
 export type GemBreakdown={finish:number;perfect:number;streakWeek:number};
-export type NativeStats={version:3;days:Record<string,number>;xp:Record<string,number>;earlierFinishes:number;latest:{day:string|null;firstTry:number;lessonId?:string}|null;gems:{balance:number;freezes:number;awarded:Record<string,string[]>;milestones:string[];awards:Record<string,Record<string,GemBreakdown>>};frozen:string[]};
+export type NativeStats={version:3;days:Record<string,number>;xp:Record<string,number>;earlierFinishes:number;latest:{day:string|null;firstTry:number;lessonId?:string;gemAward?:GemBreakdown}|null;gems:{balance:number;freezes:number;awarded:Record<string,string[]>;milestones:string[];awards:Record<string,Record<string,GemBreakdown>>};frozen:string[]};
 const emptyGems=()=>({balance:0,freezes:0,awarded:{},milestones:[],awards:{}});
 export const emptyStats=():NativeStats=>({version:3,days:{},xp:{},earlierFinishes:0,latest:null,gems:emptyGems(),frozen:[]});
 export function localDay(date:Date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;}
@@ -14,9 +14,10 @@ export function validDay(day:string){if(!/^\d{4}-\d{2}-\d{2}$/.test(day))return 
 export function shiftDay(day:string,offset:number){const d=new Date(`${day}T12:00:00Z`);d.setUTCDate(d.getUTCDate()+offset);return d.toISOString().slice(0,10);}
 const lessonIds=['cafe','introductions'];
 function validCounts(obj:unknown){return !!obj&&typeof obj==='object'&&!Array.isArray(obj)&&Object.entries(obj).every(([day,n])=>validDay(day)&&Number.isSafeInteger(n)&&Number(n)>0&&Number(n)<1_000_000);}
-function validGems(g:any){return !!g&&Number.isSafeInteger(g.balance)&&g.balance>=0&&Number.isInteger(g.freezes)&&g.freezes>=0&&g.freezes<=GEM_RULES.maxFreezes&&!!g.awarded&&typeof g.awarded==='object'&&!Array.isArray(g.awarded)&&Object.entries(g.awarded).every(([day,ids])=>validDay(day)&&Array.isArray(ids)&&ids.every((id:any)=>lessonIds.includes(id))&&new Set(ids).size===ids.length)&&Array.isArray(g.milestones)&&g.milestones.every((day:any)=>validDay(day))&&new Set(g.milestones).size===g.milestones.length&&!!g.awards&&typeof g.awards==='object'&&!Array.isArray(g.awards)&&Object.entries(g.awards).every(([day,items])=>validDay(day)&&!!items&&typeof items==='object'&&!Array.isArray(items)&&Object.entries(items).every(([id,a]:[string,any])=>lessonIds.includes(id)&&Number.isSafeInteger(a.finish)&&[0,GEM_RULES.finish].includes(a.finish)&&Number.isSafeInteger(a.perfect)&&[0,GEM_RULES.perfect].includes(a.perfect)&&Number.isSafeInteger(a.streakWeek)&&[0,GEM_RULES.streakWeek].includes(a.streakWeek)));}
+function validGemBreakdown(a:any){return !!a&&Number.isSafeInteger(a.finish)&&[0,GEM_RULES.finish].includes(a.finish)&&Number.isSafeInteger(a.perfect)&&[0,GEM_RULES.perfect].includes(a.perfect)&&Number.isSafeInteger(a.streakWeek)&&[0,GEM_RULES.streakWeek].includes(a.streakWeek);}
+function validGems(g:any){return !!g&&Number.isSafeInteger(g.balance)&&g.balance>=0&&Number.isInteger(g.freezes)&&g.freezes>=0&&g.freezes<=GEM_RULES.maxFreezes&&!!g.awarded&&typeof g.awarded==='object'&&!Array.isArray(g.awarded)&&Object.entries(g.awarded).every(([day,ids])=>validDay(day)&&Array.isArray(ids)&&ids.every((id:any)=>lessonIds.includes(id))&&new Set(ids).size===ids.length)&&Array.isArray(g.milestones)&&g.milestones.every((day:any)=>validDay(day))&&new Set(g.milestones).size===g.milestones.length&&!!g.awards&&typeof g.awards==='object'&&!Array.isArray(g.awards)&&Object.entries(g.awards).every(([day,items])=>validDay(day)&&!!items&&typeof items==='object'&&!Array.isArray(items)&&Object.entries(items).every(([id,a]:[string,any])=>lessonIds.includes(id)&&validGemBreakdown(a)));}
 export function restoreStats(raw:string|null,legacy?:Saved['completion']):NativeStats{
- if(raw!==null){try{const s=JSON.parse(raw);const validLatest=(s:any)=>s.latest===null||(s.latest&&Number.isInteger(s.latest.firstTry)&&s.latest.firstTry>=0&&s.latest.firstTry<=5&&(s.latest.lessonId===undefined||lessonIds.includes(s.latest.lessonId))&&(s.latest.day===null?s.earlierFinishes===1:typeof s.latest.day==='string'&&validDay(s.latest.day)&&Object.hasOwn(s.days,s.latest.day)));const validBase=(s:any)=>validCounts(s.days)&&[0,1].includes(s.earlierFinishes)&&validLatest(s);
+ if(raw!==null){try{const s=JSON.parse(raw);const validLatest=(s:any)=>s.latest===null||(s.latest&&Number.isInteger(s.latest.firstTry)&&s.latest.firstTry>=0&&s.latest.firstTry<=5&&(s.latest.lessonId===undefined||lessonIds.includes(s.latest.lessonId))&&(s.latest.gemAward===undefined||validGemBreakdown(s.latest.gemAward))&&(s.latest.day===null?s.earlierFinishes===1:typeof s.latest.day==='string'&&validDay(s.latest.day)&&Object.hasOwn(s.days,s.latest.day)));const validBase=(s:any)=>validCounts(s.days)&&[0,1].includes(s.earlierFinishes)&&validLatest(s);
   if((s?.version===1||s?.version===2)&&validBase(s)&&(s.version===1||validCounts(s.xp)))return {...s,version:3,xp:s.version===1?{}:s.xp,gems:emptyGems(),frozen:[]};
   if(s?.version===3&&validBase(s)&&validCounts(s.xp)&&validGems(s.gems)&&Array.isArray(s.frozen)&&s.frozen.every((day:any)=>validDay(day))&&new Set(s.frozen).size===s.frozen.length)return s;
  }catch{/* Ignore malformed local storage. */}}
@@ -44,6 +45,31 @@ export function recordFinish(stats:NativeStats,results:boolean[],date:Date,lesso
  const day=localDay(date),id=lessonById(lessonId).id,awarded=stats.gems.awarded[day]??[],finish=awarded.includes(id)?0:GEM_RULES.finish,perfect=!awarded.includes(id)&&results.length>0&&results.every(Boolean)?GEM_RULES.perfect:0;
  let next:NativeStats={...stats,days:{...stats.days,[day]:(stats.days[day]??0)+1},xp:xp>0?{...stats.xp,[day]:(stats.xp[day]??0)+xp}:stats.xp,latest:{day,firstTry:results.filter(Boolean).length,lessonId:id},gems:{...stats.gems,awarded:{...stats.gems.awarded,[day]:finish?[...awarded,id]:awarded}}};
  const streakBefore=statsSummary(next,date).current,streakWeek=streakBefore>0&&streakBefore%7===0&&!next.gems.milestones.includes(day)?GEM_RULES.streakWeek:0;
- const breakdown={finish,perfect,streakWeek};next={...next,gems:{...next.gems,balance:next.gems.balance+finish+perfect+streakWeek,milestones:streakWeek?[...next.gems.milestones,day]:next.gems.milestones,awards:{...next.gems.awards,[day]:{...next.gems.awards[day],[id]:breakdown}}}};return next;
+ const breakdown={finish,perfect,streakWeek},previous=stats.gems.awards[day]?.[id]??{finish:0,perfect:0,streakWeek:0};
+ // Daily totals survive replays; the latest attempt contains only newly earned gems.
+ const cumulative={finish:previous.finish+finish,perfect:previous.perfect+perfect,streakWeek:previous.streakWeek+streakWeek};
+ next={...next,latest:{...next.latest!,gemAward:breakdown},gems:{...next.gems,balance:next.gems.balance+finish+perfect+streakWeek,milestones:streakWeek?[...next.gems.milestones,day]:next.gems.milestones,awards:{...next.gems.awards,[day]:{...next.gems.awards[day],[id]:cumulative}}}};return next;
 }
-export function createStatsTracker(initial:NativeStats,save:(stats:NativeStats)=>void,now:()=>Date){let stats=initial;const recorded=new Set<string>();return {transition(previous:Progress,next:Progress,action:Action,lessonId='cafe'){if(action.type==='reset'){recorded.delete(lessonId);return;}if(action.type!=='continue'||recorded.has(lessonId)||previous.complete||!next.complete||next.failed)return;recorded.add(lessonId);stats=recordFinish(stats,next.results,now(),lessonId,lessonXp(next,next.results.length));save(stats);},replace(next:NativeStats){stats=next;},reset(){recorded.clear();stats=emptyStats();save(stats);}};}
+export function createStatsTracker(initial:NativeStats,save:(stats:NativeStats)=>void,now:()=>Date){
+ let stats=initial;
+ const recorded=new Set<string>();
+ // All mutations, including lifecycle freeze checks and shop purchases, use
+ // this path so the tracker, React state and persisted snapshot cannot diverge.
+ function update(transform:(current:NativeStats)=>NativeStats|null){
+  const next=transform(stats);
+  if(!next)return false;
+  if(next!==stats){stats=next;save(stats);}
+  return true;
+ }
+ return {
+  update,
+  transition(previous:Progress,next:Progress,action:Action,lessonId='cafe'){
+   if(action.type==='reset'){recorded.delete(lessonId);return;}
+   if(action.type!=='continue'||recorded.has(lessonId)||previous.complete||!next.complete||next.failed)return;
+   recorded.add(lessonId);
+   const date=now();
+   update(current=>recordFinish(applyStreakFreezes(current,date),next.results,date,lessonId,lessonXp(next,next.results.length)));
+  },
+  reset(){recorded.clear();update(()=>emptyStats());},
+ };
+}

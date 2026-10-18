@@ -75,11 +75,11 @@ The native root owns safe-area spacing once (`ios.contentInset: never`, `viewpor
 
 ## Learning, audio and local state
 
-Lessons use three session hearts, an in-lesson first-try combo and a local XP reward based on the lesson, remaining hearts and best combo. Daily XP appears in the native profile; completed lessons show Passed and the next lesson shows Up next while both remain open. See [Duolingo lesson mechanics and the Privet adaptations](docs/duolingo-mechanics.md).
+Lessons use three session hearts, an in-lesson first-try combo and a local XP reward based on the lesson, remaining hearts and best combo. Daily XP appears in the native profile; completed lessons show Passed and the next lesson shows Up next while both remain open. See [Privet learning rewards](docs/learning-rewards.md).
 
 **Privet Plus (simulated)** is an optional local subscription that gives native lessons unlimited hearts. It is a demo only: no payment is processed.
 
-**Gems** are earned only by learning, at the same rate for everyone. They have fixed prices for heart refills and streak freezes; gems cannot be bought, there are no ads, and Plus has no gem advantage. See [the Duolingo mechanics notes](docs/duolingo-mechanics.md) for the evidence and full rules.
+**Gems** are earned only by learning, at the same rate for everyone. A heart refill costs **20 gems** and a streak freeze costs **30 gems**; gems cannot be bought, there are no ads, and Plus has no gem advantage. Daily awards stay cumulative across replays, while completion screens show only that attempt’s reward. See [the full rules](docs/learning-rewards.md).
 
 - Five café steps: reveal vocabulary, choose a meaning, build a sentence by tapping, reply to the barista, and type a translation. Check/retry/explicit Continue, first-attempt results, mistake review, replay and reset are implemented.
 - **Native Lesson 02 — Nice to meet you:** five steps for Меня зовут Анна., Как тебя зовут?, А тебя?, Очень приятно! and Пока! Vocabulary, meaning selection, sentence building, a social exchange and typed goodbye use the same check/retry/hint/review flow. Informal address and the example name are explained. Both lessons are available without a prerequisite lock. The browser keeps its café demo.
@@ -105,7 +105,8 @@ Statistics use `privet-demo-v1-native-stats`; resumable sessions have separate k
 | `src/NativeLessonSettings.tsx` | Immediate native learning-aid settings |
 | `src/Companion.tsx`, `src/nativeCompanion.ts`, `src/NativeRobot.tsx`, `src/useNativeCompanion.ts` | Simulated robot, semantic reactions, lifecycle and motion |
 | `src/speechController.ts`, `src/useSpeech.ts` | Single guarded pronunciation controller and lifecycle cancellation |
-| `src/nativeStats.ts`, `src/useNativeStats.ts`, `src/NativeProfile.tsx` | Local activity, streaks and profile |
+| `src/nativeStats.ts`, `src/useNativeStats.ts`, `src/NativeProfile.tsx`, `src/GemsScreen.tsx` | Authoritative local activity, daily/attempt rewards, freezes, gems and profile |
+| `src/subscription.ts`, `src/useSubscription.ts`, `src/PlusScreen.tsx` | Local Plus demo activation/cancellation; no billing |
 | `src/bleProtocol.ts`, `src/bleTransport.ts` | Binary protocol/IDs, bounded scheduler, connection lifecycle/reconciliation |
 | `src/bleDriver.ts`, `src/usePhysicalCompanion.ts` | Installed BLE plugin adapter and app-wide native lifecycle wiring |
 | `src/physicalLessonEvents.ts`, `src/PhysicalCompanionSettings.tsx` | Accepted lesson-to-BLE mapping; connection/test UI and home status |
@@ -137,11 +138,14 @@ The earlier background-connection milestone recorded **85 Node tests**, TypeScri
 
 The second-lesson update passed **91 Node tests**, TypeScript/rendered-shell checks, Pages/native production builds, iOS sync and `git diff --check`. Headless Chromium with a test-only native environment exercised Lesson 02 at 375×667 and 430×932: wrong answers/retries, stress marks, switching lessons, restoring partial sentences after reload, completion/review/profile, replay and reset. These checks covered both unavailable Russian audio and visible pronunciation controls, reduced-motion mode and one shared speech controller. Actual synthesized audio and the iOS keyboard were not tested by this browser harness. The website landing page plus 61 café lesson display states matched the prior website HTML. No simulator, real-device, hardware or Xcode build was run for this lesson update.
 
+The hearts/XP/Plus review adds regressions for automatic freeze consumption followed by completion, cumulative daily versus latest-attempt gem awards, and saved-data migration. `npm run test:interactions` launches an isolated local Chrome/Chromium profile and exercises Plus activation/cancellation/reload, zero-heart recovery, lifecycle freeze consumption, replay rewards, and the 20/30-gem purchases at 375×667 and 430×932. Set `PRIVET_CHROME_PATH` if Chrome/Chromium is not installed in a standard location. It uses test-only native-platform/voice shims, not real iPhone, ESP32, speech or billing services.
+
 These checks are implementation evidence, not real-radio, OLED-rendering, native screen-reader or lock-screen endurance tests. To run the project's checks:
 
 ```sh
 npm test
 npm run test:shells
+npm run test:interactions
 npm run build
 npm run build:pages
 npm run build:native
@@ -149,9 +153,11 @@ npm run build:native
 
 Earlier milestones recorded smaller suites (including 74 tests) and a foreground-only disconnect policy; those are historical and superseded by the lifecycle above. Earlier agent-only notes saying hardware had not been verified are superseded by the explicitly attributed user reports. Detailed automated/user/remaining hardware checks are separated in [the protocol document](docs/companion-ble.md#verification).
 
-### Remaining copy discrepancies
+### Research provenance
 
-Some unchanged app/website copy still labels the physical version as planned, and the comment at the top of `src/bleProtocol.ts` still says commands 2–4 require updated firmware. The checked-in sketch implements all four commands and the user reports working electronics. These older labels/comments do not establish a finished enclosure; they were not edited in this documentation-only task.
+Historical [competitor web-client research](docs/research/duolingo-web-observations.md) is kept separately from product documentation. Earlier work downloaded and inspected public client bundles; removing the comparison UI does not undo that history. The research record contains prose observations and provenance, not downloaded bundles or extracted source files. It is not a current competitor feature claim.
+
+The public website distinguishes its simulated robot from the working iPhone + ESP32 electronics prototype; enclosure illustrations remain concepts. The existing source comment in `src/bleProtocol.ts` still notes that older firmware needs commands 2–4; current checked-in firmware implements them.
 
 ## Next steps and limits
 
