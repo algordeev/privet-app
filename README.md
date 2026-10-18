@@ -153,12 +153,6 @@ npm run build:native
 
 Earlier milestones recorded smaller suites (including 74 tests) and a foreground-only disconnect policy; those are historical and superseded by the lifecycle above. Earlier agent-only notes saying hardware had not been verified are superseded by the explicitly attributed user reports. Detailed automated/user/remaining hardware checks are separated in [the protocol document](docs/companion-ble.md#verification).
 
-### Research provenance
-
-Historical [competitor web-client research](docs/research/duolingo-web-observations.md) is kept separately from product documentation. Earlier work downloaded and inspected public client bundles; removing the comparison UI does not undo that history. The research record contains prose observations and provenance, not downloaded bundles or extracted source files. It is not a current competitor feature claim.
-
-The public website distinguishes its simulated robot from the working iPhone + ESP32 electronics prototype; enclosure illustrations remain concepts. The existing source comment in `src/bleProtocol.ts` still notes that older firmware needs commands 2–4; current checked-in firmware implements them.
-
 ## Next steps and limits
 
 1. Run longer lock/background sessions and fault tests: out of range, ESP32 power loss while locked, Bluetooth toggling, delayed notifications and force-quit behavior. These remain unverified; see [the hardware checklist](docs/companion-ble.md#remaining-hardware-tests).
