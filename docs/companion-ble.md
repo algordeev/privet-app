@@ -4,9 +4,11 @@ Native iOS BLE central using `@capacitor-community/bluetooth-le` 8.3.0 with Capa
 
 ## Implementation and setup
 
-The current moving-screen variant is [PrivetBLE_Servo.ino](../firmware/PrivetBLE_Servo/PrivetBLE_Servo.ino), with [servo wiring/power/upload instructions](../firmware/PrivetBLE_Servo/README.md). It targets the ESP32 ESP-32S, SSD1306 128×64 I2C OLED and an SG90 servo on GPIO25. The older [PrivetBLE_Lessons.ino](../firmware/PrivetBLE_Lessons/PrivetBLE_Lessons.ino) and [OLED-only setup](../firmware/PrivetBLE_Lessons/README.md) remain as a separate baseline. Both implement the same four emotion commands and packet format; no app/BLE change is needed to select firmware-local gestures.
+Current firmware: [PrivetBLE_Servo_New_Emotions](../firmware/PrivetBLE_Servo_New_Emotions/README.md), for ESP32 ESP-32S, SSD1306 128×64 I2C OLED and SG90 on GPIO25. It supports codes 1–9. The older [servo](../firmware/PrivetBLE_Servo/README.md) and [OLED-only](../firmware/PrivetBLE_Lessons/README.md) variants support only 1–4; unsupported commands show an update notice without retrying or blocking lessons.
 
-The phone owns lessons, checking, progress and pronunciation. The ESP32 owns predefined OLED rendering, reaction timing and (in the servo variant) pulse-based motion. The project owner reports real-iPhone lesson/lock-background verification and now reports servo movement of the screen during emotions. Automated evidence, user reports and remaining hardware tests are separated under [Verification](#verification). The pictured enclosure remains a concept; no arbitrary text payloads, direct servo-angle/pulse commands or BLE audio are implemented.
+The phone owns lessons, checking, progress and pronunciation. Firmware owns OLED faces, durations and servo gestures. THINKING persists until replaced; HINT expires after 2600 ms into THINKING unless superseded. LISTENING is limited to 2600 ms in firmware; successful phone speech completion sends THINKING only for an unanswered question. Its request-scoped callback is invalidated by replacement, cancellation, submission, navigation, error, timeout, background or disposal. No duration guessing or app animation timer is used. LISTENING/THINKING are servo-quiet, apart from returning an already displaced head toward center.
+
+The current source is implemented, but the additional states and latest return-to-thinking changes have not been reported as uploaded/hardware-tested. Earlier user reports cover commands 1–4, servo movement and lock/background retention. Enclosure illustrations remain concepts.
 
 ## Peripheral contract (unchanged UUIDs)
 
@@ -18,7 +20,7 @@ Advertised name: **Privet-ESP32**. Advertise the service so a service-filtered i
 | Command | `7b5e0002-6d8a-4f3b-9c2e-1a0d8f6b4c91` | Write **with response** |
 | Status | `7b5e0003-6d8a-4f3b-9c2e-1a0d8f6b4c91` | Notify |
 
-Subscribe to Status before sending anything. Successful connection and subscription trigger one fresh IDLE synchronization, never a replay of an earlier reaction. The happy test is enabled only when the connection is ready and no command is pending.
+Subscribe to Status before sending anything. Successful connection and subscription trigger one fresh CONNECTED command, never a replay of an earlier reaction. The happy test is enabled only after connection/subscription are ready and no command is pending. An unsupported CONNECTED ACK shows the firmware-update notice while keeping the link usable; it does not trigger retries or fallback replay. Foreground reconciliation is different: it still requires an accepted IDLE ACK.
 
 ## Packet format (version 1, exactly 8 bytes)
 
@@ -36,59 +38,50 @@ Subscribe to Status before sending anything. Successful connection and subscript
 | 2 | ENCOURAGE | Gentle encouragement, never a sad or punishing face; user-verified firmware supports this |
 | 3 | CELEBRATE | Lesson completion celebration; user-verified firmware supports this |
 | 4 | IDLE | Immediately cancel a temporary reaction and show a neutral face; user-verified firmware supports this |
+| 5 | LISTENING | Explicit available pronunciation-button tap; intentionally servo-quiet |
+| 6 | THINKING | Persistent unanswered-question state; intentionally servo-quiet |
+| 7 | HINT | Explicit first hint request |
+| 8 | STREAK | Retained for protocol compatibility; not triggered by profile navigation |
+| 9 | CONNECTED | Fresh BLE connection after successful status subscription, once |
 
-An acknowledgement means **command accepted**, not that the animation finished, the display rendered successfully, or the servo reached a position. OLED initialization can fail while BLE continues accepting commands. The short labels drawn by firmware are predefined; this version carries no arbitrary text, JSON, raw servo commands or audio. The existing emotion code selects any servo gesture locally.
+An acknowledgement means **command accepted**, not that the animation finished, the display rendered successfully, or the servo reached a position. OLED initialization can fail while BLE continues accepting commands. The short labels drawn by firmware are predefined; this version carries no arbitrary text, JSON, raw OLED drawing commands, raw servo instructions or BLE audio. Commands 5–9 require the owner-added new-emotions variant; no claim of their hardware verification is made. The existing emotion code selects any servo gesture locally.
 
-Hex examples use consecutive distinct IDs `0x12345678` through `0x1234567D` (little-endian on the wire). Each ACK echoes its command's ID and code. The last two pairs illustrate diagnostic rejection cases; Privet normally sends only codes 1–4 with argument 0.
+Hex examples use consecutive distinct IDs `0x12345678` through `0x12345680` (little-endian on the wire). Each ACK echoes its command's ID and code. Code 10 is unknown even in the new variant. Privet sends only codes 1–9 with argument 0.
 
 ```text
-HAPPY:                    01 01 78 56 34 12 01 00
-HAPPY accepted:           01 02 78 56 34 12 01 00
-ENCOURAGE:                01 01 79 56 34 12 02 00
-ENCOURAGE accepted:       01 02 79 56 34 12 02 00
-CELEBRATE:                01 01 7A 56 34 12 03 00
-CELEBRATE accepted:       01 02 7A 56 34 12 03 00
-IDLE:                     01 01 7B 56 34 12 04 00
-IDLE accepted:            01 02 7B 56 34 12 04 00
-Unsupported code:         01 01 7C 56 34 12 05 00
-Unsupported ACK:          01 02 7C 56 34 12 05 01
-Nonzero IDLE argument:    01 01 7D 56 34 12 04 01
-Invalid argument ACK:     01 02 7D 56 34 12 04 02
+HAPPY:                   01 01 78 56 34 12 01 00
+HAPPY accepted:          01 02 78 56 34 12 01 00
+ENCOURAGE:               01 01 79 56 34 12 02 00
+ENCOURAGE accepted:      01 02 79 56 34 12 02 00
+CELEBRATE:               01 01 7A 56 34 12 03 00
+CELEBRATE accepted:      01 02 7A 56 34 12 03 00
+IDLE:                    01 01 7B 56 34 12 04 00
+IDLE accepted:           01 02 7B 56 34 12 04 00
+LISTENING:               01 01 7C 56 34 12 05 00
+LISTENING accepted:      01 02 7C 56 34 12 05 00
+THINKING:                01 01 7D 56 34 12 06 00
+THINKING accepted:       01 02 7D 56 34 12 06 00
+HINT:                    01 01 7E 56 34 12 07 00
+HINT accepted:           01 02 7E 56 34 12 07 00
+STREAK:                  01 01 7F 56 34 12 08 00
+STREAK accepted:         01 02 7F 56 34 12 08 00
+CONNECTED:               01 01 80 56 34 12 09 00
+CONNECTED accepted:      01 02 80 56 34 12 09 00
+Unknown code 10:          01 01 81 56 34 12 0A 00
+Unsupported ACK:         01 02 81 56 34 12 0A 01
+Nonzero IDLE argument:   01 01 82 56 34 12 04 01
+Invalid argument ACK:    01 02 82 56 34 12 04 02
 ```
 
 Actual requests use distinct, increasing nonzero IDs throughout the running JavaScript process, including across transport instances. IDs never wrap; exhaustion requires an app restart. A fresh process starts new IDs, so connection-generation scoping is also required. Match both request ID and command code against the current, non-obsolete in-flight request and connection. Ignore wrong lengths, versions, message types, command codes, result codes, IDs, duplicate ACKs and old connection callbacks. An ACK arriving before the write-response promise resolves is retained, but acceptance is reported only after the write also succeeds.
 
-## Firmware behavior verified from the sketches
+## Firmware behavior
 
-| Command | Face/animation | OLED-only duration | OLED + servo duration |
-| --- | --- | --- | --- |
-| HAPPY | Joyful eyes, larger smile, `Happy!` | 2000 ms | 2000 ms |
-| ENCOURAGE | Relaxed eyes, small smile, `Try again!`; no punitive frown | 2200 ms | 2200 ms |
-| CELEBRATE | Joyful face, bobbing and sparkles, `Well done!` | 3200 ms | 4500 ms |
-| IDLE | Neutral face with occasional blink; `Connected` or `Ready BLE` | No expiry | No expiry |
+The [current firmware guide](../firmware/PrivetBLE_Servo_New_Emotions/README.md) lists durations and setup. New commands replace the latest-state mailbox, not an animation queue; repeated commands with new IDs restart their state. OLED drawing and servo updates run in `loop()`, outside BLE callbacks. IDLE cancels the temporary face on the next loop and requests servo centering; physical motion is slewed rather than instantaneous. THINKING has no expiry; HINT returns to THINKING. Other timed states return to IDLE unless another command supersedes them.
 
-Durations are code constants, not measured radio/display/movement latencies. A temporary reaction returns to IDLE after its timer expires; its timer starts when `loop()` observes the new mailbox revision. New commands replace the latest-state mailbox rather than append an animation queue. Accepted IDLE replaces the face on the next loop update and bypasses the normal 50 ms drawing throttle. It also requests servo centering in the servo variant; physical motion still slews, so this is not instantaneous arrival at neutral.
+Servo output uses GPIO25 at 50 Hz, center 1500 µs and clamped targets 1300–1700 µs. The sketch slews toward targets and releases PWM after settling; it does not measure position or guarantee that the screen stays centered under load. LISTENING/THINKING add no expressive gesture. See [servo wiring, power and motion limitations](../firmware/PrivetBLE_Servo/README.md#hardware-and-wiring); that guide also preserves the older sketch's gesture details. The current OLED is rotated 180° and uses faces without captions.
 
-CELEBRATE changes its OLED bob/sparkles on a 180 ms phase; idle blink uses a 4300 ms cycle with a 130 ms blink window. `loop()` has a 10 ms delay. I2C/drawing and servo updates stay in `loop()`, outside BLE callbacks. The servo variant rotates the OLED 180° with `display.setRotation(2)` for its upside-down screen mounting; the baseline does not.
-
-A new command with the same reaction but a different request ID advances the mailbox revision and restarts timing. If several commands arrive before `loop()` consumes them, only the latest state may appear/move, even though each accepted command can have an ACK. Duplicate handling below applies to both sketches and does not restart the face or servo gesture.
-
-### Servo motion (servo variant only)
-
-`SERVO_ENABLED` is `true`. GPIO25 drives an ESP32Servo PWM output at 50 Hz. The current command is tracked in microseconds: center 1500 µs, clamped targets 1300–1700 µs. `attach(..., 500, 2500)` configures the library's broader pulse mapping, but the sketch's commanded pulses remain within 1300–1700 µs. No app command supplies a raw angle or pulse.
-
-| Emotion | Servo target sequence from gesture start |
-| --- | --- |
-| HAPPY | 1700 µs for age <900 ms, then 1500 µs |
-| ENCOURAGE | 1500 µs; no punitive head shaking |
-| CELEBRATE | 1300 µs for <900 ms; 1700 for 900–1799; 1300 for 1800–2699; 1700 for 2700–3599; then 1500 |
-| IDLE / disconnect / reaction expiry | Request 1500 µs and return toward center |
-
-The pulse changes by at most 10 µs per update at intervals of at least 20 ms. Target changes therefore produce slewed motion, not immediate jumps to each target. PWM attaches only when HAPPY/CELEBRATE or an off-center last-commanded pulse needs motion. There is no forced centering movement at boot: GPIO25 starts LOW and the software initially assumes a 1500 µs commanded pulse.
-
-When the gesture's release threshold has passed (HAPPY 1500 ms, CELEBRATE 4100 ms, other states 0 ms) and the commanded pulse equals center, a 250 ms settling interval precedes detaching PWM and setting GPIO25 LOW. These are software thresholds, not measured completion times. Detaching releases active holding; gravity/load may move the screen. There is no position feedback, measured angle, stall detection or confirmation of physical centering. An unknown starting position can cause a larger first movement.
-
-The sketch header targets initial **unloaded SG90 testing**. The user reports actual screen movement, but safe loaded travel, mounting clearance, power stability and endurance still need validation. See the [servo setup/checklist](../firmware/PrivetBLE_Servo/README.md) before first use. OLED initialization failure does not disable servo logic; an accepted command can still move a connected servo even with a blank display. A PWM attach failure logs an error while BLE/OLED continue, and an ACK is not a servo-success report.
+The current sketch starts CONNECTED locally when the BLE link is created; the app independently sends command 9 once status subscription succeeds. This may restart the welcome animation. Retained-link foreground return uses IDLE, not CONNECTED.
 
 ### Validation and duplicate handling
 
@@ -99,32 +92,37 @@ The sketch header targets initial **unloaded SG90 testing**. The user reports ac
 - The cache is reset on BLE connect and disconnect. It holds only one request: replaying an older request after an intervening command is not deduplicated. There is no persistent replay history or authenticated anti-replay protection.
 - The app allocates nonzero IDs; firmware parses the uint32 but does not separately reject ID 0. This does not change the app's nonzero-ID policy.
 
-Connect/disconnect request IDLE and reset the duplicate cache. Disconnect schedules advertising to restart in `loop()`; this makes the device discoverable again, not an automatic app reconnection. An OLED missing at both 0x3C/0x3D or failing initialization leaves BLE running, so even a matching accepted ACK does not establish that the screen worked. `notify()` itself is not proof that the app received the ACK; the app uses its own matching/deadline logic.
+Connect/disconnect reset the duplicate cache. The current sketch requests CONNECTED on connect and IDLE on disconnect; legacy sketches request IDLE for both. Disconnect schedules advertising to restart in `loop()`; this makes the device discoverable again, not an automatic app reconnection. An OLED missing at both 0x3C/0x3D or failing initialization leaves BLE running, so even a matching accepted ACK does not establish that the screen worked. `notify()` itself is not proof that the app received the ACK; the app uses its own matching/deadline logic.
 
 ## Lesson and navigation events
 
-Events come from explicit accepted reducer transitions, not render effects, keystrokes, stored results, idle blinks, pronunciation controls or virtual animation timers.
+Lesson reactions come from explicit accepted reducer transitions. LISTENING and HINT start only on explicit taps. A guarded successful speech-completion callback can restore THINKING; voice initialization, rerenders, keystrokes, stored results and virtual animation timers emit no commands. Profile entry is silent. Optional callbacks leave the shared website lesson independent of BLE.
 
-| Event | Command |
+| User event | Command |
 | --- | --- |
-| Incorrect submission | ENCOURAGE |
-| Correct submission (including vocabulary check-in) | HAPPY |
-| Retry after incorrect feedback | IDLE |
-| Continue to a new exercise | IDLE |
-| Final Continue that actually completes the lesson | CELEBRATE **only**, exactly once |
-| Restart/reset lesson | IDLE |
-| Open/close a lesson, return home | IDLE |
-| Other native screen changes | IDLE (new neutral context) |
-| Fresh connection plus successful subscription | IDLE once |
-| Foreground return with a retained link | Native verification, then one IDLE; enable lesson commands only after its accepted ACK |
-| Restore/reopen saved results | No celebration; opening the view only synchronizes IDLE |
+| Incorrect answer | 2 ENCOURAGE |
+| Correct answer | 1 HAPPY |
+| Continue to next exercise | 6 THINKING |
+| Try again | 6 THINKING |
+| Final lesson completion | 3 CELEBRATE |
+| Available audio button, explicit tap | 5 LISTENING |
+| Pronunciation finishes with an unanswered exercise still open | 6 THINKING |
+| Show hint, first explicit tap | 7 HINT |
+| Open profile/statistics from home | No command (no reaction or movement) |
+| Fresh subscribed connection | 9 CONNECTED |
+| Open/resume/switch to an unanswered active lesson | 6 THINKING |
+| Open completed results, failed screen or existing answer feedback | 4 IDLE |
+| Replay a completed lesson (fresh first question) | 6 THINKING |
+| Other reset, close lesson, home, foreground reconciliation | 4 IDLE |
+
+Final Continue sends CELEBRATE **only**, exactly once, without an immediate THINKING/IDLE. Restoring/reopening results never celebrates. Lesson entry resolves the target controller before changing selection: unanswered active exercises request THINKING, while completed, failed or existing-feedback views request IDLE. Direct lesson switches use the same semantic entry method even when the lesson view is already open. Opening profile/statistics is silent, including return from a Plus overlay. STREAK remains code 8 for protocol compatibility but is not requested by navigation. An unavailable audio control sends nothing; an available explicit tap requests LISTENING then starts existing phone speech normally. An already-shown hint remains disabled and sends nothing again. Other neutral screen changes request IDLE (profile entry is the silent exception). Foreground return checks the retained link then requires an accepted IDLE ACK before resuming commands; it never replays CONNECTED.
 
 Rapid duplicate transitions are deduplicated independently of React rerenders. None of these callbacks awaits BLE. Hardware errors and update notices appear in companion settings/home connection status, never in lesson or audio feedback. No hardware is necessary to complete the lesson.
 
 ## Connection ownership and lifecycle
 
 - The root `NativeApp` hook owns one transport across screens. Navigating between home/profile/lessons/settings preserves an established connection and its listeners. Leaving settings cancels scanning/unfinished connection or subscription only.
-- Ordinary inactive/background/pagehide events (including locking) **do not intentionally disconnect an established link**. They mark it suspended/unconfirmed, disable commands, clear the unsent latest slot, invalidate ACK matchers/waits and cancel app-side deadlines. No last-minute IDLE is issued. Firmware independently returns temporary faces to idle after bounded durations.
+- Ordinary inactive/background/pagehide events (including locking) **do not intentionally disconnect an established link**. They mark it suspended/unconfirmed, disable commands, clear the unsent latest slot, invalidate ACK matchers/waits and cancel app-side deadlines. No last-minute IDLE is issued. Firmware independently expires temporary faces (HINT returns to THINKING; other timed states return to IDLE). Persistent THINKING stays visible while the link is retained, until a later command (including foreground IDLE) or disconnect clears it.
 - Scanning and unfinished connection/subscription attempts are stopped/canceled on background. No new scan or connect is started while inactive. There is no background scanning feature, polling, heartbeat, keep-alive or reconnect loop.
 - A write already submitted to the native bridge cannot be recalled. Its actual promise remains tracked even after the request's UI/ACK wait is canceled. Return-to-foreground must await settlement with a new bounded deadline before another write can begin. There is never a second overlapping native write, nor a replay of the canceled reaction.
 - Explicit Disconnect, actual native connection loss, Bluetooth becoming unavailable and root disposal still invalidate the connection and clean up. Disconnect remains available while suspended or checking. A later foreground callback cannot undo it.
@@ -153,7 +151,7 @@ References checked: [plugin iOS/background configuration](https://github.com/cap
 
 ## Scheduler, cancellation and time bounds
 
-The scheduler has **one in-flight command and at most one replaceable latest pending command**. There is no reaction FIFO. Same-context reactions replace the unsent pending reaction. IDLE and CELEBRATE mark the in-flight request obsolete, invalidate its ACK matcher/wait, and replace unsent old-context work. IDLE already waiting for the write slot is prioritized over fleeting HAPPY/ENCOURAGE requests; those may be dropped rather than skip the neutral synchronization. Completion can replace unsent IDLE or other reactions.
+The scheduler has **one in-flight command and at most one replaceable latest pending command**. There is no reaction FIFO. Same-context HAPPY, ENCOURAGE, LISTENING and HINT reactions replace the unsent pending reaction. Context-changing IDLE, THINKING, STREAK, CONNECTED and CELEBRATE mark the in-flight request obsolete, invalidate its ACK matcher/wait, and replace unsent old-context work. A context command already waiting for the native write slot is preserved ahead of fleeting reactions; those may be dropped rather than skip the required context. Another context may replace that pending context. CELEBRATE can replace any unsent earlier IDLE, THINKING, reaction or other state.
 
 A new context cancels the old **ACK wait immediately**. It cannot cancel a native write already handed to CoreBluetooth, so the scheduler preserves that write's serialization and bounded deadline, then sends the newest pending command without waiting out the old ACK timeout. Late ACKs for canceled requests are ignored, including an unsupported result that would otherwise show a stale update notice. A context change before the native bridge call prevents the obsolete command from being written at all.
 
@@ -179,11 +177,11 @@ Connect through Privet's device picker, not manual pairing in iPhone Settings. T
 
 The sketch uses ordinary `PROPERTY_WRITE` and `PROPERTY_NOTIFY` characteristics and a `BLE2902` notification descriptor. It configures no passkey, bonding, authentication, encrypted-write requirement, owner allowlist or application secret. The app does not initiate bonding or authenticate the peripheral. Do not assume link encryption, authenticated pairing or exclusive ownership. Another compatible nearby BLE central could issue these face commands; the advertised name/UUIDs and request IDs are not credentials. Keep this prototype for a trusted local test environment; it has no protocol facility for sensitive content.
 
-Authenticated ownership/pairing, broader recovery and process-termination restoration are future work. There are no arbitrary text payloads, raw OLED drawing commands, raw servo instructions or BLE audio in this protocol. The four emotion commands can trigger local servo gestures in the servo variant. Predefined face labels come from the sketch, while pronunciation remains on the phone.
+Authenticated ownership/pairing, broader recovery and process-termination restoration are future work. There are no arbitrary text payloads, raw OLED drawing commands, raw servo instructions or BLE audio in this protocol. The nine predefined state commands select local firmware behavior; the legacy servo variant accepts only codes 1–4. Predefined face labels come from the sketch, while pronunciation remains on the phone.
 
 ## Source and native integration
 
-- `src/bleProtocol.ts`: unchanged UUIDs/version, commands 1–4, binary codec and process-wide IDs.
+- `src/bleProtocol.ts`: unchanged UUIDs/version, commands 1–9, binary codec and process-wide IDs.
 - `src/bleDriver.ts`: installed plugin adapter, supported native connection queries and existing listener/subscription ownership.
 - `src/bleTransport.ts`: app-wide connection state, separate lifecycle revisions, foreground reconciliation, bounded scheduler and cancellation.
 - `src/physicalLessonEvents.ts`: accepted lesson transition mapping and duplicate-event suppression.
@@ -191,7 +189,8 @@ Authenticated ownership/pairing, broader recovery and process-termination restor
 - `src/NativeApp.tsx`: explicit native navigation/lesson callbacks; website not involved.
 - `src/PhysicalCompanionSettings.tsx`: settings and accessible home connection status.
 - `src/bleProtocol.test.ts`, `src/bleTransport.test.ts`, `src/physicalLessonEvents.test.ts`: binary, lifecycle, event and scheduler regression tests.
-- `firmware/PrivetBLE_Servo/PrivetBLE_Servo.ino`: current BLE/OLED/servo variant with clamped pulse targets, loop-driven slew and PWM release.
+- `firmware/PrivetBLE_Servo_New_Emotions/PrivetBLE_Servo_New_Emotions.ino`: owner-added nine-state source; no upload or new-animation hardware verification claimed.
+- `firmware/PrivetBLE_Servo/PrivetBLE_Servo.ino`: legacy commands-1–4 BLE/OLED/servo variant with clamped pulse targets, loop-driven slew and PWM release.
 - `firmware/PrivetBLE_Lessons/PrivetBLE_Lessons.ino`: retained OLED-only baseline; same packet contract, earlier celebration duration.
 
 The existing local Swift package `CapacitorCommunityBluetoothLe` remains in `ios/App/CapApp-SPM/Package.swift`. `NSBluetoothAlwaysUsageDescription` is unchanged; `UIBackgroundModes` now includes `bluetooth-central`. No signing/app-ID change, new plugin, network service, `server.url` or plugin fork was introduced. Native content remains bundled locally; GitHub Pages keeps its own base path.
@@ -213,40 +212,22 @@ Or use `npm run sync:ios` for build plus sync. Select the existing **App** schem
 
 ## Verification
 
-### Recorded automated checks
+### Automated app checks
 
-The preceding implementation validation recorded **85 Node tests**, TypeScript/rendered-shell checks, web/Pages/native production builds, iOS sync and an unsigned generic-iOS Debug build passing. The built plist contained `bluetooth-central`. The repository still contains the 85 test cases; the existing build log records `BUILD SUCCEEDED`.
+Latest recorded validation: **133 Node tests**, rendered-shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover target-lesson entry/resume/switching, completed/failed views, replay, hint/audio actions, stale audio completion, rewards/Plus and disconnected behavior. Unit tests cover packet validation, accepted transitions, bounded replacement, ACK matching/cancellation, serialized writes, errors and lifecycle races. Website HTML matched 31 baseline states.
 
-Mocked native bridge checks at 375×667 and 430×932 covered retained connections, query-before-IDLE ordering, ACK-gated resume, dropped pending work, listener/subscription reuse, explicit Disconnect during reconciliation, lost/off states, canceled scanning and no automatic lesson progression. The checking-state screenshot was inspected. Website HTML matched its pre-change baseline and its full lesson/retry/replay flow passed at 390×844; the pre-existing 2px mobile website overflow remained unchanged.
-
-These are automated/fake-driver/mock-bridge results, not evidence of physical radio endurance, display rendering, real permission dialogs or fault recovery. Earlier 74-test/foreground-only milestone notes are historical and superseded. No app builds, firmware compilation or hardware tests were rerun for this documentation-only update; source comparison, link/hex checks and `git diff --check` validate the documentation edits.
+BLE and speech are mocked. These results do not verify real radio, audio, OLED rendering or servo motion. No new firmware compile/upload or real-device test was performed by the coding agent. An older background-lifecycle milestone recorded an unsigned Xcode build; that is not a build result for the latest changes.
 
 ### User-reported real-hardware checks
 
-The project owner reports:
-
-- The app runs on a real iPhone.
-- Discovery, connection, Test happy reaction and matching acknowledgements work.
-- Explicit disconnect/reconnect works; an established connection survives navigation between native screens.
-- Incorrect answer → encouraging face; correct answer → happy face; Continue to another exercise → idle face; lesson completion → celebration with sparkles.
-- The latest change preserving connection during locking/backgrounding works.
-- The added servo moves the screen when showing emotions. Specific pulse/gesture parameters are documented from source, not inferred measurements of the physical screen.
-
-These reports supply no exact lock/background durations, iPhone model, iOS version, Arduino board-package version, latency, range, endurance or successful fault-recovery results. None is inferred. The coding agent did not perform these hardware checks. The ESP32/OLED/servo electronics prototype is user-reported; servo load/angle/torque/endurance results are not supplied; enclosure illustrations remain concepts.
+The project owner confirms real-iPhone discovery, connection, matching ACKs, happy test, disconnect/reconnect, navigation continuity, commands 1–4, lock/background connection retention and servo movement. Those reports used the earlier Continue/retry→IDLE mapping. They do not establish the new THINKING, LISTENING, HINT or CONNECTED behavior, recent return-to-thinking fixes, exact session durations, device/software versions, range, endurance or fault recovery.
 
 ### Remaining hardware tests
 
-The general lock/background behavior is user-confirmed. The following extended, timed and fault scenarios are **not recorded as passed**:
-
-- Connect → lock for a measured 30 seconds → unlock → test; then extend to longer sessions. Record duration/device/software versions rather than assuming them from the prior report.
-- Connect → switch apps for a measured two minutes → return → test; repeat/extend for endurance and listener/reaction duplication checks.
-- Verify fresh native-state checks and one IDLE ACK on return, no replay/extra background writes, and no unnecessary new connect.
-- Power off ESP32 while locked, then unlock: verify honest lost/unavailable/error status, no stale Connected indication, and manual recovery after power returns.
-- Move out of range and return; toggle Bluetooth while inactive and restore it. Check honest status and manual Connect rather than assume automatic recovery.
-- Explicit Disconnect during a delayed foreground check/IDLE ACK and through later lock/unlock: it must remain effective. Normal explicit disconnect/reconnect is already user-confirmed; these races are separate tests.
-- Background during scanning, connection or subscription; delay native writes/ACKs and send malformed/wrong-ID/duplicate notifications. Verify bounded failures, no overlapping writes, stale callback rejection and no lesson/audio interruption on hardware.
-- Force-quit/OS termination and relaunch: document actual behavior and manual Connect. No persistence/restoration guarantee is implemented or claimed.
-- Validate unloaded servo travel before the screen load, actual mounting clearance/direction, power stability during motion, safe loaded travel, return/release behavior and endurance. Check IDLE/disconnect interrupts gestures without assuming PWM release holds the screen. These are not confirmed by an ACK.
-- Check no background audio or automatic lesson progression; check keyboard, safe areas, accessibility and display/PWM-failure behavior on intended devices.
-
-Use the current [servo setup and first-run checks](../firmware/PrivetBLE_Servo/README.md#first-run-and-lesson-checklist), or the [OLED-only baseline checklist](../firmware/PrivetBLE_Lessons/README.md#first-run-and-lesson-checklist), for the selected variant. This checklist is a validation plan, not a list of completed fault-recovery results.
+- Upload the current new-emotions sketch separately. Check active lesson start/resume/switch/replay and Continue/retry→persistent THINKING; results/failed screens and close→IDLE. Profile must remain silent.
+- Check audio→LISTENING→THINKING and HINT→THINKING, including answer/close interrupts. Verify no late return overwrites feedback or completion; final Continue must celebrate once.
+- Confirm servo-quiet LISTENING/THINKING, safe unloaded/loaded travel, clearance, power stability and return/PWM release. ACKs do not confirm physical success.
+- Connect→lock for 30 seconds→unlock→test; switch apps for two minutes→return→test. Extend for endurance; these durations are planned tests, not recorded passes.
+- Power off ESP32 while locked, go out of range, or toggle Bluetooth. Verify honest status and manual reconnection; explicit Disconnect during reconciliation must remain effective.
+- Confirm fresh CONNECTED versus retained-link ACK-gated IDLE, no background/replayed reactions, bounded failures, and no overlapping writes or duplicate subscriptions.
+- Test force-quit/relaunch and native keyboard/accessibility separately. No automatic reconnection or process-termination restoration is promised.

@@ -114,18 +114,19 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
    await wait(subscribed,g,time.subscribe,'Companion setup timed out. Try again.');
    if(!current(g))return;
    update({phase:'connected',message:'Connected. Ready for your lesson.',ready:true});
-   request(COMMAND.IDLE); // Fresh subscription synchronizes once; no old events replay.
+   request(COMMAND.CONNECTED); // Fresh subscription only; foreground reconciliation still uses IDLE.
   }catch(error){failure(error,g);}
  }
  // Context changes cancel ACK waits, never an active native write. The next
  // command may run only once that write resolves (or its bounded timeout drops
  // the connection). There is one replaceable slot, never a reaction FIFO.
+ const contextCommands:ReadonlySet<CommandCode>=new Set([COMMAND.IDLE,COMMAND.THINKING,COMMAND.STREAK,COMMAND.CONNECTED,COMMAND.CELEBRATE]);
  function request(command:CommandCode){
   if(!alive||!active||!state.ready||!state.device)return false;
-  // Preserve a requested neutral reset ahead of fleeting same-context reactions.
-  // Completion can replace it; otherwise prefer dropping a reaction to skipping IDLE.
-  if(latest===COMMAND.IDLE&&command!==COMMAND.IDLE&&command!==COMMAND.CELEBRATE)return false;
-  if(command===COMMAND.IDLE||command===COMMAND.CELEBRATE){
+  // Preserve a pending context change ahead of fleeting same-context reactions.
+  // A newer context (including completion) may replace it.
+  if(latest!==undefined&&contextCommands.has(latest)&&!contextCommands.has(command))return false;
+  if(contextCommands.has(command)){
    latest=undefined;
    if(flight){flight.obsolete=true;flight.ack('cancelled');}
   }
@@ -187,8 +188,16 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
   if(next===screen)return;
   if(screen==='physical')leaveSettings();
   screen=next;
-  // A real navigation establishes a new neutral context, not an animation tick.
-  request(COMMAND.IDLE);
+  // Profile entry is silent: no face change or movement. Other navigation
+  // establishes a neutral context. Code STREAK remains protocol-compatible only.
+  if(next!=='profile')request(COMMAND.IDLE);
+ }
+ // Unlike ordinary same-screen navigation, direct lesson switches must replace
+ // the old question context even while the lesson view is already open.
+ function enterLesson(hasActiveQuestion:boolean){
+  if(screen==='physical')leaveSettings();
+  screen='lesson';
+  return request(hasActiveQuestion?COMMAND.THINKING:COMMAND.IDLE);
  }
  function pause(){
   if(!state.device||!['connected','suspended','reconciling'].includes(state.phase)){
@@ -222,7 +231,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
    if(valid()&&!(error instanceof Cancelled))invalidate('error','Could not confirm the connection. Connect again.');
   }
  }
- return {scan,connect,testHappy,request,leaveSettings,navigate,getState:()=>state,
+ return {scan,connect,testHappy,request,leaveSettings,navigate,enterLesson,getState:()=>state,
   disconnect:()=>invalidate('disconnected','Disconnected. No commands are queued.'),
   setActive(value:boolean){if(!alive||active===value)return;active=value;activityRevision++;if(!value)pause();else void reconcile();},
   dispose(){alive=false;active=false;invalidate('disconnected','Disconnected.');}

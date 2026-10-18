@@ -10,9 +10,9 @@ export function physicalLessonCommand(previous:Progress,next:Progress,action:Act
   return next.feedback==='correct'?COMMAND.HAPPY:next.feedback==='incorrect'?COMMAND.ENCOURAGE:null;
  }
  if(action.type==='continue'&&previous.feedback==='correct'&&next.index===previous.index+1){
-  return next.complete?COMMAND.CELEBRATE:COMMAND.IDLE;
+  return next.complete?COMMAND.CELEBRATE:COMMAND.THINKING;
  }
- if(action.type==='retry'&&previous.feedback==='incorrect'&&!next.feedback)return COMMAND.IDLE;
+ if(action.type==='retry'&&previous.feedback==='incorrect'&&!next.feedback)return COMMAND.THINKING;
  return null;
 }
 export function createPhysicalLessonEvents(send:(command:CommandCode)=>unknown){

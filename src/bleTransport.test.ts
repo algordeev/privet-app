@@ -5,7 +5,7 @@ import {encodeCommand,BLE_SERVICE,COMMAND,type CommandCode} from './bleProtocol.
 function deferred<T=void>(){let resolve!:(value:T)=>void,reject!:(error:Error)=>void;const promise=new Promise<T>((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};}
 const flush=()=>new Promise<void>(resolve=>setImmediate(resolve));
 function acknowledgement(id:number,result=0,command:CommandCode=COMMAND.HAPPY){const packet=encodeCommand(id,command);packet.setUint8(1,2);packet.setUint8(7,result);return packet;}
-function harness(overrides:Partial<BleDriver>={},supported=true){
+function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0){
  let now=0,nextTimer=0,initializations=0,connections=0,cleanups=0,stopScans=0,syncing=false,activeWrites=0,maxWrites=0,subscriptions=0,watches=0,queries=0;
  let found!:(device:PhysicalDevice)=>void,notified!:(value:DataView)=>void,disconnected!:()=>void,enabled!:(value:boolean)=>void;
  const timers=new Map<number,{at:number;fn:()=>void}>(),writes:DataView[]=[],snapshots:BleState[]=[];
@@ -21,7 +21,7 @@ function harness(overrides:Partial<BleDriver>={},supported=true){
   async write(id,packet,timeout){
    writes.push(packet);activeWrites++;maxWrites=Math.max(maxWrites,activeWrites);
    try{
-    if(syncing&&packet.getUint8(6)===COMMAND.IDLE){syncing=false;notified(acknowledgement(packet.getUint32(2,true),0,COMMAND.IDLE));}
+    if(syncing&&packet.getUint8(6)===COMMAND.CONNECTED){syncing=false;notified(acknowledgement(packet.getUint32(2,true),freshResult,COMMAND.CONNECTED));}
     else await overrides.write?.(id,packet,timeout);
    }finally{activeWrites--;}
   },
@@ -41,7 +41,7 @@ function harness(overrides:Partial<BleDriver>={},supported=true){
 test('mount, background, unsupported environments and disconnected reactions never initialize Bluetooth',async()=>{
  const h=harness();h.actor.request(COMMAND.CELEBRATE);h.actor.navigate('lesson');h.actor.setActive(false);h.actor.setActive(true);assert.equal(h.initializations,0);
  const unsupported=harness({},false);await unsupported.actor.scan();assert.equal(unsupported.state.phase,'unavailable');assert.equal(unsupported.initializations,0);
- await h.ready(true);assert.deepEqual(h.codes(),[COMMAND.IDLE]);h.actor.dispose();
+ await h.ready(true);assert.deepEqual(h.codes(),[COMMAND.CONNECTED]);h.actor.dispose();
 });
 test('scan filters service, deduplicates devices, bounds scanning and cleans callbacks',async()=>{
  const h=harness();await h.actor.scan();h.found();h.found();assert.equal(h.state.devices.length,1);const old=h.oldCallbacks();await h.tick(BLE_TIMEOUTS.scan);
@@ -51,11 +51,11 @@ test('permission denied, disabled Bluetooth, simulator unsupported and general e
  for(const [message,phase] of [['BLE permission denied','permission-denied'],['BLE unsupported','unavailable'],['Unexpected failure','error']] as const){const h=harness({async initialize(){throw new Error(message);}});await h.actor.scan();await flush();assert.equal(h.state.phase,phase);assert.equal(h.state.ready,false);}
  const off=harness({async isEnabled(){return false;}});await off.actor.scan();assert.equal(off.state.phase,'unavailable');
 });
-test('no command before connect AND subscription succeed; fresh subscription sends IDLE exactly once',async()=>{
+test('no command before connect AND subscription succeed; fresh subscription sends CONNECTED exactly once',async()=>{
  const connection=deferred(),subscription=deferred(),h=harness({connect:()=>connection.promise,subscribe:()=>subscription.promise});
  await h.actor.scan();h.found();const operation=h.actor.connect('device-a');await flush();h.actor.testHappy();assert.equal(h.state.ready,false);assert.equal(h.writes.length,0);
  connection.resolve();await flush();h.actor.request(COMMAND.HAPPY);assert.equal(h.writes.length,0);subscription.resolve();await operation;await flush();
- assert.equal(h.state.ready,true);assert.deepEqual(h.codes(),[COMMAND.IDLE]);await flush();assert.deepEqual(h.codes(),[COMMAND.IDLE]);h.actor.dispose();
+ assert.equal(h.state.ready,true);assert.deepEqual(h.codes(),[COMMAND.CONNECTED]);await flush();assert.deepEqual(h.codes(),[COMMAND.CONNECTED]);h.actor.dispose();
 });
 test('only matching ID AND command AND connection generation finish an ACK; duplicate and malformed ACKs ignored',async()=>{
  const h=harness();await h.ready();h.actor.testHappy();await flush();const id=h.writes[0].getUint32(2,true);
@@ -138,7 +138,7 @@ test('initialize, scan-start, connection and subscription timeouts reject late c
 test('obsolete write timeout must not allow an overlapping IDLE write or replay after reconnect',async()=>{
  const write=deferred(),h=harness({write:()=>write.promise});await h.ready();h.actor.request(COMMAND.HAPPY);await flush();h.actor.request(COMMAND.IDLE);await h.tick(BLE_TIMEOUTS.write);
  assert.equal(h.state.phase,'error');assert.equal(h.state.ready,false);assert.deepEqual(h.codes(),[1]);write.resolve();await flush();assert.equal(h.state.busy,false);assert.equal(h.maxWrites,1);
- await h.ready(true);assert.deepEqual(h.codes(),[1,4]);h.actor.dispose();
+ await h.ready(true);assert.deepEqual(h.codes(),[1,9]);h.actor.dispose();
 });
 test('immediate navigation/disconnect drops commands not yet handed to native bridge',async()=>{
  const h=harness();await h.ready();h.actor.request(COMMAND.HAPPY);h.actor.request(COMMAND.IDLE);await flush();assert.deepEqual(h.codes(),[4]);await h.ackLatest();h.writes.length=0;
@@ -204,4 +204,94 @@ test('foreground IDLE acknowledgement timeout or rejected sync never reports Con
 test('bounded foreground query and unresolved native write failures offer manual connection, without replay',async()=>{
  const query=deferred<boolean>(),h=harness({connected:()=>query.promise});await h.ready();h.actor.setActive(false);h.actor.setActive(true);await flush();await h.tick(BLE_TIMEOUTS.subscribe);assert.equal(h.state.phase,'error');query.resolve(true);await flush();assert.equal(h.writes.length,0);
  const writing=deferred(),w=harness({write:()=>writing.promise});await w.ready();w.actor.testHappy();await flush();w.actor.setActive(false);w.actor.setActive(true);await flush();await w.tick(BLE_TIMEOUTS.write);assert.equal(w.state.phase,'error');assert.equal(w.queries,0);writing.resolve();await flush();assert.deepEqual(w.codes(),[1]);assert.equal(w.maxWrites,1);
+});
+
+const contexts=[COMMAND.IDLE,COMMAND.THINKING,COMMAND.STREAK,COMMAND.CONNECTED,COMMAND.CELEBRATE];
+const fleeting=[COMMAND.HAPPY,COMMAND.ENCOURAGE,COMMAND.LISTENING,COMMAND.HINT];
+test('every context cancels obsolete ACK waits immediately and rejects late ID/command matches',async()=>{
+ for(const context of contexts){
+  const h=harness();await h.ready();h.actor.request(COMMAND.LISTENING);await flush();const old=h.writes[0];
+  h.actor.request(context);await flush();assert.deepEqual(h.codes(),[COMMAND.LISTENING,context]);assert.equal(h.maxWrites,1);
+  h.notify(acknowledgement(old.getUint32(2,true),1,COMMAND.LISTENING));assert.equal(h.state.pending,true);assert.equal(h.state.notice,undefined);
+  const current=h.writes[1];h.notify(acknowledgement(current.getUint32(2,true),0,COMMAND.HINT));assert.equal(h.state.pending,true);
+  await h.ackLatest();await h.tick(BLE_TIMEOUTS.ack);assert.equal(h.state.pending,false);assert.equal(h.state.ready,true);h.actor.dispose();
+ }
+});
+test('all pending contexts resist fleeting reactions; latest context replaces them without overlapping native writes',async()=>{
+ for(const context of contexts){
+  const write=deferred(),h=harness({write:(_id,p)=>p.getUint8(6)===COMMAND.LISTENING?write.promise:Promise.resolve()});await h.ready();
+  h.actor.request(COMMAND.LISTENING);await flush();h.actor.request(context);
+  for(let i=0;i<100;i++)assert.equal(h.actor.request(fleeting[i%fleeting.length]),false);
+  assert.deepEqual(h.codes(),[COMMAND.LISTENING]);h.actor.request(COMMAND.THINKING);h.actor.request(COMMAND.STREAK);h.actor.request(COMMAND.CELEBRATE);
+  write.resolve();await flush();assert.deepEqual(h.codes(),[COMMAND.LISTENING,COMMAND.CELEBRATE]);assert.equal(h.maxWrites,1);await h.ackLatest();assert.equal(h.state.pending,false);h.actor.dispose();
+ }
+});
+test('new context never hides a genuine submitted-write rejection or timeout',async()=>{
+ for(const context of contexts)for(const outcome of ['reject','timeout']){
+  const write=deferred(),h=harness({write:()=>write.promise});await h.ready();h.actor.request(COMMAND.HINT);await flush();h.actor.request(context);
+  if(outcome==='reject'){write.reject(new Error('Native write failed'));await flush();}else await h.tick(BLE_TIMEOUTS.write);
+  assert.equal(h.state.phase,'error');assert.equal(h.state.ready,false);assert.deepEqual(h.codes(),[COMMAND.HINT]);assert.equal(h.maxWrites,1);
+  if(outcome==='timeout')write.resolve();await flush();assert.equal(h.state.pending,false);h.actor.dispose();
+ }
+});
+test('unsupported new reactions show update notice and leave link usable without retries',async()=>{
+ for(const command of [COMMAND.LISTENING,COMMAND.THINKING,COMMAND.HINT,COMMAND.STREAK]){
+  const h=harness();await h.ready();h.actor.request(command);await flush();await h.ackLatest(1);
+  assert.equal(h.state.ready,true);assert.match(h.state.notice!,/update needed/);assert.match(h.state.message,/needs an update/);
+  h.actor.request(COMMAND.HAPPY);await flush();await h.ackLatest();assert.deepEqual(h.codes(),[command,COMMAND.HAPPY]);h.actor.dispose();
+ }
+});
+test('unsupported fresh CONNECTED keeps link usable and surfaces firmware update notice',async()=>{
+ const h=harness({},true,1);await h.actor.scan();h.found();await h.actor.connect('device-a');await flush();
+ assert.deepEqual(h.codes(),[COMMAND.CONNECTED]);assert.equal(h.state.ready,true);assert.equal(h.state.pending,false);assert.match(h.state.notice!,/update needed/);
+ h.actor.testHappy();await flush();await h.ackLatest();assert.deepEqual(h.codes(),[COMMAND.CONNECTED,COMMAND.HAPPY]);h.actor.dispose();
+});
+test('profile entry and repeated profile navigation send nothing; home still sends IDLE',async()=>{
+ const h=harness();await h.ready();h.actor.navigate('home');await flush();await h.ackLatest();h.writes.length=0;
+ h.actor.navigate('profile');await flush();for(let n=0;n<20;n++)h.actor.navigate('profile');
+ assert.deepEqual(h.codes(),[]);h.actor.navigate('home');await flush();await h.ackLatest();assert.deepEqual(h.codes(),[COMMAND.IDLE]);
+ assert.equal(h.connections,1);assert.equal(h.subscriptions,1);assert.equal(h.cleanups,0);h.actor.dispose();
+});
+test('new reactions are dropped disconnected, inactive and reconciling, never replayed on foreground',async()=>{
+ const query=deferred<boolean>(),h=harness({connected:()=>query.promise});
+ for(const command of Object.values(COMMAND))assert.equal(h.actor.request(command),false);
+ await h.ready();h.actor.request(COMMAND.HINT);await flush();h.actor.request(COMMAND.LISTENING);h.actor.setActive(false);await flush();
+ for(const command of Object.values(COMMAND))assert.equal(h.actor.request(command),false);
+ h.actor.setActive(true);await flush();for(const command of Object.values(COMMAND))assert.equal(h.actor.request(command),false);
+ query.resolve(true);await flush();assert.deepEqual(h.codes(),[COMMAND.HINT,COMMAND.IDLE]);await h.ackLatest();await flush();assert.deepEqual(h.codes(),[COMMAND.HINT,COMMAND.IDLE]);h.actor.dispose();
+});
+
+test('active lesson entry/resume and direct active lesson switches send THINKING; closing sends IDLE',async()=>{
+ const h=harness();await h.ready();
+ // Lesson 1, resumed Lesson 1, Lesson 2 and a direct switch back share the
+ // semantic entry method. No same-screen deduplication may suppress a switch.
+ for(let n=0;n<4;n++){
+  assert.equal(h.actor.enterLesson(true),true);await flush();await h.ackLatest();
+  assert.deepEqual(h.codes(),Array(n+1).fill(COMMAND.THINKING));
+ }
+ h.actor.navigate('home');await flush();await h.ackLatest();assert.equal(h.codes().at(-1),COMMAND.IDLE);
+ assert.equal(h.connections,1);assert.equal(h.subscriptions,1);assert.equal(h.cleanups,0);h.actor.dispose();
+});
+test('entering completed, failed or feedback-only lesson views sends IDLE, never CELEBRATE',async()=>{
+ const h=harness();await h.ready();
+ for(let n=0;n<3;n++){h.actor.enterLesson(false);await flush();await h.ackLatest();}
+ assert.deepEqual(h.codes(),[COMMAND.IDLE,COMMAND.IDLE,COMMAND.IDLE]);h.actor.dispose();
+});
+test('lesson entry replaces an obsolete ACK without overlapping a write and drops disconnected/paused entry',async()=>{
+ const write=deferred(),h=harness({write:(_id,p)=>p.getUint8(6)===COMMAND.HAPPY?write.promise:Promise.resolve()});
+ assert.equal(h.actor.enterLesson(true),false);assert.equal(h.actor.enterLesson(false),false);assert.deepEqual(h.codes(),[]);
+ await h.ready();h.actor.request(COMMAND.HAPPY);await flush();const old=h.writes[0];
+ h.actor.enterLesson(false);h.actor.enterLesson(true);assert.deepEqual(h.codes(),[COMMAND.HAPPY]);
+ write.resolve();await flush();assert.deepEqual(h.codes(),[COMMAND.HAPPY,COMMAND.THINKING]);assert.equal(h.maxWrites,1);
+ h.notify(acknowledgement(old.getUint32(2,true),1,COMMAND.HAPPY));assert.equal(h.state.pending,true);assert.equal(h.state.notice,undefined);
+ await h.ackLatest();h.actor.setActive(false);assert.equal(h.actor.enterLesson(true),false);assert.equal(h.actor.enterLesson(false),false);
+ h.actor.disconnect();assert.equal(h.actor.enterLesson(true),false);assert.equal(h.connections,1);h.actor.dispose();
+});
+
+test('explicit replay replaces the unsent reset with THINKING before native write',async()=>{
+ const h=harness();await h.ready();h.actor.enterLesson(false);await flush();await h.ackLatest();h.writes.length=0;
+ h.actor.request(COMMAND.IDLE); // Existing restart/reset semantics stay unchanged.
+ h.actor.enterLesson(true); // Explicit replay opens the fresh first exercise.
+ await flush();assert.deepEqual(h.codes(),[COMMAND.THINKING]);assert.equal(h.maxWrites,1);await h.ackLatest();
+ h.actor.disconnect();assert.equal(h.actor.enterLesson(true),false);h.actor.dispose();
 });

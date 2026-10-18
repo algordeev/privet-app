@@ -15,7 +15,7 @@ const unavailable='Russian audio unavailable. Continue with text.';
 export function createSpeechController(env:SpeechEnvironment,notify:(state:SpeechSnapshot)=>void) {
  let generation=0, disposed=false, active=true;
  let state:SpeechSnapshot={available:false,status:'idle',message:''};
- let request:{id:number;text:string;deadline:number;utterance?:SpeechSynthesisUtterance;timer?:ReturnType<typeof setTimeout>}|undefined;
+ let request:{id:number;text:string;deadline:number;onEnd?:()=>void;utterance?:SpeechSynthesisUtterance;timer?:ReturnType<typeof setTimeout>}|undefined;
  const publish=(patch:Partial<SpeechSnapshot>)=>{state={...state,...patch};if(!disposed)notify(state);};
  function voices(){return env.synth.getVoices();}
  function russianVoice(){return voices().find(v=>/^ru(?:[-_]|$)/i.test(v.lang));}
@@ -45,7 +45,7 @@ export function createSpeechController(env:SpeechEnvironment,notify:(state:Speec
    env.clearTimer(request!.timer!);request!.timer=undefined;
    publish({status:'speaking',message:'Playing pronunciation…'});
   };
-  utterance.onend=()=>{if(current(id)){invalidate();publish({status:'idle',message:''});}};
+  utterance.onend=()=>{if(current(id)){const onEnd=request?.onEnd;invalidate();publish({status:'idle',message:''});onEnd?.();}};
   utterance.onerror=()=>{if(current(id))fail('Pronunciation could not play. Tap to try again, or continue with text.');};
   env.synth.speak(utterance);
  }
@@ -62,12 +62,12 @@ export function createSpeechController(env:SpeechEnvironment,notify:(state:Speec
  env.synth.addEventListener('voiceschanged',refresh);
  refresh();
  return {
-  speak(text:string){
+  speak(text:string,onEnd?:()=>void){
    if(disposed)return;
    cancel();
    if(!active){publish({status:'error',message:'Return to the app to play pronunciation.'});return;}
    const id=generation;
-   request={id,text,deadline:env.now()+STARTUP_TIMEOUT_MS};
+   request={id,text,onEnd,deadline:env.now()+STARTUP_TIMEOUT_MS};
    publish({status:'loading',message:'Loading pronunciation…'});
    request.timer=env.setTimer(()=>{if(current(id))fail('Audio took too long to start. Tap pronunciation to try again, or use text.');},STARTUP_TIMEOUT_MS);
    try{start(id);}catch{fail('Pronunciation could not play. Tap to try again, or continue with text.');}
