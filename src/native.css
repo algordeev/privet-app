@@ -168,7 +168,6 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-greeting-row { display: flex; align-items: center; gap: 13px; }
 .native-companion-bubble { flex: 1; min-width: 0; position: relative; border: 1px solid #d9e1cf; border-radius: 16px; padding: 15px; background: #fffdf7; color: #39563d; font-size: 14px; line-height: 1.55; }
 .native-companion-bubble:before { content: ''; position: absolute; left: -6px; top: calc(50% - 6px); width: 10px; height: 10px; background: #fffdf7; border-left: 1px solid #d9e1cf; border-bottom: 1px solid #d9e1cf; transform: rotate(45deg); }
-.native-companion-information { margin-top: 9px; text-align: center; color: #65765a; font-size: 10px; line-height: 1.6; }
 .native-robot { position: relative; flex-shrink: 0; width: 62px; height: 58px; --native-robot-scale: .23; }
 .native-robot-greeting { width: 96px; height: 90px; --native-robot-scale: .358; }
 .native-robot-celebration { width: 129px; height: 120px; --native-robot-scale: .48; }
@@ -257,6 +256,7 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-plus-card .button { width: 100%; }
 .native-stat-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 11px; margin: 0; }
 .native-stat-grid > div { min-width: 0; border: 1px solid #dee4d4; border-radius: 17px; padding: 17px 15px; background: #fffdf7; }
+.native-stat-grid > .native-stat-xp:last-child { grid-column: 1 / -1; }
 .native-stat-grid > .native-stat-streak { background: #eaf0e1; border-color: #d6e0c9; }
 .native-stat-grid dt { display: flex; align-items: center; gap: 5px; color: #617553; font-size: 12px; line-height: 1.5; }
 .native-stat-grid dt svg { width: 15px; height: 18px; color: #a86c4b; }
@@ -273,7 +273,6 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-profile-week .today i { border-color: #628151; }
 .native-profile-week .practised i { background: #397756; color: #fffdf7; }
 .native-profile-week i svg { width: 20px; height: 20px; }
-.native-profile-week > p { font-size: 12px; line-height: 1.7; color: #697b5f; }
 .native-profile-result { margin-top: 24px; padding: 20px; border-radius: 18px; background: #eeeede; border: 1px solid #e0e3d2; }
 .native-profile-result > div > span { font-size: 9px; letter-spacing: 1.1px; font-weight: 600; color: #6a7b5c; }
 .native-app .native-profile-result h2 { font-size: 21px; line-height: 1.4; letter-spacing: -.5px; margin-top: 6px; font-weight: 600; }
@@ -342,7 +341,6 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-gem-award span { padding: 7px 10px; border-radius: 999px; background: #fff8dc; }
 .native-app .failure-screen .button:disabled { opacity: .48; cursor: default; }
 
-.native-feature-note { margin-top: 20px; color: #627458; font-size: 13px; line-height: 1.7; }
 
 /* Native panes scroll vertically; oversized rows must never create a sideways page. */
 .native-home-scroll,.native-profile-scroll,.native-app .lesson-scroll {
