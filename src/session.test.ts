@@ -42,7 +42,12 @@ test('completed sessions and reset snapshots round-trip',()=>{
  assert.deepEqual(restoreSession(JSON.stringify(s)),freshSession());
 });
 test('invalid or incompatible storage falls back safely',()=>{
- for(const raw of [null,'not json','null','{}',JSON.stringify({...freshSession(),progress:{index:99}}),JSON.stringify({...freshSession(),hintAt:4}),JSON.stringify({...freshSession(),tokens:['answer']}),JSON.stringify({...freshSession(),revealed:['unknown']}),JSON.stringify({...freshSession(),progress:{...freshSession().progress,feedback:'correct'}})])assert.deepEqual(restoreSession(raw),freshSession());
+ for(const raw of [null,'not json','null','{}',JSON.stringify({...freshSession(),progress:{index:99}}),JSON.stringify({...freshSession(),hintAt:4}),JSON.stringify({...freshSession(),tokens:['answer']}),JSON.stringify({...freshSession(),revealed:['unknown']}),JSON.stringify({...freshSession(),progress:{...freshSession().progress,feedback:'correct'}}),JSON.stringify({...freshSession(),progress:{...freshSession().progress,hearts:null}})])assert.deepEqual(restoreSession(raw),freshSession());
+});
+test('upgrades old progress snapshots with default hearts, combo and failure fields',()=>{
+ const old={...freshSession(),progress:{index:1,attempts:0,results:[true],feedback:null,complete:false}};
+ const restored=restoreSession(JSON.stringify(old));assert.deepEqual(restored.progress,{...old.progress,hearts:3,combo:0,bestCombo:0,failed:false});
+ assert.deepEqual(restoreSession(JSON.stringify({...old,progress:{...old.progress,hearts:4}})),freshSession());
 });
 test('only native mode loads resumable sessions and migrates existing completion',()=>{
  const descriptor=Object.getOwnPropertyDescriptor(globalThis,'localStorage');
@@ -56,6 +61,8 @@ test('only native mode loads resumable sessions and migrates existing completion
   data.set(PRODUCT.storageKey,JSON.stringify({completion:{results:[true,false,true,true,true],date:'2026-10-17'}}));
   assert.equal(loadSession(true).progress.complete,true);
   assert.deepEqual(loadSession(true).progress.results,[true,false,true,true,true]);
+  data.set(PRODUCT.storageKey,JSON.stringify({completion:{results:[true,false,true,true,true],date:'2026-10-17',hearts:null}}));
+  assert.equal(loadSession(true).progress.complete,false);
   assert.deepEqual(loadSession(false),freshSession());
  }finally{if(descriptor)Object.defineProperty(globalThis,'localStorage',descriptor);else Reflect.deleteProperty(globalThis,'localStorage');}
 });

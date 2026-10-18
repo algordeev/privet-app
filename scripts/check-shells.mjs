@@ -17,6 +17,9 @@ try {
  const {initialBleState}=await server.ssrLoadModule('/src/bleTransport.ts');
  const {RuntimeApp}=await server.ssrLoadModule('/src/RuntimeApp.tsx');
  const {useLesson}=await server.ssrLoadModule('/src/useLesson.ts');
+ const {useSubscription}=await server.ssrLoadModule('/src/useSubscription.ts');
+ const {PlusScreen}=await server.ssrLoadModule('/src/PlusScreen.tsx');
+ const {SUBSCRIPTION_KEY}=await server.ssrLoadModule('/src/subscription.ts');
  const {useNativeStats}=await server.ssrLoadModule('/src/useNativeStats.ts');
  const {NativeProfile}=await server.ssrLoadModule('/src/NativeProfile.tsx');
  const {NATIVE_STATS_KEY}=await server.ssrLoadModule('/src/nativeStats.ts');
@@ -36,7 +39,7 @@ try {
  else console.log('PASS: browser runtime retains marketing, navigation, phone preview, lesson, and companion.');
  Capacitor.isNativePlatform=()=>true;
  const home=renderToStaticMarkup(createElement(RuntimeApp));
- for(const marker of ['class="native-app"','Café essentials','Start lesson','Virtual companion','Physical version planned','Привет! Ready for a little Russian?'])assert.ok(home.includes(marker),marker);
+ for(const marker of ['class="native-app"','Café essentials','Start lesson','Virtual companion','Optional ESP32 hardware prototype','Привет! Ready for a little Russian?'])assert.ok(home.includes(marker),marker);
  for(const marker of ['site-header','class="hero','lesson-phone','ios-status-bar','dynamic-island','ios-home-area','Demo connection'])assert.ok(!home.includes(marker),marker);
  assert.ok(home.includes('Nice to meet you'));assert.ok(home.includes('LESSON 02'));
  console.log('PASS: Capacitor runtime renders app home with local lesson entry and simulated companion.');
@@ -71,7 +74,7 @@ try {
  console.log('PASS: physical companion settings stay native-only; test requires subscribed connection and no pending command.');
  assert.ok(home.includes('Open your profile and statistics'));
  assert.ok(home.includes('0-day learning streak'));
- function Profile(){const activity=useNativeStats();return createElement(NativeProfile,{activity,onClose:()=>{}});}
+ function Profile(){const activity=useNativeStats();const subscription=useSubscription();return createElement(NativeProfile,{activity,subscription,onPlus:()=>{},onClose:()=>{}});}
  const emptyProfile=renderToStaticMarkup(createElement(Profile));
  for(const marker of ['Current streak','Best streak','Lesson finishes','Practice days','Your last seven days','Finish the lesson to see your first result here.'])assert.ok(emptyProfile.includes(marker));
  storage.set(NATIVE_STATS_KEY,JSON.stringify({version:1,days:{'2020-01-01':2},earlierFinishes:0,latest:{day:'2020-01-01',firstTry:4}}));
@@ -154,6 +157,17 @@ try {
  const unchangedWebsite=renderToStaticMarkup(createElement(RuntimeApp));
  assert.ok(unchangedWebsite.includes('STEP 1 OF 5'));assert.ok(!unchangedWebsite.includes('Nice to meet you'));
 
+ for(const html of [website,home]){
+  assert.ok(!html.includes('Duolingo'));assert.ok(!html.includes('comparison-table'));assert.ok(!html.includes('native-compare'));assert.ok(!html.includes('href="#why"'));
+ }
+ assert.ok(website.includes('20 gems'));assert.ok(website.includes('30 gems'));assert.ok(website.includes('no payment processing'));
+ assert.ok(website.includes('robot on this website is simulated'));assert.ok(website.includes('working iPhone + ESP32 prototype'));
+ function Plus(){const subscription=useSubscription();return createElement(PlusScreen,{subscription,onClose:()=>{}});}
+ storage.clear();assert.ok(renderToStaticMarkup(createElement(Plus)).includes('Activate Plus demo'));
+ storage.set(SUBSCRIPTION_KEY,JSON.stringify({version:1,plan:'monthly',since:'2026-10-18'}));
+ assert.ok(renderToStaticMarkup(createElement(Plus)).includes('Cancel Plus'));assert.ok(renderToStaticMarkup(createElement(Profile)).includes('Manage Plus'));
+ storage.clear();assert.ok(renderToStaticMarkup(createElement(Profile)).includes('Get Plus'));
+ console.log('PASS: own-feature descriptions replace comparisons, prices/hardware states are accurate, and Plus demo screens render inactive/active states.');
  console.log('PASS: native completion/replay and saved results render; browser sessions still start fresh.');
 
 }finally{
