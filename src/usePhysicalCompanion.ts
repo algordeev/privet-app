@@ -1,6 +1,7 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {App} from '@capacitor/app';
 import {Capacitor} from '@capacitor/core';
+import {COMMAND} from './bleProtocol';
 import {createPhysicalLessonEvents} from './physicalLessonEvents';
 import type {Action,Progress} from './engine';
 import {createNativeBleDriver} from './bleDriver';
@@ -42,7 +43,8 @@ export function usePhysicalCompanion(){
  const testHappy=useCallback(()=>{void transport.current?.testHappy();},[]);
  const disconnect=useCallback(()=>transport.current?.disconnect(),[]);
  const navigate=useCallback((screen:'home'|'profile'|'lesson'|'physical')=>transport.current?.navigate(screen),[]);
+ const syncIdle=useCallback(()=>{transport.current?.request(COMMAND.IDLE);},[]);
  const onTransition=useCallback((previous:Progress,next:Progress,action:Action,lessonId='cafe')=>lessonEvents.current?.(previous,next,action,lessonId),[]);
- return {state,scan,connect,testHappy,disconnect,navigate,onTransition};
+ return {state,scan,connect,testHappy,disconnect,navigate,syncIdle,onTransition};
 }
 export type PhysicalCompanionController=ReturnType<typeof usePhysicalCompanion>;
