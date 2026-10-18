@@ -3,11 +3,11 @@ import {Capacitor} from '@capacitor/core';
 import {App} from '@capacitor/app';
 import {createSpeechController,type SpeechController,type SpeechSnapshot} from './speechController';
 
-export function useSpeech() {
+export function useSpeech(enabled=true) {
  const controller=useRef<SpeechController|null>(null);
  const [state,setState]=useState<SpeechSnapshot>({available:false,status:'idle',message:''});
  useEffect(()=>{
-  if(!('speechSynthesis' in window)||!('SpeechSynthesisUtterance' in window))return;
+  if(!enabled||!('speechSynthesis' in window)||!('SpeechSynthesisUtterance' in window))return;
   const audio=createSpeechController({
    synth:window.speechSynthesis,utterance:text=>new SpeechSynthesisUtterance(text),
    now:()=>Date.now(),setTimer:(fn,ms)=>setTimeout(fn,ms),clearTimer:timer=>clearTimeout(timer),
@@ -41,7 +41,7 @@ export function useSpeech() {
    audio.dispose();
    void nativeListener?.then(listener=>listener.remove()).catch(()=>{});
   };
- },[]);
+ },[enabled]);
  const speak=useCallback((text:string)=>controller.current?.speak(text),[]);
  const stop=useCallback(()=>controller.current?.stop(),[]);
  return {...state,speaking:state.status==='speaking',speak,stop};

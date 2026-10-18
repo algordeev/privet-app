@@ -17,11 +17,11 @@ export function physicalLessonCommand(previous:Progress,next:Progress,action:Act
 }
 export function createPhysicalLessonEvents(send:(command:CommandCode)=>unknown){
  let lastTransition='';
- return (previous:Progress,next:Progress,action:Action)=>{
+ return (previous:Progress,next:Progress,action:Action,lessonId='cafe')=>{
   const command=physicalLessonCommand(previous,next,action);if(command===null)return;
   // A rapid second dispatch can share the pre-render snapshot. The reducer
   // accepts only the first check, even when the second value differs.
-  const key=JSON.stringify([previous,action.type]);
+  const key=JSON.stringify([lessonId,previous,action.type]);
   if(action.type!=='reset'&&key===lastTransition)return;
   lastTransition=key;send(command);
  };

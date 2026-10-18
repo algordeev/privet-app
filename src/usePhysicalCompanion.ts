@@ -42,7 +42,7 @@ export function usePhysicalCompanion(){
  const testHappy=useCallback(()=>{void transport.current?.testHappy();},[]);
  const disconnect=useCallback(()=>transport.current?.disconnect(),[]);
  const navigate=useCallback((screen:'home'|'profile'|'lesson'|'physical')=>transport.current?.navigate(screen),[]);
- const onTransition=useCallback((previous:Progress,next:Progress,action:Action)=>lessonEvents.current?.(previous,next,action),[]);
+ const onTransition=useCallback((previous:Progress,next:Progress,action:Action,lessonId='cafe')=>lessonEvents.current?.(previous,next,action,lessonId),[]);
  return {state,scan,connect,testHappy,disconnect,navigate,onTransition};
 }
 export type PhysicalCompanionController=ReturnType<typeof usePhysicalCompanion>;

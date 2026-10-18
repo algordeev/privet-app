@@ -29,7 +29,7 @@ export function useNativeStats(){
   // The tracker owns the current snapshot; recreating it on render would allow
   // a restored completed lesson to be counted twice.
  },[]);
- const onTransition=useCallback((previous:Progress,next:Progress,action:Action)=>actor.current?.transition(previous,next,action),[]);
+ const onTransition=useCallback((previous:Progress,next:Progress,action:Action,lessonId='cafe')=>actor.current?.transition(previous,next,action,lessonId),[]);
  const reset=useCallback(()=>actor.current?.reset(),[]);
  return {stats,summary:statsSummary(stats,new Date()),persistent,onTransition,reset};
 }

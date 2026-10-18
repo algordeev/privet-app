@@ -12,8 +12,8 @@ export function companionEnabled(raw:string|null){return raw!=='false';}
 export function lessonStarted(s:Pick<LessonSnapshot,'progress'|'revealed'|'selected'|'tokens'>){
  return s.progress.complete||s.progress.index>0||s.progress.attempts>0||s.revealed.length>0||!!s.selected||s.tokens.length>0;
 }
-export function homeGreeting(s:Pick<LessonSnapshot,'progress'|'revealed'|'selected'|'tokens'>){
- return s.progress.complete?'Молодец! You finished Café essentials.':lessonStarted(s)?'Shall we pick up where we left off?':'Привет! Ready for a little Russian?';
+export function homeGreeting(s:Pick<LessonSnapshot,'progress'|'revealed'|'selected'|'tokens'>,title='Café essentials'){
+ return s.progress.complete?`Молодец! You finished ${title}.`:lessonStarted(s)?'Shall we pick up where we left off?':'Привет! Ready for a little Russian?';
 }
 export const completionSummary='You practised greetings, tea and coffee, ordering tea, and saying thank you.';
 const correct=['A little connection made!','That clicked. Nicely done!','One useful phrase at a time.'];

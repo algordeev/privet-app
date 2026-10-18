@@ -5,7 +5,7 @@ Privet is a React + TypeScript + Vite learning prototype with a native Capacitor
 | Part | Current experience |
 | --- | --- |
 | Browser website | Landing page, interactive café lesson inside a decorative phone, simulated robot, and enclosure concept gallery. No real Bluetooth connection. |
-| Native iOS app | Capacitor selects an app home, profile/statistics and full-screen lesson using `Capacitor.isNativePlatform()`. Content is bundled locally. |
+| Native iOS app | Capacitor selects an app home, profile/statistics and two full-screen lessons using `Capacitor.isNativePlatform()`. Content is bundled locally. |
 | Virtual companion | Coral SVG/CSS robot with predefined greetings and reactions; works independently of physical hardware. |
 | Optional physical companion | ESP32 ESP-32S with SSD1306 128×64 OLED and SG90-targeted servo firmware, receiving predefined emotion commands over native iOS BLE. |
 
@@ -76,15 +76,16 @@ The native root owns safe-area spacing once (`ios.contentInset: never`, `viewpor
 ## Learning, audio and local state
 
 - Five café steps: reveal vocabulary, choose a meaning, build a sentence by tapping, reply to the barista, and type a translation. Check/retry/explicit Continue, first-attempt results, mistake review, replay and reset are implemented.
+- **Native Lesson 02 — Nice to meet you:** five steps for Меня зовут Анна., Как тебя зовут?, А тебя?, Очень приятно! and Пока! Vocabulary, meaning selection, sentence building, a social exchange and typed goodbye use the same check/retry/hint/review flow. Informal address and the example name are explained. Both lessons are available without a prerequisite lock. The browser keeps its café demo.
 - Optional stress marks and pronunciation help keep canonical Russian separate from display aids. Assessed companion prompts do not reveal answers before a correct response or explicit hint.
 - Pronunciation uses a Russian system voice when available. Delayed voice loading, errors and a six-second startup timeout have visible feedback; text activities work without audio. No microphone, speech assessment or automatic speech is used.
 - One cancellable speech controller replaces old taps and cancels active/pending audio on navigation, close, restart, completion, background and unmount. No automatic replay occurs on foregrounding.
 - Native lesson settings apply immediately: Stress marks and Pronunciation help switches, restart, no Done button. Outside click/settings icon/Escape dismiss; reduced motion removes animation.
 - The virtual robot follows saved progress, offers a silent predefined tap reply, and reacts beside feedback/completion. Motion pauses offscreen/inactive; stale reaction timers are canceled. It does not depend on BLE.
-- Native sessions restore partial input, revealed words, hints and progress. The browser demo starts fresh while saving completion/display preferences. State stays in localStorage; blocked storage falls back to session use.
+- Native lessons independently restore partial input, revealed words, hints and progress; display preferences and a single audio controller are shared. The browser demo starts fresh while saving completion/display preferences. State stays in localStorage; blocked storage falls back to session use.
 - Native profile shows current/best streak, recorded lesson finishes including replays, distinct practice days, last seven days and latest first-attempt result. A completed lesson earns one local-calendar practice day; same-day replays do not extend the streak. Reopening results does not count again. Reset clears saved lesson/preferences/statistics.
 
-Statistics use `privet-demo-v1-native-stats`; resumable sessions have a separate native key. Legacy results migrate without invented dates or streak history. No account, analytics, backend, personal profile data or feedback upload is required.
+Statistics use `privet-demo-v1-native-stats`; resumable sessions have separate keys per lesson (the existing café keys are preserved). Latest results include their lesson title. Legacy results migrate without invented dates or streak history. No account, analytics, backend, personal profile data or feedback upload is required.
 
 ## Source map
 
@@ -93,7 +94,7 @@ Statistics use `privet-demo-v1-native-stats`; resumable sessions have a separate
 | `src/config.ts` | Temporary product name/storage key |
 | `src/RuntimeApp.tsx`, `src/App.tsx` | Native runtime selection; browser landing/demo/gallery |
 | `src/NativeApp.tsx`, `src/native.css`, `src/useNativeViewport.ts` | Native home/navigation, root ownership, safe areas and keyboard layout |
-| `src/lesson.ts`, `src/engine.ts` | Lesson data, exact answer normalization/checking and reducer transitions |
+| `src/lesson.ts`, `src/lessons.ts`, `src/engine.ts` | Café content, native lesson catalogue/introductions content, exact answer normalization/checking and reducer transitions |
 | `src/LessonPanel.tsx`, `src/useLesson.ts`, `src/session.ts` | Shared exercises, hints/feedback and native session persistence |
 | `src/NativeLessonSettings.tsx` | Immediate native learning-aid settings |
 | `src/Companion.tsx`, `src/nativeCompanion.ts`, `src/NativeRobot.tsx`, `src/useNativeCompanion.ts` | Simulated robot, semantic reactions, lifecycle and motion |
@@ -126,9 +127,11 @@ No specific session duration, iPhone model, iOS/core version, latency, range, en
 
 ### Recorded automated checks
 
-The latest implementation validation recorded **85 Node tests**, TypeScript/rendered-shell checks, web/Pages/native production builds, iOS sync and an unsigned generic-iOS Debug build passing. The built plist contains `bluetooth-central`. Mocked native bridge UI checks at 375×667 and 430×932 covered retained links, native query/IDLE ordering, ACK-gated resume, cancellation, listener reuse, lost/off states and explicit Disconnect during checking. Website HTML matched the pre-change baseline; its full five-exercise/retry/replay flow passed in Chromium at 390×844. A pre-existing 2px mobile website overflow was reproduced and left unchanged.
+The earlier background-connection milestone recorded **85 Node tests**, TypeScript/rendered-shell checks, web/Pages/native production builds, iOS sync and an unsigned generic-iOS Debug build passing. The built plist contains `bluetooth-central`. Mocked native bridge UI checks at 375×667 and 430×932 covered retained links, native query/IDLE ordering, ACK-gated resume, cancellation, listener reuse, lost/off states and explicit Disconnect during checking. Website HTML matched the pre-change baseline; its full five-exercise/retry/replay flow passed in Chromium at 390×844. A pre-existing 2px mobile website overflow was reproduced and left unchanged.
 
-These checks are implementation evidence, not real-radio, OLED-rendering, native screen-reader or lock-screen endurance tests. They were not rerun for this documentation-only update. To run the project's checks:
+The second-lesson update passed **91 Node tests**, TypeScript/rendered-shell checks, Pages/native production builds, iOS sync and `git diff --check`. Headless Chromium with a test-only native environment exercised Lesson 02 at 375×667 and 430×932: wrong answers/retries, stress marks, switching lessons, restoring partial sentences after reload, completion/review/profile, replay and reset. These checks covered both unavailable Russian audio and visible pronunciation controls, reduced-motion mode and one shared speech controller. Actual synthesized audio and the iOS keyboard were not tested by this browser harness. The website landing page plus 61 café lesson display states matched the prior website HTML. No simulator, real-device, hardware or Xcode build was run for this lesson update.
+
+These checks are implementation evidence, not real-radio, OLED-rendering, native screen-reader or lock-screen endurance tests. To run the project's checks:
 
 ```sh
 npm test
@@ -147,7 +150,7 @@ Some unchanged app/website copy still labels the physical version as planned, an
 ## Next steps and limits
 
 1. Run longer lock/background sessions and fault tests: out of range, ESP32 power loss while locked, Bluetooth toggling, delayed notifications and force-quit behavior. These remain unverified; see [the hardware checklist](docs/companion-ble.md#remaining-hardware-tests).
-2. Validate keyboard/safe areas/accessibility on intended iPhones and review Russian content/pronunciation help with an educator; gather learner feedback before expanding lessons or claiming learning effectiveness.
+2. Validate keyboard/safe areas/accessibility on intended iPhones and review Russian content/pronunciation help with an educator; gather learner feedback before further expansion or claiming learning effectiveness.
 3. Develop the enclosure/mount, validate the servo travel and power under the actual screen load, then evaluate buttons and battery design. The current servo sketch uses GPIO25, 1300–1700 µs targets and a 1500 µs center; these are commanded pulses, not measured angles or guarantees of safe mechanical travel.
 4. Design arbitrary text transfer, BLE audio or stronger authenticated ownership/pairing only as future features; none is in the current eight-byte emotion-command protocol; servo movement is chosen locally by firmware, not sent as raw angles/pulses. Automatic fault recovery and process-termination restoration are also unimplemented.
 5. Run a learner pilot. The current app does not collect feedback remotely.

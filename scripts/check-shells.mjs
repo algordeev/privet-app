@@ -25,6 +25,8 @@ try {
  const {LessonPanel}=await server.ssrLoadModule('/src/LessonPanel.tsx');
  const {freshSession,NATIVE_SESSION_KEY}=await server.ssrLoadModule('/src/session.ts');
  const {lesson}=await server.ssrLoadModule('/src/lesson.ts');
+ const {introductionsLesson}=await server.ssrLoadModule('/src/lessons.ts');
+ const {sessionKey}=await server.ssrLoadModule('/src/session.ts');
  Capacitor.isNativePlatform=()=>false;
  const website=renderToStaticMarkup(createElement(RuntimeApp));
  for(const marker of ['class="site-header wrap"','class="hero wrap"','class="lesson-phone"','class="ios-status-bar"','id="companion"'])assert.ok(website.includes(marker),marker);
@@ -36,6 +38,7 @@ try {
  const home=renderToStaticMarkup(createElement(RuntimeApp));
  for(const marker of ['class="native-app"','Café essentials','Start lesson','Virtual companion','Physical version planned','Привет! Ready for a little Russian?'])assert.ok(home.includes(marker),marker);
  for(const marker of ['site-header','class="hero','lesson-phone','ios-status-bar','dynamic-island','ios-home-area','Demo connection'])assert.ok(!home.includes(marker),marker);
+ assert.ok(home.includes('Nice to meet you'));assert.ok(home.includes('LESSON 02'));
  console.log('PASS: Capacitor runtime renders app home with local lesson entry and simulated companion.');
  assert.ok(home.includes('Physical companion settings'));
  assert.ok(!website.includes('Physical companion settings'));
@@ -125,8 +128,32 @@ try {
  assert.ok(settings.includes('Reactions are turned off.'));
  assert.ok(!settings.includes('data-running="true"'));
  console.log('PASS: progress-based greetings, immediate learning-aid settings, disabled static robot, and truthful completion summary.');
+ storage.clear();
+ function SecondLesson(){const controller=useLesson({persistSession:true,definition:introductionsLesson});return createElement(LessonPanel,{controller,native:true});}
+ for(const [index,exercise] of introductionsLesson.exercises.entries()){
+  const snapshot={...freshSession(),progress:{...freshSession().progress,index,results:Array(index).fill(true)}};
+  storage.set(sessionKey(introductionsLesson),JSON.stringify(snapshot));
+  const html=renderToStaticMarkup(createElement(SecondLesson));
+  assert.ok(html.includes(exercise.title));assert.ok(html.includes('Nice to meet you'));assert.ok(html.includes('Check answer'));
+  assert.ok(!html.includes('Café essentials'));assert.ok(!html.includes('Ваш чай.'));
+  if(index===4){assert.ok(html.includes('“Bye!”'));assert.ok(!html.includes('пока'));}
+ }
+ storage.set(sessionKey(introductionsLesson),JSON.stringify({...freshSession(),revealed:['name']}));
+ const secondPartial=renderToStaticMarkup(createElement(RuntimeApp));
+ assert.ok(secondPartial.includes('Continue lesson'));assert.ok(secondPartial.includes('Shall we pick up where we left off?'));
+ storage.set(sessionKey(introductionsLesson),JSON.stringify(completed));
+ const secondResults=renderToStaticMarkup(createElement(SecondLesson));
+ assert.ok(secondResults.includes('You practised introducing yourself'));assert.ok(secondResults.includes('Очень приятно! → Nice to meet you!'));
+ storage.set(sessionKey(introductionsLesson),JSON.stringify({...completed,progress:{...completed.progress,results:Array(5).fill(true)}}));
+ assert.ok(renderToStaticMarkup(createElement(SecondLesson)).includes('Анна was just our example.'));
+ const secondHome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(secondHome.includes('Молодец! You finished Nice to meet you.'));
+ storage.set(NATIVE_STATS_KEY,JSON.stringify({version:1,days:{'2020-01-01':1},earlierFinishes:0,latest:{day:'2020-01-01',firstTry:5,lessonId:'introductions'}}));
+ assert.ok(renderToStaticMarkup(createElement(Profile)).includes('<h2 id="native-result-title">Nice to meet you</h2>'));
+ console.log('PASS: second lesson renders all five exercises, separate progress/results, matching greeting and profile title.');
  Capacitor.isNativePlatform=()=>false;
- assert.ok(renderToStaticMarkup(createElement(RuntimeApp)).includes('STEP 1 OF 5'));
+ const unchangedWebsite=renderToStaticMarkup(createElement(RuntimeApp));
+ assert.ok(unchangedWebsite.includes('STEP 1 OF 5'));assert.ok(!unchangedWebsite.includes('Nice to meet you'));
+
  console.log('PASS: native completion/replay and saved results render; browser sessions still start fresh.');
 
 }finally{

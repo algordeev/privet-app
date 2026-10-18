@@ -1,9 +1,10 @@
+import {lessonById} from './lessons.ts';
 import {PRODUCT} from './config.ts';
 import type {Action,Progress} from './engine.ts';
 import type {Saved} from './session.ts';
 
 export const NATIVE_STATS_KEY=`${PRODUCT.storageKey}-native-stats`;
-export type NativeStats={version:1;days:Record<string,number>;earlierFinishes:number;latest:{day:string|null;firstTry:number}|null};
+export type NativeStats={version:1;days:Record<string,number>;earlierFinishes:number;latest:{day:string|null;firstTry:number;lessonId?:string}|null};
 export const emptyStats=():NativeStats=>({version:1,days:{},earlierFinishes:0,latest:null});
 export function localDay(date:Date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;}
 export function validDay(day:string){
@@ -17,7 +18,7 @@ export function restoreStats(raw:string|null,legacy?:Saved['completion']):Native
    const s=JSON.parse(raw);
    if(s?.version===1&&s.days&&typeof s.days==='object'&&!Array.isArray(s.days)&&[0,1].includes(s.earlierFinishes)&&
     Object.entries(s.days).every(([day,n])=>validDay(day)&&Number.isSafeInteger(n)&&Number(n)>0&&Number(n)<1_000_000)&&
-    (s.latest===null||(s.latest&&Number.isInteger(s.latest.firstTry)&&s.latest.firstTry>=0&&s.latest.firstTry<=5&&
+    (s.latest===null||(s.latest&&Number.isInteger(s.latest.firstTry)&&s.latest.firstTry>=0&&s.latest.firstTry<=5&&(s.latest.lessonId===undefined||['cafe','introductions'].includes(s.latest.lessonId))&&
       (s.latest.day===null?s.earlierFinishes===1:typeof s.latest.day==='string'&&validDay(s.latest.day)&&Object.hasOwn(s.days,s.latest.day)))))return s;
   }catch{/* Ignore malformed local storage. */}
  }
@@ -29,9 +30,9 @@ export function restoreStats(raw:string|null,legacy?:Saved['completion']):Native
  }
  return stats;
 }
-export function recordFinish(stats:NativeStats,results:boolean[],date:Date):NativeStats {
+export function recordFinish(stats:NativeStats,results:boolean[],date:Date,lessonId?:string):NativeStats {
  const day=localDay(date);
- return {...stats,days:{...stats.days,[day]:(stats.days[day]??0)+1},latest:{day,firstTry:results.filter(Boolean).length}};
+ return {...stats,days:{...stats.days,[day]:(stats.days[day]??0)+1},latest:{day,firstTry:results.filter(Boolean).length,...(lessonId?{lessonId:lessonById(lessonId).id}:{})}};
 }
 export function statsSummary(stats:NativeStats,now:Date){
  const today=localDay(now),days=Object.keys(stats.days).filter(day=>day<=today).sort();
@@ -45,13 +46,13 @@ export function statsSummary(stats:NativeStats,now:Date){
   week:Array.from({length:7},(_,i)=>{const day=shiftDay(today,i-6);return {day,finishes:stats.days[day]??0,today:day===today};})};
 }
 export function createStatsTracker(initial:NativeStats,save:(stats:NativeStats)=>void,now:()=>Date){
- let stats=initial,recorded=false;
+ let stats=initial;const recorded=new Set<string>();
  return {
-  transition(previous:Progress,next:Progress,action:Action){
-   if(action.type==='reset'){recorded=false;return;}
-   if(action.type!=='continue'||recorded||previous.complete||!next.complete)return;
-   recorded=true;stats=recordFinish(stats,next.results,now());save(stats);
+  transition(previous:Progress,next:Progress,action:Action,lessonId='cafe'){
+   if(action.type==='reset'){recorded.delete(lessonId);return;}
+   if(action.type!=='continue'||recorded.has(lessonId)||previous.complete||!next.complete)return;
+   recorded.add(lessonId);stats=recordFinish(stats,next.results,now(),lessonId);save(stats);
   },
-  reset(){recorded=false;stats=emptyStats();save(stats);},
+  reset(){recorded.clear();stats=emptyStats();save(stats);},
  };
 }

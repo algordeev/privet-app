@@ -277,3 +277,6 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-physical-home-status i { width: 6px; height: 6px; border-radius: 50%; background: #78836e; }
 .native-physical-home-status i[data-connected=true] { background: #246653; }
 .native-physical-update { font-weight: 600; }
+
+/* Each native lesson keeps its own progress and reuses the same card. */
+.native-lesson-list { display: grid; gap: 18px; }
