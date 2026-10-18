@@ -20,7 +20,7 @@ export function NativeHome({controller,controllers,companion,activity,plus,onSta
  return <div className="native-home-scroll">
   <header className="native-home-header"><div className="wordmark"><span className="brand-icon" aria-hidden="true"><i/><i/></span>{PRODUCT.name}<span className="brand-dot">.</span></div><div className="native-home-tools"><span className="native-streak-badge" role="img" aria-label={`${activity.summary.current}-day learning streak`}><StreakIcon/><span>{activity.summary.current}</span><span className="native-streak-unit">{activity.summary.current===1?'day':'days'}</span></span><button id="native-gems-open" className="native-gems-pill" onClick={onGems} aria-label={`${activity.summary.gems} gems; open gems`}><span aria-hidden="true">◆</span> {activity.summary.gems}</button><button id="native-profile-open" className={`native-profile-open ${plus?'is-plus':''}`} onClick={onProfile} aria-label="Open your profile and statistics" aria-describedby={plus?'native-profile-plus-status':undefined}><ProfileIcon/>{plus&&<span className="native-profile-plus-tag" aria-hidden="true">PLUS</span>}</button>{plus&&<span id="native-profile-plus-status" className="native-sr-only">Plus demo active</span>}</div></header>
   <section className="native-welcome" aria-labelledby="native-home-title"><h1 id="native-home-title" tabIndex={-1}>Your next little win.</h1></section>
-  <section className="native-companion-greeting" aria-label="Your virtual companion"><div className="native-greeting-row"><NativeRobot companion={companion} size="greeting"/><p className="native-companion-bubble" role="status" aria-live="polite" aria-atomic="true">{greeting}</p></div><p className="native-companion-information">Virtual companion · Optional ESP32 hardware prototype</p></section>
+  <section className="native-companion-greeting" aria-label="Your virtual companion"><div className="native-greeting-row"><NativeRobot companion={companion} size="greeting"/><p className="native-companion-bubble" role="status" aria-live="polite" aria-atomic="true">{greeting}</p></div></section>
   <div className="native-lesson-list">{controllers.map((item,index)=>{
    const {progress,definition}=item;const started=lessonStarted(item);const total=definition.exercises.length;
    const pathState=progress.complete?'Passed':controllers.slice(0,index).every(candidate=>candidate.progress.complete)?'Up next':'Available';
@@ -32,7 +32,6 @@ export function NativeHome({controller,controllers,companion,activity,plus,onSta
     <button className="button teal" onClick={()=>onStart(definition.id)}>{progress.complete?'See your results':started?'Continue lesson':'Start lesson'}<span aria-hidden="true">→</span></button>
    </section>;
   })}</div>
-  <p className="native-feature-note">Two short Russian lessons, optional pronunciation help, and progress saved on this iPhone. Learn solo or connect the optional ESP32 companion.</p>
   <div className="native-home-footer"><PhysicalCompanionHomeStatus state={physical.state} onOpen={onPhysical}/><p>Your progress stays on this iPhone.</p><button className="native-text-button" onClick={onReset}>Reset saved lesson &amp; preferences</button></div>
  </div>;
 }

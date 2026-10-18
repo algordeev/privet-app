@@ -39,7 +39,7 @@ try {
  else console.log('PASS: browser runtime retains marketing, navigation, phone preview, lesson, and companion.');
  Capacitor.isNativePlatform=()=>true;
  const home=renderToStaticMarkup(createElement(RuntimeApp));
- for(const marker of ['class="native-app"','Café essentials','Start lesson','Virtual companion','Optional ESP32 hardware prototype','Привет! Ready for a little Russian?'])assert.ok(home.includes(marker),marker);
+ for(const marker of ['class="native-app"','Café essentials','Start lesson','Your virtual companion','Привет! Ready for a little Russian?'])assert.ok(home.includes(marker),marker);
  for(const marker of ['site-header','class="hero','lesson-phone','ios-status-bar','dynamic-island','ios-home-area','Demo connection'])assert.ok(!home.includes(marker),marker);
  assert.ok(home.includes('Nice to meet you'));assert.ok(home.includes('LESSON 02'));
  console.log('PASS: Capacitor runtime renders app home with local lesson entry and simulated companion.');
@@ -77,7 +77,8 @@ try {
  assert.ok(home.includes('0-day learning streak'));
  function Profile(){const activity=useNativeStats();const subscription=useSubscription();return createElement(NativeProfile,{activity,subscription,onPlus:()=>{},onClose:()=>{}});}
  const emptyProfile=renderToStaticMarkup(createElement(Profile));
- for(const marker of ['Current streak','Best streak','Lesson finishes','Practice days','Your last seven days','Finish the lesson to see your first result here.'])assert.ok(emptyProfile.includes(marker));
+ assert.ok(!emptyProfile.includes('Practice days'));
+ for(const marker of ['Current streak','Best streak','Lesson finishes','Today XP','Total XP','Your last seven days','Finish the lesson to see your first result here.'])assert.ok(emptyProfile.includes(marker));
  storage.set(NATIVE_STATS_KEY,JSON.stringify({version:1,days:{'2020-01-01':2},earlierFinishes:0,latest:{day:'2020-01-01',firstTry:4}}));
  const storedProfile=renderToStaticMarkup(createElement(Profile));
  assert.ok(storedProfile.includes('<strong>4<span>/5</span></strong>'));
