@@ -15,18 +15,11 @@ The **phone** owns lessons, answer checking, progress/statistics and optional sy
 
 Open **Physical companion settings** from native home, tap Connect, choose the advertised companion, and use Test happy reaction. Connect through Privet, rather than manually pairing in iPhone Settings. Bluetooth access is requested only after Connect.
 
-| Accepted lesson event | Companion reaction |
-| --- | --- |
-| Incorrect answer | Gentle encouraging face; servo targets center |
-| Correct answer | Happy face and brief servo tilt/return |
-| Continue to another exercise or retry | Neutral/idle face and return toward center |
-| Actual lesson completion | Celebration with sparkles and alternating servo motion |
+Use the current [new-emotions firmware and setup guide](firmware/PrivetBLE_Servo_New_Emotions/README.md). It supports nine protocol codes; STREAK is retained for compatibility but opening Profile is silent. The older [servo](firmware/PrivetBLE_Servo/README.md) and [OLED-only](firmware/PrivetBLE_Lessons/README.md) sketches support codes 1–4 and remain available as legacy variants.
 
-Opening/closing a lesson, restart, screen changes and fresh connections synchronize IDLE as defined in the protocol. Final Continue sends CELEBRATE only; reopening saved results does not replay it. Hardware feedback never blocks a lesson or replaces lesson/audio feedback.
+Active lesson entry, resume, switching, replay, Continue and retry show THINKING. It persists until replaced. Correct/incorrect answers show HAPPY/ENCOURAGE; final completion sends CELEBRATE once. HINT returns to THINKING after 2.6 seconds unless a newer command replaces it. Pronunciation starts LISTENING; successful audio completion restores THINKING only while the question remains unanswered, with canceled/stale callbacks ignored. LISTENING retains its firmware time limit when no completion event arrives. Results/failed screens, close, home and ordinary reset use IDLE. Fresh subscribed connections send CONNECTED; foreground reconciliation uses ACK-gated IDLE.
 
-- Current OLED + servo sketch: [PrivetBLE_Servo.ino](firmware/PrivetBLE_Servo/PrivetBLE_Servo.ino); [servo wiring, power, dependencies and upload setup](firmware/PrivetBLE_Servo/README.md).
-- OLED-only baseline remains available: [PrivetBLE_Lessons.ino](firmware/PrivetBLE_Lessons/PrivetBLE_Lessons.ino) and [OLED-only setup](firmware/PrivetBLE_Lessons/README.md).
-- UUIDs, exact packet/ACK format, firmware timing, security limits, scheduler and lifecycle: [BLE protocol and lifecycle](docs/companion-ble.md).
+Firmware owns animation timing and servo motion; LISTENING/THINKING add no expressive servo movement. The protocol carries predefined states only, not arbitrary text, JSON, OLED drawing, BLE audio or raw servo instructions. An ACK confirms acceptance, not rendering or finished movement. See the [exact protocol, event mapping and lifecycle](docs/companion-ble.md). Updated firmware must be uploaded separately; new-state hardware verification has not been reported.
 
 ### Locking and backgrounding
 
@@ -89,7 +82,7 @@ Lessons use three session hearts, an in-lesson first-try combo and a local XP re
 - Native lesson settings apply immediately: Stress marks and Pronunciation help switches, restart, no Done button. Outside click/settings icon/Escape dismiss; reduced motion removes animation.
 - The virtual robot follows saved progress, offers a silent predefined tap reply, and reacts beside feedback/completion. Motion pauses offscreen/inactive; stale reaction timers are canceled. It does not depend on BLE.
 - Native lessons independently restore partial input, revealed words, hints and progress; display preferences and a single audio controller are shared. The browser demo starts fresh while saving completion/display preferences. State stays in localStorage; blocked storage falls back to session use.
-- Native profile shows current/best streak, recorded lesson finishes including replays, distinct practice days, last seven days and latest first-attempt result. A completed lesson earns one local-calendar practice day; same-day replays do not extend the streak. Reopening results does not count again. Reset clears saved lesson/preferences/statistics.
+- Native profile shows current/best streak, recorded lesson finishes including replays, last seven days and latest first-attempt result. A completed lesson earns one local-calendar practice day; same-day replays do not extend the streak. Reopening results does not count again. Reset clears saved lesson/preferences/statistics.
 
 Statistics use `privet-demo-v1-native-stats`; resumable sessions have separate keys per lesson (the existing café keys are preserved). Latest results include their lesson title. Legacy results migrate without invented dates or streak history. No account, analytics, backend, personal profile data or feedback upload is required.
 
@@ -110,7 +103,8 @@ Statistics use `privet-demo-v1-native-stats`; resumable sessions have separate k
 | `src/bleProtocol.ts`, `src/bleTransport.ts` | Binary protocol/IDs, bounded scheduler, connection lifecycle/reconciliation |
 | `src/bleDriver.ts`, `src/usePhysicalCompanion.ts` | Installed BLE plugin adapter and app-wide native lifecycle wiring |
 | `src/physicalLessonEvents.ts`, `src/PhysicalCompanionSettings.tsx` | Accepted lesson-to-BLE mapping; connection/test UI and home status |
-| `firmware/PrivetBLE_Servo/PrivetBLE_Servo.ino` | Current BLE/OLED/servo variant: loop-driven pulse gestures, centering and PWM release |
+| `firmware/PrivetBLE_Servo_New_Emotions/PrivetBLE_Servo_New_Emotions.ino` | Owner-supplied commands-1–9 OLED/servo variant; new animations await hardware verification |
+| `firmware/PrivetBLE_Servo/PrivetBLE_Servo.ino` | Legacy commands-1–4 servo variant: loop-driven pulse gestures, centering and PWM release |
 | `firmware/PrivetBLE_Lessons/PrivetBLE_Lessons.ino` | OLED-only baseline with the same BLE protocol |
 | `src/*.test.ts`, `scripts/check-shells.mjs` | Focused regressions and rendered browser/native shell checks |
 | `src/styles.css`, `src/iphone.css`, `src/gallery.css` | Website layout, decorative phone, gallery, focus/reduced-motion styles |
@@ -120,27 +114,9 @@ Answer normalization ignores case, stress accents, surrounding/repeated spaces a
 
 ## Verification
 
-### User-reported real hardware
+Latest app validation: **133 Node tests**, shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover lessons, replay, audio-completion safeguards, rewards/Plus and mock BLE navigation. Website HTML matched 31 baseline states. These checks use fake BLE/speech, not real hardware or sound. Documentation-only edits do not rerun application builds.
 
-The project owner reports that the app runs on a real iPhone and confirms:
-
-- Discovery, connection, Test happy reaction and matching acknowledgements.
-- Explicit disconnect/reconnect and connection continuity across native screens.
-- Incorrect answer → encouraging face; correct answer → happy face; Continue to another exercise → idle; completion → celebration with sparkles.
-- The latest connection-preservation change works during locking/backgrounding.
-- The servo now moves the screen when showing emotions. Gesture timing/pulse bounds below come from the sketch, not measured movement/position feedback.
-
-No specific session duration, iPhone model, iOS/core version, latency, range, endurance or fault-recovery result was supplied. These are user reports, not hardware tests performed by the coding agent. The electronics prototype includes user-reported servo motion; the illustrated enclosure remains a concept. Servo load, calibration, torque, endurance and mechanical safety have not been established by those reports.
-
-### Recorded automated checks
-
-The earlier background-connection milestone recorded **85 Node tests**, TypeScript/rendered-shell checks, web/Pages/native production builds, iOS sync and an unsigned generic-iOS Debug build passing. The built plist contains `bluetooth-central`. Mocked native bridge UI checks at 375×667 and 430×932 covered retained links, native query/IDLE ordering, ACK-gated resume, cancellation, listener reuse, lost/off states and explicit Disconnect during checking. Website HTML matched the pre-change baseline; its full five-exercise/retry/replay flow passed in Chromium at 390×844. A pre-existing 2px mobile website overflow was reproduced and left unchanged.
-
-The second-lesson update passed **91 Node tests**, TypeScript/rendered-shell checks, Pages/native production builds, iOS sync and `git diff --check`. Headless Chromium with a test-only native environment exercised Lesson 02 at 375×667 and 430×932: wrong answers/retries, stress marks, switching lessons, restoring partial sentences after reload, completion/review/profile, replay and reset. These checks covered both unavailable Russian audio and visible pronunciation controls, reduced-motion mode and one shared speech controller. Actual synthesized audio and the iOS keyboard were not tested by this browser harness. The website landing page plus 61 café lesson display states matched the prior website HTML. No simulator, real-device, hardware or Xcode build was run for this lesson update.
-
-The hearts/XP/Plus review adds regressions for automatic freeze consumption followed by completion, cumulative daily versus latest-attempt gem awards, and saved-data migration. `npm run test:interactions` launches an isolated local Chrome/Chromium profile and exercises Plus activation/cancellation/reload, zero-heart recovery, lifecycle freeze consumption, replay rewards, and the 20/30-gem purchases at 375×667 and 430×932. Set `PRIVET_CHROME_PATH` if Chrome/Chromium is not installed in a standard location. It uses test-only native-platform/voice shims, not real iPhone, ESP32, speech or billing services.
-
-These checks are implementation evidence, not real-radio, OLED-rendering, native screen-reader or lock-screen endurance tests. To run the project's checks:
+The project owner reports real-iPhone discovery/connection/ACKs, disconnect/reconnect, navigation continuity, commands 1–4, lock/background retention and servo movement. New states and the latest thinking/hint/audio/replay changes still need hardware validation. No exact device/software versions, timing, range or endurance results were supplied. Earlier milestone checks are historical; the current [protocol checklist](docs/companion-ble.md#verification) distinguishes remaining tests.
 
 ```sh
 npm test
@@ -150,8 +126,6 @@ npm run build
 npm run build:pages
 npm run build:native
 ```
-
-Earlier milestones recorded smaller suites (including 74 tests) and a foreground-only disconnect policy; those are historical and superseded by the lifecycle above. Earlier agent-only notes saying hardware had not been verified are superseded by the explicitly attributed user reports. Detailed automated/user/remaining hardware checks are separated in [the protocol document](docs/companion-ble.md#verification).
 
 ## Next steps and limits
 

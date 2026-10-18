@@ -11,17 +11,29 @@ import {createServer} from 'vite';
 const executable=[process.env.PRIVET_CHROME_PATH,'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome','/usr/bin/chromium','/usr/bin/chromium-browser','/usr/bin/google-chrome'].find(path=>path&&existsSync(path));
 assert.ok(executable,'Install Chrome/Chromium or set PRIVET_CHROME_PATH to run interaction checks.');
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+let russianAudio=false;
 let seed={},initialTime=new Date(2026,9,17,12).getTime();
-const server=await createServer({mode:'native',appType:'custom',server:{host:'127.0.0.1',port:0,strictPort:false,hmr:false}});
+// Test-only driver substitution: exercise real root hook, scheduler and UI without radio.
+const server=await createServer({plugins:[{name:'privet-test-ble-driver',enforce:'pre',transform(_source,id){
+ if(!id.endsWith('/src/bleDriver.ts'))return;
+ return `export function createNativeBleDriver(){let notify;return {
+ async initialize(){},async isEnabled(){return true;},async connected(){return true;},async watchEnabled(){},
+ async scan(_service,found){found({deviceId:'test-companion',name:'Privet-ESP32'});},async stopScan(){},async connect(){},
+ async subscribe(_id,callback){notify=callback;},async write(_id,packet){window.__bleCommands.push(packet.getUint8(6));
+ const ack=new DataView(packet.buffer.slice(packet.byteOffset,packet.byteOffset+8));ack.setUint8(1,2);notify(ack);},async cleanup(){}
+ };}`;
+}}],mode:'native',appType:'custom',server:{host:'127.0.0.1',port:0,strictPort:false,hmr:false}});
 server.middlewares.use('/__privet_native_checks',(req,res)=>{
  res.setHeader('Content-Type','text/html; charset=utf-8');
  const reset=!req.url.includes('resume');
  res.end(`<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body><div id="root"></div><script type="module">
- window.CapacitorCustomPlatform={name:'ios'};
+ window.CapacitorCustomPlatform={name:'ios'};window.Capacitor={PluginHeaders:[{name:'BluetoothLe',methods:[]}]};
+ window.__bleCommands=[];window.__speechTaps=[];window.__utterances=[];window.__holdSpeech=false;window.__russianAudio=${russianAudio};window.__voiceListeners=new Set();
  window.__realDate=Date;window.__now=${initialTime};
  window.Date=class extends window.__realDate{constructor(...args){super(...(args.length?args:[window.__now]));}static now(){return window.__now;}};
  ${reset?`localStorage.clear();for(const [key,value] of Object.entries(${JSON.stringify(seed)}))localStorage.setItem(key,JSON.stringify(value));`:''}
- Object.defineProperty(window,'speechSynthesis',{value:{getVoices:()=>[{lang:'en-US',name:'Test English voice'}],addEventListener:()=>{},removeEventListener:()=>{},cancel:()=>{},speak:()=>{throw Error('No speech expected in interaction checks');}}});
+ window.SpeechSynthesisUtterance=class{constructor(text){this.text=text;}};
+ Object.defineProperty(window,'speechSynthesis',{value:{getVoices:()=>[{lang:window.__russianAudio?'ru-RU':'en-US',name:'Test voice'}],addEventListener:(_event,fn)=>window.__voiceListeners.add(fn),removeEventListener:(_event,fn)=>window.__voiceListeners.delete(fn),cancel:()=>{},speak:utterance=>{window.__speechTaps.push(utterance.text);window.__utterances.push(utterance);if(!window.__holdSpeech)queueMicrotask(()=>{utterance.onstart?.();utterance.onend?.();});}}});
  await import('/src/main.tsx');
  </script></body></html>`);
 });
@@ -198,6 +210,91 @@ try{
   await assertNativeLayout();
   console.log(`PASS ${viewport.width}×${viewport.height}: Plus activate/cancel/reload/zero-heart recovery via lesson and Profile, restored heart consumption, freeze lifecycle→finish, replay reward separation, refill/freeze prices; native panes cannot scroll sideways, all exercises/header controls fit, vertical scroll retained.`);
  }
+
+ // Explicit native UI actions go through the real root controller and transport.
+ russianAudio=true;
+ await open();await click('#native-physical-open');await click('.native-physical-actions .button','Connect');
+ await click('.native-physical-devices button');
+ await until(()=>document.querySelector('.native-physical-status').textContent.includes('Reaction accepted'));
+ assert.deepEqual(await evaluate(()=>window.__bleCommands),[9],'Fresh subscription sends CONNECTED once');
+ await click('[aria-label="Back to home"]');await startCafe();
+ assert.deepEqual(await evaluate(()=>window.__bleCommands),[9,4,6],'Fresh Lesson 1 enters THINKING after CONNECTED/home IDLE');
+ const codes=()=>evaluate(()=>window.__bleCommands);
+ await evaluate(()=>{window.__bleCommands=[];});
+ await click('.word-audio');await until(()=>window.__bleCommands.length===2);
+ assert.deepEqual(await codes(),[5,6]);assert.equal((await evaluate(()=>window.__speechTaps)).length,1);
+ // Voice refresh and unrelated settings renders never emit physical commands.
+ await evaluate(()=>{for(const fn of window.__voiceListeners)fn();});
+ await click('[aria-label="Lesson display settings"]');await click('[aria-label="Stress marks"]');await click('[aria-label="Lesson display settings"]');
+ assert.deepEqual(await codes(),[5,6]);
+ await evaluate(()=>{window.__russianAudio=false;for(const fn of window.__voiceListeners)fn();});
+ await until(()=>!document.querySelector('.word-audio'));assert.deepEqual(await codes(),[5,6]);
+ await evaluate(()=>{window.__russianAudio=true;for(const fn of window.__voiceListeners)fn();});
+ for(let n=0;n<5;n++)await evaluate(n=>document.querySelectorAll('.vocab-reveal')[n].click(),n);
+ await click('.lesson-bottom .button','Check answer');await click('.lesson-bottom .button','Continue');
+ assert.deepEqual((await codes()).slice(-2),[1,6]);
+ await evaluate(()=>{window.__bleCommands=[];});await click('.round-audio');await click('.lesson-hint-button');
+ assert.deepEqual(await codes(),[5,6,7]);assert.equal(await evaluate(()=>document.querySelector('.lesson-hint-button').disabled),true);
+ await evaluate(()=>document.querySelector('.lesson-hint-button').click());assert.deepEqual(await codes(),[5,6,7]);
+ await click('.choice','1tea');await click('.lesson-bottom .button','Check answer');await click('.lesson-bottom .button','Try again');
+ assert.deepEqual((await codes()).slice(-2),[2,6]);
+
+ // Successful completion restores the unanswered-question context, while a
+ // late WebKit callback after submission or navigation must remain silent.
+ await evaluate(()=>{window.__bleCommands=[];window.__holdSpeech=true;});
+ await click('.round-audio');await evaluate(()=>{const u=window.__utterances.at(-1);window.__lateAudioEnd=u.onend;u.onstart?.();});
+ await click('.choice','2coffee');await click('.lesson-bottom .button','Check answer');
+ assert.deepEqual(await codes(),[5,1]);await evaluate(()=>window.__lateAudioEnd?.());assert.deepEqual(await codes(),[5,1],'Old audio completion cannot overwrite answer feedback');
+ await evaluate(()=>{window.__holdSpeech=false;});await click('.round-audio');
+ assert.deepEqual(await codes(),[5,1,5],'Audio on correct feedback must not enter THINKING');
+ await click('[aria-label="Return to app home"]');await click('#native-profile-open');
+ assert.equal((await codes()).at(-1),4);assert.ok(!(await codes()).includes(8),'Profile entry must not trigger STREAK');
+ const beforeOverlay=await codes();await click('#native-profile-plus-open');await click('[aria-label="Back"]');
+ assert.deepEqual(await codes(),beforeOverlay,'Returning to already-open profile must remain silent');
+ await click('[aria-label="Back to home"]');assert.equal((await codes()).at(-1),4);
+ // Disconnect remains effective; audio still works independently of hardware.
+ await click('#native-physical-open');await click('.native-physical-disconnect','Disconnect');await click('[aria-label="Back to home"]');await startCafe();
+ const disconnectedCodes=await codes();await click('.round-audio');assert.deepEqual(await codes(),disconnectedCodes);
+ console.log('PASS: native pronunciation taps→LISTENING, first hint tap→HINT, Continue/retry→THINKING, profile entry stays silent, fresh subscription→CONNECTED; audio completion restores THINKING only for unanswered questions; stale completion after submission is ignored; settings/voices/overlays do not replay; audio works disconnected. Mock BLE/voice only.');
+
+ // Resolve the target lesson before changing selection, including when a
+ // different saved lesson was selected at mount. Drive the actual home cards.
+ async function connectAtHome(){
+  await click('#native-physical-open');await click('.native-physical-actions .button','Connect');await click('.native-physical-devices button');
+  await until(()=>document.querySelector('.native-physical-status').textContent.includes('Reaction accepted'));
+  await click('[aria-label="Back to home"]');await evaluate(()=>{window.__bleCommands=[];});
+ }
+ const complete=freshSession();complete.progress={...complete.progress,index:5,results:[true,true,true,true,true],complete:true};
+ const paused=meaning();paused.progress={...paused.progress,hearts:0,failed:true,attempts:3,feedback:'incorrect'};
+ const answered=meaning();answered.progress={...answered.progress,attempts:1,feedback:'correct'};answered.selected='coffee';
+ const lesson2Key=sessionKey(nativeLessons[1]);
+ for(const scenario of [
+  {name:'fresh Lesson 1',seed:{},id:'cafe',command:6},
+  {name:'fresh Lesson 2',seed:{},id:nativeLessons[1].id,command:6},
+  {name:'resume Lesson 1 while completed Lesson 2 was selected',seed:{[NATIVE_SESSION_KEY]:meaning(),[lesson2Key]:complete},id:'cafe',command:6},
+  {name:'completed Lesson 1 results while active Lesson 2 was selected',seed:{[NATIVE_SESSION_KEY]:complete,[lesson2Key]:meaning()},id:'cafe',command:4},
+  {name:'completed Lesson 2 results',seed:{[lesson2Key]:complete},id:nativeLessons[1].id,command:4},
+  {name:'failed Lesson 1 while active Lesson 2 was selected',seed:{[NATIVE_SESSION_KEY]:paused,[lesson2Key]:meaning()},id:'cafe',command:4},
+  {name:'already-answered feedback',seed:{[NATIVE_SESSION_KEY]:answered},id:'cafe',command:4},
+ ]){
+  await open(scenario.seed);await connectAtHome();await click(`#native-card-${scenario.id} ~ .button`);
+  assert.deepEqual(await codes(),[scenario.command],scenario.name);
+  assert.equal(await evaluate(()=>document.querySelector('.app-navigation strong').textContent),nativeLessons.find(lesson=>lesson.id===scenario.id).title);
+  assert.ok(!(await codes()).includes(3),'Saved completion must never replay CELEBRATE');
+  const expected=[scenario.command];
+  if(scenario.name.startsWith('completed')){
+   await click('.completion button','Replay the lesson');expected.push(6);
+   assert.deepEqual(await codes(),expected,'Replay replaces the reset with THINKING, with no intermediate IDLE write');
+   assert.ok(await evaluate(()=>document.querySelector('.lesson-step-count').textContent.includes('STEP 1 OF 5')));
+  }
+  await click('[aria-label="Return to app home"]');assert.deepEqual(await codes(),[...expected,4],`${scenario.name}: close sends IDLE`);
+ }
+ await open({[NATIVE_SESSION_KEY]:complete,[lesson2Key]:meaning()});await connectAtHome();await startCafe();
+ assert.deepEqual(await codes(),[4]);await click('.native-next-lesson','Continue to Lesson 2');
+ assert.deepEqual(await codes(),[4,6],'Direct lesson-view switch uses active target, not completed previous lesson');
+ await open();await startCafe();await click('[aria-label="Return to app home"]');await click(`#native-card-${nativeLessons[1].id} ~ .button`);
+ assert.deepEqual(await codes(),[],'Disconnected lesson entries/close must send nothing');
+ console.log('PASS: connected Lesson 1/2 start, saved resume and direct target switch→THINKING; completed/failed/answered target→IDLE without celebration; close→IDLE; disconnected entry sends nothing. Mock BLE only.');
  assert.deepEqual(browserErrors,[],'No uncaught browser exceptions');
  console.log('PASS: interaction checks use isolated Chromium shims; no real iPhone, ESP32, speech or payment verification.');
 }finally{

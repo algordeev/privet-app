@@ -1,8 +1,10 @@
-# Privet OLED + servo companion firmware
+# Privet OLED + servo companion firmware (legacy commands 1–4)
 
 [PrivetBLE_Servo.ino](PrivetBLE_Servo.ino) adds SG90-targeted screen movement to the ESP32/SSD1306 companion. The project owner reports that the servo now moves the screen during emotions. The sketch itself is labelled for initial unloaded SG90 tests; this report does not establish safe travel, torque, loaded calibration or endurance for every screen mount.
 
-The existing four BLE emotion commands, UUIDs and eight-byte packets are unchanged. The phone continues to handle lessons, answer checking, progress and pronunciation. Firmware chooses the OLED face and servo gesture locally; there are no raw angle/pulse commands, arbitrary text payloads, Wi-Fi, audio or bonding. The [OLED-only baseline](../PrivetBLE_Lessons/README.md) remains a separate sketch, not an additional file to compile into this one.
+This is the legacy **commands-1–4** variant. Use the [current new-emotions firmware](../PrivetBLE_Servo_New_Emotions/README.md) for commands 1–9, persistent THINKING and HINT→THINKING. Profile navigation is silent; the current [app event mapping](../../docs/companion-ble.md#lesson-and-navigation-events) is documented separately. This older sketch reports unsupported for codes 5–9; Privet shows an update notice without retrying or blocking lessons.
+
+The phone handles lessons, answers, progress and pronunciation. Firmware chooses predefined faces and servo gestures. The unchanged version-1 eight-byte protocol carries no arbitrary text, JSON, OLED drawing, BLE audio or raw servo instructions; ACK means acceptance, not completed rendering/motion. The [OLED-only baseline](../PrivetBLE_Lessons/README.md) remains a separate sketch.
 
 ## Hardware and wiring
 
@@ -78,8 +80,8 @@ The code remembers only its **last commanded pulse**, initially 1500 µs. It has
 
 1. Disconnect power, verify labels/GPIO25/common ground and servo supply design. Start without the screen load and with free horn travel; support any mounted screen before power/PWM release tests.
 2. Upload using the matching sketch folder, inspect 115200-baud logs, and confirm OLED initialization/rotation and advertising. Attach no load until first-motion direction and extent are understood.
-3. Connect through **Privet → Physical companion settings → Connect**, not manual iPhone Settings pairing. Wait for setup/IDLE synchronization. Test happy reaction and observe the tilt, return and PWM-release log.
-4. Check incorrect → encouraging face with centered servo; correct → happy/tilt; Continue/retry → idle/return; completion → sparkles and alternating motion. Mounting determines the physical direction; do not infer angles from the pulse values.
+3. Connect through **Privet → Physical companion settings → Connect**, not manual iPhone Settings pairing. Wait for subscription and the fresh CONNECTED command (this legacy sketch returns unsupported and the app shows an update notice). Foreground resume instead requires accepted IDLE. Test happy reaction and observe the tilt, return and PWM-release log.
+4. Check incorrect → encouraging face with centered servo; correct → happy/tilt; new app Continue/retry → THINKING (unsupported by this legacy sketch; use the new variant); completion → sparkles and alternating motion. Mounting determines the physical direction; do not infer angles from the pulse values.
 5. Check an IDLE interrupt during HAPPY/CELEBRATE, normal disconnect/reconnect and expiry-to-center. An accepted ACK confirms neither rendering nor successful/safe mechanical movement.
 6. Validate actual screen load, clearance and stable power separately, then repeat the app's existing navigation/lock/background checks. The user's report confirms screen movement, not quantified torque, endurance or every interruption/fault case.
 

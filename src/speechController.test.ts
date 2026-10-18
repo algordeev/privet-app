@@ -93,3 +93,28 @@ test('a queued old timeout cannot cancel a newer request',()=>{
  h.audio.speak('чай');oldTimer();assert.equal(h.state.status,'loading');assert.equal(h.queue[0].text,'чай');
  h.callbacks(1).start();assert.equal(h.state.status,'speaking');
 });
+
+test('successful current pronunciation calls its explicit completion action once, after idle',()=>{
+ const h=harness(),states:string[]=[];h.audio.speak('кофе',()=>states.push(h.state.status));const utterance=h.callbacks(0);
+ assert.deepEqual(states,[]);utterance.start();utterance.end?.({} as SpeechSynthesisEvent);utterance.end?.({} as SpeechSynthesisEvent);
+ assert.deepEqual(states,['idle']);assert.equal(h.timers.size,0);
+});
+test('replaced, stopped, backgrounded and disposed pronunciation cannot run a stale completion action',()=>{
+ for(const cancel of ['replace','stop','background','dispose'] as const){
+  const h=harness();let oldEnds=0,newEnds=0;h.audio.speak('кофе',()=>oldEnds++);const old=h.callbacks(0);old.start();
+  if(cancel==='replace')h.audio.speak('чай',()=>newEnds++);
+  else if(cancel==='stop')h.audio.stop();else if(cancel==='background')h.audio.setActive(false);else h.audio.dispose();
+  old.end?.({} as SpeechSynthesisEvent);assert.equal(oldEnds,0,cancel);
+  if(cancel==='replace'){const current=h.callbacks(1);current.start();current.end?.({} as SpeechSynthesisEvent);assert.equal(newEnds,1);}
+ }
+});
+test('timed-out, failed, unavailable and canceled voice loading never report successful completion',()=>{
+ for(const scenario of ['timeout','error','unavailable','pending-stop'] as const){
+  const h=harness(scenario!=='pending-stop'&&scenario!=='unavailable');let ends=0;
+  if(scenario==='unavailable')h.loadVoices([{lang:'en-US'} as SpeechSynthesisVoice]);
+  h.audio.speak('кофе',()=>ends++);const old=h.spoken.length?h.callbacks(0):undefined;
+  if(scenario==='timeout')h.tick(STARTUP_TIMEOUT_MS);else if(scenario==='error')old?.error?.({} as SpeechSynthesisErrorEvent);
+  else if(scenario==='pending-stop'){h.audio.stop();h.loadVoices();}
+  old?.end?.({} as SpeechSynthesisEvent);assert.equal(ends,0,scenario);
+ }
+});
