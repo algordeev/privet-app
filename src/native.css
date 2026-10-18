@@ -1,6 +1,6 @@
 /* All native styles are gated by the runtime-selected .native-app root.
    WKWebView contentInset is "never"; safe-area padding is owned here once. */
-html.native-platform { overflow: hidden; scroll-behavior: auto; scroll-padding: 0; background: #f8f6f0; }
+html.native-platform { overflow: hidden; overscroll-behavior-x: none; scroll-behavior: auto; scroll-padding: 0; background: #f8f6f0; }
 html.native-platform body, html.native-platform #root { margin: 0; height: 100%; overflow: hidden; }
 .native-app {
   position: fixed;
@@ -11,6 +11,9 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  overscroll-behavior-x: none;
   padding: env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);
   background: #f8f6f0;
   color: #25372d;
@@ -25,7 +28,7 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .button:hover { transform: none; }
 .native-app .button:disabled { color: #5d7052; background: #dfe7d5; }
 .native-home-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 24px 22px 26px; -webkit-overflow-scrolling: touch; }
-.native-home-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.native-home-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .native-app .wordmark { font-family: inherit; font-size: 32px; }
 .native-level { color: #65765a; font-size: 9px; font-weight: 600; letter-spacing: 1px; }
 .native-welcome { margin-block: 37px 27px; }
@@ -220,12 +223,10 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 }
 
 /* Local profile and activity: no account or network connection. */
-.native-home-tools { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
+.native-home-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 9px; flex-shrink: 0; max-width: 100%; margin-left: auto; }
 .native-streak-badge { display: flex; align-items: center; gap: 4px; height: 36px; padding: 7px 9px; border: 1px solid #e4dece; border-radius: 20px; background: #f4eee1; color: #7c5842; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .native-streak-badge svg { width: 18px; height: 20px; color: #bd7252; }
 .native-streak-unit { font-size: 10px; font-weight: 500; }
-.native-app .native-plus-pill { min-height: 36px; padding: 7px 11px; border: 1px solid #d3dec7; border-radius: 20px; background: #edf1e6; color: #315a3c; font-size: 12px; font-weight: 700; white-space: nowrap; }
-.native-app .native-plus-pill.active { background: #397756; border-color: #397756; color: #fffdf7; }
 .native-app .native-profile-open { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #dce4d2; border-radius: 50%; background: #eaf0e2; color: #42673c; padding: 10px; }
 .native-profile-open svg { width: 22px; height: 22px; }
 .native-profile-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px 22px 28px; -webkit-overflow-scrolling: touch; }
@@ -342,3 +343,37 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .failure-screen .button:disabled { opacity: .48; cursor: default; }
 
 .native-feature-note { margin-top: 20px; color: #627458; font-size: 13px; line-height: 1.7; }
+
+/* Native panes scroll vertically; oversized rows must never create a sideways page. */
+.native-home-scroll,.native-profile-scroll,.native-app .lesson-scroll {
+ min-width: 0;
+ overflow-x: hidden;
+ overscroll-behavior-x: none;
+}
+.native-app .word-bank { flex-wrap: wrap; }
+
+/* Plus belongs to the profile; an active demo is indicated without another header button. */
+.native-app .native-profile-open.is-plus,.native-profile-avatar.is-plus {
+ position: relative;
+ border: 2px solid #c3a44b;
+ background: #fff8dc;
+ color: #49643c;
+ box-shadow: inset 0 0 0 2px #fffdf7;
+}
+.native-profile-plus-tag {
+ position: absolute;
+ left: 50%;
+ bottom: -5px;
+ transform: translateX(-50%);
+ padding: 1px 5px;
+ border: 1px solid #f8f6f0;
+ border-radius: 5px;
+ background: #806515;
+ color: #fffdf7;
+ font-size: 7px;
+ font-weight: 700;
+ line-height: 1.4;
+ letter-spacing: .5px;
+ pointer-events: none;
+}
+.native-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
