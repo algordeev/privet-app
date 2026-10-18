@@ -4,14 +4,14 @@ import {companionReaction,lessonCompanionEvent,progressReducer,type Action,type 
 import {loadSession,sessionKey,savedKey,readSaved,type Preferences} from './session';
 import {useSpeech} from './useSpeech';
 
-export function useLesson({persistSession=false,definition=cafeLesson,sharedPreferences,sharedSpeech,onTransition}:{persistSession?:boolean;definition?:LessonDefinition;sharedSpeech?:ReturnType<typeof useSpeech>;sharedPreferences?:{value:Preferences;set:Dispatch<SetStateAction<Preferences>>};onTransition?:(previous:Progress,next:Progress,action:Action)=>void}={}) {
+export function useLesson({persistSession=false,definition=cafeLesson,sharedPreferences,sharedSpeech,onTransition,unlimitedHearts=false}:{persistSession?:boolean;definition?:LessonDefinition;sharedSpeech?:ReturnType<typeof useSpeech>;sharedPreferences?:{value:Preferences;set:Dispatch<SetStateAction<Preferences>>};onTransition?:(previous:Progress,next:Progress,action:Action)=>void;unlimitedHearts?:boolean}={}) {
  const {exercises:lesson,words}=definition;
  const [initial]=useState(()=>loadSession(persistSession,definition));
  const [saved,setSaved]=useState(()=>readSaved(definition));
  const [localPreferences,setLocalPreferences]=useState(saved.preferences);
  const preferences=sharedPreferences?.value??localPreferences;
  const setPreferences=sharedPreferences?.set??setLocalPreferences;
- const [progress,reduce]=useReducer((state:Progress,action:Action)=>progressReducer(state,action,lesson),initial.progress);
+ const [progress,reduce]=useReducer((state:Progress,action:Action)=>progressReducer(state,action,lesson,{unlimitedHearts}),initial.progress);
  const [thinkingAt,setThinkingAt]=useState<number|null>(null);
  const [hintAt,setHintAt]=useState<number|null>(initial.hintAt);
  const [vocabularyWord,setVocabularyWord]=useState<string|null>(initial.vocabularyWord);
@@ -27,8 +27,8 @@ export function useLesson({persistSession=false,definition=cafeLesson,sharedPref
  const previousStep=useRef(progress.index);
  const localSpeech=useSpeech(!sharedSpeech);
  const speech=sharedSpeech??localSpeech;
- function dispatch(action:Action){speech.stop();onTransition?.(progress,progressReducer(progress,action,lesson),action);reduce(action);}
- useEffect(()=>{speech.stop();},[progress.index,progress.complete,speech.stop]);
+ function dispatch(action:Action){speech.stop();onTransition?.(progress,progressReducer(progress,action,lesson,{unlimitedHearts}),action);reduce(action);}
+ useEffect(()=>{speech.stop();},[progress.index,progress.complete,progress.failed,speech.stop]);
  const exercise=lesson[Math.min(progress.index,lesson.length-1)];
  const hintRequested=hintAt===progress.index;
  const reaction=companionReaction(lessonCompanionEvent(progress,{thinking:thinkingAt===progress.index,hintRequested,vocabularyWord},lesson));
@@ -39,8 +39,8 @@ export function useLesson({persistSession=false,definition=cafeLesson,sharedPref
   if(lessonScroll.current)lessonScroll.current.scrollTop=0;
   if(mounted.current)lessonHeading.current?.focus({preventScroll:true});
   mounted.current=true;
- },[progress.index,progress.complete,exercise.prompt]);
- useEffect(()=>{if(progress.complete)setSaved(s=>({...s,completion:{results:progress.results,date:new Date().toISOString()}}));},[progress.complete,progress.results]);
+ },[progress.index,progress.complete,progress.failed,exercise.prompt]);
+ useEffect(()=>{if(progress.complete)setSaved(s=>({...s,completion:{results:progress.results,date:new Date().toISOString(),hearts:progress.hearts,bestCombo:progress.bestCombo}}));},[progress.complete,progress.results,progress.hearts,progress.bestCombo]);
  useEffect(()=>{
   if(!persistSession)return;
   // A transition may render before the step-cleanup effect; don't persist a
@@ -57,7 +57,9 @@ export function useLesson({persistSession=false,definition=cafeLesson,sharedPref
   setLessonSettings(false);dispatch({type:'reset'});setRevealed([]);setSelected('');setTokens([]);setThinkingAt(null);setHintAt(null);setVocabularyWord(null);
   setNotice('Lesson reset. Ready for a fresh start.');
  }
+ function revive(){dispatch({type:'revive'});}
+ function refill(){dispatch({type:'refill'});}
  function resetAll(){restart();setPreferences({stress:false,pronunciation:true});setSaved({preferences:{stress:false,pronunciation:true}});try{localStorage.removeItem(savedKey(definition));if(persistSession)localStorage.removeItem(sessionKey(definition));}catch{}setNotice('Saved completion and display preferences cleared.');}
- return {definition,saved,preferences,setPreferences,progress,dispatch,thinkingAt,setThinkingAt,hintAt,setHintAt,vocabularyWord,setVocabularyWord,selected,setSelected,tokens,setTokens,revealed,setRevealed,lessonSettings,setLessonSettings,notice,setNotice,lessonScroll,inputRef,lessonHeading,speech,exercise,hintRequested,reaction,display,ready,check,restart,resetAll,incorrect:progress.feedback==='incorrect'};
+ return {definition,saved,preferences,setPreferences,progress,dispatch,thinkingAt,setThinkingAt,hintAt,setHintAt,vocabularyWord,setVocabularyWord,selected,setSelected,tokens,setTokens,revealed,setRevealed,lessonSettings,setLessonSettings,notice,setNotice,lessonScroll,inputRef,lessonHeading,speech,exercise,hintRequested,reaction,display,ready,check,restart,revive,refill,resetAll,unlimitedHearts,incorrect:progress.feedback==='incorrect'};
 }
 export type LessonController=ReturnType<typeof useLesson>;

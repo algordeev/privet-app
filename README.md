@@ -75,6 +75,12 @@ The native root owns safe-area spacing once (`ios.contentInset: never`, `viewpor
 
 ## Learning, audio and local state
 
+Lessons use three session hearts, an in-lesson first-try combo and a local XP reward based on the lesson, remaining hearts and best combo. Daily XP appears in the native profile; completed lessons show Passed and the next lesson shows Up next while both remain open. See [Duolingo lesson mechanics and the Privet adaptations](docs/duolingo-mechanics.md).
+
+**Privet Plus (simulated)** is an optional local subscription that gives native lessons unlimited hearts. It is a demo only: no payment is processed.
+
+**Gems** are earned only by learning, at the same rate for everyone. They have fixed prices for heart refills and streak freezes; gems cannot be bought, there are no ads, and Plus has no gem advantage. See [the Duolingo mechanics notes](docs/duolingo-mechanics.md) for the evidence and full rules.
+
 - Five café steps: reveal vocabulary, choose a meaning, build a sentence by tapping, reply to the barista, and type a translation. Check/retry/explicit Continue, first-attempt results, mistake review, replay and reset are implemented.
 - **Native Lesson 02 — Nice to meet you:** five steps for Меня зовут Анна., Как тебя зовут?, А тебя?, Очень приятно! and Пока! Vocabulary, meaning selection, sentence building, a social exchange and typed goodbye use the same check/retry/hint/review flow. Informal address and the example name are explained. Both lessons are available without a prerequisite lock. The browser keeps its café demo.
 - Optional stress marks and pronunciation help keep canonical Russian separate from display aids. Assessed companion prompts do not reveal answers before a correct response or explicit hint.
