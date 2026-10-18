@@ -30,7 +30,7 @@ test('second lesson supports wrong answers, retry, explicit continue, results, r
  let p=initialProgress();const exercises=introductionsLesson.exercises;
  for(const [index,exercise] of exercises.entries()){
   assert.equal(p.index,index);
-  if(index>0){
+  if(index===1){
    assert.deepEqual(lessonCompanionEvent(p,{},exercises),{type:'prompt',text:'?'});
    p=progressReducer(p,{type:'check',value:'incorrect'},exercises);
    assert.equal(p.feedback,'incorrect');assert.deepEqual(lessonCompanionEvent(p,{},exercises),{type:'incorrect'});
@@ -42,7 +42,7 @@ test('second lesson supports wrong answers, retry, explicit continue, results, r
   assert.equal(p.feedback,'correct');assert.equal(p.complete,false);
   p=progressReducer(p,{type:'continue'},exercises);
  }
- assert.equal(p.complete,true);assert.deepEqual(p.results,[true,false,false,false,false]);
+ assert.equal(p.complete,true);assert.deepEqual(p.results,[true,false,true,true,true]);
  assert.deepEqual(progressReducer(p,{type:'reset'},exercises),initialProgress());
  assert.equal(homeGreeting({...freshSession(),progress:p},introductionsLesson.title),'Молодец! You finished Nice to meet you.');
 });

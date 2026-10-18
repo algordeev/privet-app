@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {initialProgress,progressReducer,type Action,type Progress} from './engine.ts';
+import {initialProgress,progressReducer,MAX_HEARTS,type Action,type Progress} from './engine.ts';
 import {lesson} from './lesson.ts';
 import {COMMAND,type CommandCode} from './bleProtocol.ts';
 import {createPhysicalLessonEvents,physicalLessonCommand} from './physicalLessonEvents.ts';
@@ -28,8 +28,21 @@ test('rapid duplicate submissions are emitted once while new retry attempts stil
 });
 test('rejected retry/continue/check transitions never emit and restoring results is not an event',()=>{
  const p=initialProgress();for(const action of [{type:'retry'},{type:'continue'}] as Action[])assert.equal(physicalLessonCommand(p,progressReducer(p,action),action),null);
- const complete:Progress={index:5,attempts:0,results:[true,true,true,true,true],feedback:null,complete:true};const sent:CommandCode[]=[];createPhysicalLessonEvents(c=>sent.push(c));assert.deepEqual(sent,[]);
+ const complete:Progress={...initialProgress(),index:5,attempts:0,results:[true,true,true,true,true],feedback:null,complete:true};const sent:CommandCode[]=[];createPhysicalLessonEvents(c=>sent.push(c));assert.deepEqual(sent,[]);
  assert.equal(physicalLessonCommand(complete,complete,{type:'continue'}),null);
+});
+
+test('out of hearts emits encouragement and cannot celebrate',()=>{
+ let p={...initialProgress(),index:1,hearts:1};const sent:CommandCode[]=[];const events=createPhysicalLessonEvents(c=>sent.push(c));
+ const action:Action={type:'check',value:'wrong'},failed=progressReducer(p,action);events(p,failed,action);assert.equal(failed.failed,true);
+ events(failed,progressReducer(failed,{type:'continue'}),{type:'continue'});
+ events(failed,progressReducer(failed,{type:'check',value:'coffee'}),{type:'check',value:'coffee'});
+ assert.deepEqual(sent,[COMMAND.ENCOURAGE]);
+});
+test('reviving a failed lesson for Plus sends no companion command',()=>{
+ const previous={...initialProgress(),index:2,hearts:0,failed:true,feedback:'incorrect' as const,attempts:1};
+ const next={...previous,hearts:MAX_HEARTS,failed:false};
+ assert.equal(physicalLessonCommand(previous,next,{type:'revive'}),null);
 });
 
 test('rapid divergent submissions from the same pre-render state only emit the first accepted reaction',()=>{
