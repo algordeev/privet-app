@@ -1,9 +1,9 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {readSaved} from './session';
-import {createStatsTracker,restoreStats,statsSummary,NATIVE_STATS_KEY,type NativeStats} from './nativeStats';
+import {applyStreakFreezes,buyFreeze as purchaseFreeze,createStatsTracker,restoreStats,spendGems,statsSummary,NATIVE_STATS_KEY,GEM_RULES,type NativeStats} from './nativeStats';
 import type {Action,Progress} from './engine';
 
-function load(){try{return restoreStats(localStorage.getItem(NATIVE_STATS_KEY),readSaved().completion);}catch{return restoreStats(null);}}
+function load(){try{return applyStreakFreezes(restoreStats(localStorage.getItem(NATIVE_STATS_KEY),readSaved().completion),new Date());}catch{return restoreStats(null);}}
 export function useNativeStats(){
  const [stats,setStats]=useState(load);
  const [persistent,setPersistent]=useState(true);
@@ -19,8 +19,8 @@ export function useNativeStats(){
   let alive=true,timer:ReturnType<typeof setTimeout>;
   const update=()=>{
    if(!alive)return;
-   clearTimeout(timer);refresh(n=>n+1);
-   const now=new Date(),midnight=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1);
+   clearTimeout(timer);const now=new Date();actor.current?.update(current=>applyStreakFreezes(current,now));refresh(n=>n+1);
+   const midnight=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1);
    timer=setTimeout(update,Math.max(100,midnight.getTime()-now.getTime()+100));
   };
   const visible=()=>{if(!document.hidden)update();};
@@ -31,6 +31,8 @@ export function useNativeStats(){
  },[]);
  const onTransition=useCallback((previous:Progress,next:Progress,action:Action,lessonId='cafe')=>actor.current?.transition(previous,next,action,lessonId),[]);
  const reset=useCallback(()=>actor.current?.reset(),[]);
- return {stats,summary:statsSummary(stats,new Date()),persistent,onTransition,reset};
+ const buyFreeze=useCallback(()=>actor.current?.update(purchaseFreeze)??false,[]);
+ const spendForRefill=useCallback(()=>actor.current?.update(current=>spendGems(current,GEM_RULES.refill))??false,[]);
+ return {stats,summary:statsSummary(stats,new Date()),persistent,onTransition,reset,buyFreeze,spendForRefill};
 }
 export type NativeStatsController=ReturnType<typeof useNativeStats>;

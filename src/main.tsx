@@ -1,13 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import {Capacitor} from '@capacitor/core';
-import {RuntimeApp} from './RuntimeApp';
+import {RuntimeApp,isNativeLayout} from './RuntimeApp';
 import './styles.css';
 import './iphone.css';
 import './gallery.css';
 import './native.css';
 import {PRODUCT} from './config';
-if(Capacitor.isNativePlatform()){
+if(isNativeLayout()){
  document.documentElement.classList.add('native-platform');
  const viewport=document.querySelector<HTMLMetaElement>('meta[name=viewport]');
  if(viewport&&!viewport.content.includes('viewport-fit'))viewport.content+=', viewport-fit=cover';
