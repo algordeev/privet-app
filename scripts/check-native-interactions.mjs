@@ -28,6 +28,8 @@ server.middlewares.use('/__privet_native_checks',(req,res)=>{
 let chrome,ws,profile;
 try{
  await server.listen();const origin=`http://127.0.0.1:${server.httpServer.address().port}`;
+ const {nativeLessons}=await server.ssrLoadModule('/src/lessons.ts');
+ const {sessionKey}=await server.ssrLoadModule('/src/session.ts');
  const {freshSession,NATIVE_SESSION_KEY}=await server.ssrLoadModule('/src/session.ts');
  const {emptyStats,NATIVE_STATS_KEY,localDay}=await server.ssrLoadModule('/src/nativeStats.ts');
  const {SUBSCRIPTION_KEY}=await server.ssrLoadModule('/src/subscription.ts');
@@ -52,10 +54,19 @@ try{
   assert.ok(!result.exceptionDetails,JSON.stringify(result.exceptionDetails));return result.result.value;
  };
  const until=async(fn,arg)=>{for(let n=0;n<120;n++){if(await evaluate(fn,arg))return;await pause(50);}throw Error(`UI condition timed out: ${fn}`);};
+ async function assertNativeLayout(){
+  const panes=await evaluate(()=>[...document.querySelectorAll('.native-app,.native-home-scroll,.native-profile-scroll,.native-app .lesson-scroll')].map(el=>{
+   el.scrollLeft=1000;
+   return {name:el.className,width:el.clientWidth,content:el.scrollWidth,left:el.scrollLeft};
+  }));
+  for(const pane of panes){assert.ok(pane.content<=pane.width,`Horizontal overflow: ${JSON.stringify(pane)}`);assert.equal(pane.left,0,`Sideways scrolling: ${pane.name}`);}
+  const clipped=await evaluate(()=>[...document.querySelectorAll('.native-home-header button,.native-home-header .wordmark')].filter(el=>{const r=el.getBoundingClientRect();return r.left<0||r.right>innerWidth;}).map(el=>el.textContent));
+  assert.deepEqual(clipped,[],'Header controls must fit, not merely be clipped');
+ }
  const click=async(selector,text)=>{
   if(process.env.PRIVET_INTERACTION_DEBUG)console.log(`CLICK ${selector} ${text??''}`);
   await until(({selector,text})=>[...document.querySelectorAll(selector)].some(el=>!el.disabled&&(!text||el.textContent.trim().replace(/\s*[→↻∞]\s*$/,'').trim()===text)),{selector,text});
-  await evaluate(({selector,text})=>{const el=[...document.querySelectorAll(selector)].find(el=>!el.disabled&&(!text||el.textContent.trim().replace(/\s*[→↻∞]\s*$/,'').trim()===text));el.scrollIntoView({block:'nearest'});el.click();},{selector,text});await pause(60);
+  await evaluate(({selector,text})=>{const el=[...document.querySelectorAll(selector)].find(el=>!el.disabled&&(!text||el.textContent.trim().replace(/\s*[→↻∞]\s*$/,'').trim()===text));el.scrollIntoView({block:'nearest'});el.click();},{selector,text});await pause(60);await assertNativeLayout();
  };
  const stored=key=>evaluate(key=>JSON.parse(localStorage.getItem(key)),key);
  async function open(nextSeed={},time=new Date(2026,9,17,12).getTime(),resume=false){
@@ -64,14 +75,14 @@ try{
   await call('Page.navigate',{url:origin+'/__privet_native_checks'+(resume?'?resume=1':'')});
   await until(()=>!window.__oldDocument&&!!document.querySelector('.native-app'));
   await until(()=>document.querySelectorAll('.native-lesson-card').length===2);
-  await pause(80);
+  await pause(80);await assertNativeLayout();
  }
  const startCafe=()=>click('#native-card-cafe ~ .button');
  function meaning(){const s=freshSession();s.progress.index=1;s.progress.results=[true];return s;}
  function finalStep(){const s=freshSession();s.progress={...s.progress,index:4,results:[true,true,true,true],attempts:1,feedback:'correct',bestCombo:5};s.selected='спасибо';return s;}
  const today=localDay(new Date(2026,9,17,12));
  await call('Page.enable');await call('Runtime.enable');
- for(const viewport of [{width:375,height:667},{width:430,height:932}]){
+ for(const viewport of [{width:320,height:568},{width:375,height:667},{width:390,height:844},{width:430,height:932}]){
   await call('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:true});
   await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
   await open({[NATIVE_SESSION_KEY]:meaning()});await startCafe();
@@ -94,15 +105,17 @@ try{
   await click('.lesson-bottom .button','Try again');await click('.choice','1tea');await click('.lesson-bottom .button','Check answer');
   assert.equal((await stored(NATIVE_SESSION_KEY)).progress.hearts,3,'Plus wrong answer must not consume a heart');
   await click('[aria-label="Return to app home"]');await click('[aria-label="Open your profile and statistics"]');
+  assert.ok(await evaluate(()=>!!document.querySelector('.native-profile-avatar.is-plus')));
   await click('#native-profile-plus-open','Manage Plus');await click('.native-plus-card .button','Cancel Plus');
   await until(()=>!!document.querySelector('.native-plus-start'));
   assert.equal((await stored(SUBSCRIPTION_KEY)).plan,null);
-  await click('[aria-label="Back"]');await click('[aria-label="Back to home"]');await startCafe();
+  await click('[aria-label="Back"]');assert.equal(await evaluate(()=>!!document.querySelector('.native-profile-avatar.is-plus')),false);
+  await click('[aria-label="Back to home"]');assert.equal(await evaluate(()=>!!document.querySelector('#native-profile-open.is-plus')),false);await startCafe();
   await click('.lesson-bottom .button','Try again');await click('.choice','1tea');await click('.lesson-bottom .button','Check answer');
   assert.equal((await stored(NATIVE_SESSION_KEY)).progress.hearts,2,'After cancellation mistakes consume hearts again');
   await open({},undefined,true);assert.equal((await stored(SUBSCRIPTION_KEY)).plan,null,'Cancellation persists on reload');
-  await click('#native-plus-open');await click('.native-plus-plans button','Yearly$39.99 / year · example price');await click('.native-plus-start','Activate Plus demo');
-  await open({},undefined,true);assert.equal((await stored(SUBSCRIPTION_KEY)).plan,'yearly');assert.ok(await evaluate(()=>document.querySelector('#native-plus-open').textContent.includes('PLUS')));
+  await click('[aria-label="Open your profile and statistics"]');await click('#native-profile-plus-open','Get Plus');await click('.native-plus-plans button','Yearly$39.99 / year · example price');await click('.native-plus-start','Activate Plus demo');
+  await open({},undefined,true);assert.equal((await stored(SUBSCRIPTION_KEY)).plan,'yearly');assert.ok(await evaluate(()=>!!document.querySelector('#native-profile-open.is-plus')));assert.equal(await evaluate(()=>document.querySelector('#native-plus-open')),null);
 
   // The hook must consume a freeze after mount, then finish from that same state.
   const freezeStats={...emptyStats(),days:{'2026-10-15':1},gems:{...emptyStats().gems,balance:60,freezes:1}};
@@ -131,7 +144,20 @@ try{
   assert.equal((await stored(NATIVE_STATS_KEY)).gems.balance,0);assert.equal((await stored(NATIVE_STATS_KEY)).gems.freezes,1);
   assert.ok(await evaluate(()=>document.querySelector('.native-gem-shop-card .button').disabled));
   assert.equal(await evaluate(()=>document.querySelector('.native-app').scrollWidth<=innerWidth),true,'native shell fits viewport');
-  console.log(`PASS ${viewport.width}×${viewport.height}: Plus activate/cancel/reload/zero-heart recovery, restored heart consumption, freeze lifecycle→finish, replay reward separation, refill/freeze prices.`);
+  // Cover every exercise layout, not just the meaning/paused screens above.
+  for(const definition of nativeLessons){for(let index=0;index<definition.exercises.length;index++){
+   const snapshot=freshSession();snapshot.progress.index=index;snapshot.progress.results=Array(index).fill(true);
+   await open({[sessionKey(definition)]:snapshot});await click(`#native-card-${definition.id} ~ .button`);
+  }}
+  await open();
+  const vertical=await evaluate(()=>{const pane=document.querySelector('.native-home-scroll');pane.scrollTop=1000;return {top:pane.scrollTop,height:pane.clientHeight,content:pane.scrollHeight};});
+  assert.ok(vertical.top>0,'Home must remain vertically scrollable');
+  await call('Input.synthesizeScrollGesture',{x:viewport.width/2,y:viewport.height/2,xDistance:-120,yDistance:0,gestureSourceType:'touch'});
+  await assertNativeLayout();
+  await click('[aria-label="Open your profile and statistics"]');
+  await click('[aria-label="Back to home"]');await click('#native-physical-open');
+  await assertNativeLayout();
+  console.log(`PASS ${viewport.width}×${viewport.height}: Plus activate/cancel/reload/zero-heart recovery, restored heart consumption, freeze lifecycle→finish, replay reward separation, refill/freeze prices; native panes cannot scroll sideways, all exercises/header controls fit, vertical scroll retained.`);
  }
  assert.deepEqual(browserErrors,[],'No uncaught browser exceptions');
  console.log('PASS: interaction checks use isolated Chromium shims; no real iPhone, ESP32, speech or payment verification.');

@@ -73,6 +73,7 @@ try {
  assert.ok(physical({...initialBleState(),phase:'connected',ready:true,pending:true}).includes('disabled="">Sending reaction'));
  console.log('PASS: physical companion settings stay native-only; test requires subscribed connection and no pending command.');
  assert.ok(home.includes('Open your profile and statistics'));
+ assert.ok(!home.includes('native-plus-open'));assert.ok(!home.includes('is-plus'));
  assert.ok(home.includes('0-day learning streak'));
  function Profile(){const activity=useNativeStats();const subscription=useSubscription();return createElement(NativeProfile,{activity,subscription,onPlus:()=>{},onClose:()=>{}});}
  const emptyProfile=renderToStaticMarkup(createElement(Profile));
@@ -166,6 +167,10 @@ try {
  storage.clear();assert.ok(renderToStaticMarkup(createElement(Plus)).includes('Activate Plus demo'));
  storage.set(SUBSCRIPTION_KEY,JSON.stringify({version:1,plan:'monthly',since:'2026-10-18'}));
  assert.ok(renderToStaticMarkup(createElement(Plus)).includes('Cancel Plus'));assert.ok(renderToStaticMarkup(createElement(Profile)).includes('Manage Plus'));
+ Capacitor.isNativePlatform=()=>true;
+ const plusHome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(plusHome.includes('native-profile-open is-plus'));assert.ok(plusHome.includes('Plus demo active'));assert.ok(!plusHome.includes('native-plus-open'));
+ const plusProfile=renderToStaticMarkup(createElement(Profile));assert.ok(plusProfile.includes('native-profile-avatar is-plus'));assert.ok(plusProfile.includes('native-profile-plus-tag'));
+ Capacitor.isNativePlatform=()=>false;
  storage.clear();assert.ok(renderToStaticMarkup(createElement(Profile)).includes('Get Plus'));
  console.log('PASS: own-feature descriptions replace comparisons, prices/hardware states are accurate, and Plus demo screens render inactive/active states.');
  console.log('PASS: native completion/replay and saved results render; browser sessions still start fresh.');
