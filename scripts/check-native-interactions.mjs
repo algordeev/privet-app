@@ -406,6 +406,44 @@ try{
  // The second lesson has the same header/reference without changing its session.
  await open({[sessionKey(nativeLessons[1])]:meaning()});await click(`#native-card-${nativeLessons[1].id} ~ .button`);await click('[aria-label="Open Cyrillic guide"]');await click('[aria-label="Close Cyrillic guide"]');
  console.log('PASS: guide audio uses the shared controller and guarded LISTENING/THINKING callbacks; closing cancels stale completion; both lessons expose the reference.');
+ // Exercise real pointer capture with mouse and touch, not synthetic .click().
+ for(const [lesson,words,input] of [[nativeLessons[0],['чай','Я','хочу'],'mouse'],[nativeLessons[1],['Анна','Меня','зовут'],'touch']]){
+  await call('Emulation.setDeviceMetricsOverride',{width:375,height:667,deviceScaleFactor:1,mobile:true});
+  await call('Emulation.setTouchEmulationEnabled',{enabled:input==='touch',maxTouchPoints:1});
+  const session=freshSession();session.progress.index=2;session.progress.results=[true,true];session.tokens=words;
+  const key=sessionKey(lesson);await open({[key]:session});await click(`#native-card-${lesson.id} ~ .button`);
+  await evaluate(()=>{document.querySelector('.sentence-answer').scrollIntoView({block:'center'});});await pause(80);
+  const points=await evaluate(()=>[...document.querySelectorAll('.sentence-answer button')].map(el=>{const r=el.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};}));
+  const [from,,to]=points;
+  if(input==='mouse'){
+   await call('Input.dispatchMouseEvent',{type:'mouseMoved',...from});
+   await call('Input.dispatchMouseEvent',{type:'mousePressed',...from,button:'left',clickCount:1});
+   await call('Input.dispatchMouseEvent',{type:'mouseMoved',...to,button:'left',buttons:1});
+  }else{
+   await call('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...from,id:1}]});
+   await call('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...to,id:1}]});
+  }
+  await until(()=>!!document.querySelector('.sentence-drag-ghost'));
+  if(input==='mouse')await call('Input.dispatchMouseEvent',{type:'mouseReleased',...to,button:'left',clickCount:1});
+  else await call('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  const expected=[words[1],words[2],words[0]];
+  await until(expected=>JSON.stringify([...document.querySelectorAll('.sentence-answer button')].map(el=>el.dataset.word))===JSON.stringify(expected),expected);
+  assert.deepEqual((await stored(key)).tokens,expected,'Dragging reorders without removing a token');
+  assert.equal(await evaluate(()=>!!document.querySelector('.sentence-drag-ghost')),false);
+  // Keyboard users can reorder without dragging; ordinary taps still remove.
+  await evaluate(()=>{const el=document.querySelectorAll('.sentence-answer button')[2];el.focus();el.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',altKey:true,bubbles:true}));});
+  assert.deepEqual((await stored(key)).tokens,[words[1],words[0],words[2]]);
+  assert.equal(await evaluate(()=>document.activeElement.dataset.word),words[0]);
+  await click('.sentence-answer button');assert.deepEqual((await stored(key)).tokens,[words[0],words[2]]);
+  // Reload restores reordered canonical words through the existing session format.
+  await open({},undefined,true);await click(`#native-card-${lesson.id} ~ .button`);
+  assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.sentence-answer button')].map(el=>el.dataset.word)),[words[0],words[2]]);
+  await click('.word-bank button',words[1]);await click('.lesson-bottom .button','Check answer');
+  assert.ok(await evaluate(()=>[...document.querySelectorAll('.sentence-answer button')].every(el=>el.disabled)),'Submitted answers cannot be rearranged');
+  await assertNativeLayout();
+  console.log(`PASS: ${input} sentence drag, keyboard reorder/focus, tap removal, persistence and feedback locking in ${lesson.id}.`);
+ }
+ await call('Emulation.setTouchEmulationEnabled',{enabled:false});
  assert.deepEqual(browserErrors,[],'No uncaught browser exceptions');
  console.log('PASS: interaction checks use isolated Chromium shims; no real iPhone, ESP32, speech or payment verification.');
 }finally{
