@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {CYRILLIC,LETTER_GROUPS,QUICK_LETTERS,READING_WORDS,contextualLetters,referenceExample,type CyrillicLetter} from './cyrillic';
+import {CYRILLIC,LETTER_GROUPS,QUICK_LETTERS,READING_WORDS,contextualLetters,referenceExample,targetLetterParts,type CyrillicLetter} from './cyrillic';
 import type {LessonDefinition} from './lessons';
 import type {Exercise} from './lesson';
 import type {LessonController} from './useLesson';
@@ -9,9 +9,13 @@ import {SoundIcon} from './Icons';
 
 type Speech=LessonController['speech'];
 function BackChevron(){return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>;}
+export function CyrillicExample({example,target}:{example:string;target:string}){
+ const parts=targetLetterParts(example,target);
+ return <span className="native-letter-example" lang="ru"><span aria-hidden="true">{parts.before}{parts.target&&<strong className="native-target-letter">{parts.target}</strong>}{parts.after}</span><span className="native-sr-only">{example}</span></span>;
+}
 function LetterCards({letters,speech,onListen}:{letters:readonly CyrillicLetter[];speech:Speech;onListen:(text:string)=>void}){
  return <div className="native-letter-list">{letters.map(item=><article className="native-letter-card" key={item.upper}>
-  <strong lang="ru">{item.upper} <span>{item.lower}</span></strong><div><b>{item.sound}</b><p><span lang="ru">{item.example}</span><span className="native-example-meaning">{item.meaning}</span></p>{item.note&&<small>{item.note}</small>}</div>
+  <strong lang="ru">{item.upper} <span>{item.lower}</span></strong><div><b>{item.sound}</b><p><CyrillicExample example={item.example} target={item.lower}/><span className="native-example-meaning">{item.meaning}</span></p>{item.note&&<small>{item.note}</small>}</div>
   {speech.available&&item.example&&<button className="native-letter-audio" aria-label={`Listen to ${item.example}: ${item.meaning}`} onClick={()=>onListen(item.example)}><SoundIcon/></button>}
  </article>)}</div>;
 }
@@ -51,7 +55,7 @@ export function NativeCyrillicQuickStart({onboarding,speech,onClose,onLesson}:{o
   <div ref={scroll} className="native-quick-scroll">
    <h1 ref={heading} tabIndex={-1}>{finished?'A little more familiar.':titles[page]}</h1>
    {finished?<p>You don’t need to memorize everything. The alphabet guide stays available during lessons.</p>:<>
-    <p>{page===0?'Some Russian letters already look and sound familiar.':page===1?'These look familiar to English readers, but their sounds are different. Take your time with them.':page===2?'Meet a few more letters from your first lessons. You can look them up any time.':'Try reading each word, then tap to reveal its meaning. No scores, no wrong answers.'}</p>
+    <p>{page===0?'Some Russian letters already look and sound familiar.':page===1?'These look familiar to English readers, but their sounds are different. Take your time with them.':page===2?'Meet a few more useful Russian letters. You can look them up any time.':'Try reading each word, then tap to reveal its meaning. No scores, no wrong answers.'}</p>
     {page<3?<section className={page===1?'native-letter-group is-tricky':'native-letter-group'}><p className="native-alphabet-note">English spellings are rough sound guides, not exact equivalents.</p><LetterCards letters={letters} speech={speech} onListen={text=>speech.speak(text)}/></section>:<div className="native-reading-list">{READING_WORDS.map(word=><article className="native-reading-card" key={word.text}><button className="native-reading-reveal" aria-expanded={revealed.includes(word.text)} onClick={()=>setRevealed(values=>values.includes(word.text)?values:[...values,word.text])}><strong lang="ru">{word.text}</strong><span>{revealed.includes(word.text)?word.meaning:'Reveal meaning +'}</span></button>{speech.available&&<button className="native-letter-audio" aria-label={`Listen to ${word.text}`} onClick={()=>speech.speak(word.text)}><SoundIcon/></button>}</article>)}</div>}
     <AudioNote speech={speech}/>
    </>}

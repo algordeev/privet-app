@@ -175,7 +175,13 @@ try {
  storage.clear();assert.ok(renderToStaticMarkup(createElement(Profile)).includes('Get Plus'));
  console.log('PASS: own-feature descriptions replace comparisons, prices/hardware states are accurate, and Plus demo screens render inactive/active states.');
  console.log('PASS: native completion/replay and saved results render; browser sessions still start fresh.');
- const {NativeAlphabetGuide,NativeCyrillicQuickStart}=await server.ssrLoadModule('/src/NativeCyrillic.tsx');
+ const {NativeAlphabetGuide,NativeCyrillicQuickStart,CyrillicExample}=await server.ssrLoadModule('/src/NativeCyrillic.tsx');
+ const {CYRILLIC,targetLetterParts}=await server.ssrLoadModule('/src/cyrillic.ts');
+ for(const item of CYRILLIC){
+  const example=renderToStaticMarkup(createElement(CyrillicExample,{example:item.example,target:item.lower}));
+  const parts=targetLetterParts(item.example,item.lower);
+  assert.equal(example,`<span class="native-letter-example" lang="ru"><span aria-hidden="true">${parts.before}<strong class="native-target-letter">${parts.target}</strong>${parts.after}</span><span class="native-sr-only">${item.example}</span></span>`,'Visual emphasis is hidden from assistive technology, which gets one complete Russian word');
+ }
  const {useCyrillicProgress}=await server.ssrLoadModule('/src/useCyrillicProgress.ts');
  const {CYRILLIC_KEY}=await server.ssrLoadModule('/src/cyrillicProgress.ts');
  assert.ok(home.includes('Cyrillic quick start'));assert.ok(home.includes('RECOMMENDED · ABOUT 3 MIN'));
