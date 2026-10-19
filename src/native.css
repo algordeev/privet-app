@@ -408,6 +408,7 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-letter-card > strong span { font-size: 22px; }
 .native-app .native-letter-card > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .native-app .native-letter-card b { font-weight: 600; font-size: 17px; }
+.native-app .native-target-letter { font-weight: 800; text-decoration: underline; text-underline-offset: .16em; text-decoration-thickness: 1.5px; }
 .native-app .native-letter-card p { font-size: 15px; margin: 4px 0; }
 .native-app .native-example-meaning { display: block; font-size: 13px; color: #5a6d51; }
 .native-app .native-letter-card small { display: block; color: #586b50; font-size: 12px; line-height: 1.5; }

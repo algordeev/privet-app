@@ -47,7 +47,7 @@ try{
  const {emptyStats,NATIVE_STATS_KEY,localDay}=await server.ssrLoadModule('/src/nativeStats.ts');
  const {SUBSCRIPTION_KEY}=await server.ssrLoadModule('/src/subscription.ts');
  const {CYRILLIC_KEY}=await server.ssrLoadModule('/src/cyrillicProgress.ts');
- const {contextualLetters}=await server.ssrLoadModule('/src/cyrillic.ts');
+ const {CYRILLIC,contextualLetters}=await server.ssrLoadModule('/src/cyrillic.ts');
  profile=await mkdtemp(join(tmpdir(),'privet-native-checks-'));
  chrome=spawn(executable,['--headless=new','--no-first-run','--no-default-browser-check','--remote-debugging-port=0',`--user-data-dir=${profile}`,'about:blank'],{stdio:'ignore'});
  let port;for(let n=0;n<100;n++){try{port=(await readFile(join(profile,'DevToolsActivePort'),'utf8')).split('\n')[0];break;}catch{await pause(100);}}
@@ -83,6 +83,20 @@ try{
   await until(({selector,text})=>[...document.querySelectorAll(selector)].some(el=>!el.disabled&&(!text||el.textContent.trim().replace(/\s*[→↻∞]\s*$/,'').trim()===text)),{selector,text});
   await evaluate(({selector,text})=>{const el=[...document.querySelectorAll(selector)].find(el=>!el.disabled&&(!text||el.textContent.trim().replace(/\s*[→↻∞]\s*$/,'').trim()===text));el.scrollIntoView({block:'nearest'});el.click();},{selector,text});await pause(60);await assertNativeLayout();
  };
+ async function assertLetterExamples(){
+  const cards=await evaluate(()=>[...document.querySelectorAll('.native-letter-card')].map(el=>{
+   const example=el.querySelector('.native-letter-example'),visual=example.firstElementChild,target=example.querySelector('.native-target-letter'),style=getComputedStyle(target);
+   return {letter:el.querySelector(':scope > strong').firstChild.textContent.trim(),visual:visual.textContent,word:example.querySelector('.native-sr-only').textContent,target:target.textContent,hidden:visual.getAttribute('aria-hidden'),lang:example.lang,weight:Number(style.fontWeight),decoration:style.textDecorationLine};
+  }));
+  assert.ok(cards.length>0);
+  for(const card of cards){
+   assert.equal(card.visual,card.word,'Visual emphasis preserves the complete word');assert.equal(card.lang,'ru');assert.equal(card.hidden,'true');
+   assert.equal(card.target.toLowerCase(),card.letter.toLowerCase());assert.ok(card.weight>=700&&card.decoration.includes('underline'),'Target emphasis does not rely on color');
+   if(!['Ъ','Ы','Ь'].includes(card.letter))assert.ok(card.word.toLowerCase().startsWith(card.target.toLowerCase()),card.letter);
+   else assert.ok(card.word.toLowerCase().indexOf(card.target.toLowerCase())>0,card.letter);
+  }
+  return cards;
+ }
  const capture=async(name)=>{if(process.env.PRIVET_CYRILLIC_SCREENSHOTS){const shot=await call('Page.captureScreenshot',{format:'png'});await writeFile(`/private/tmp/privet-cyrillic-${name}.png`,Buffer.from(shot.data,'base64'));}};
  const stored=key=>evaluate(key=>JSON.parse(localStorage.getItem(key)),key);
  async function open(nextSeed={},time=new Date(2026,9,17,12).getTime(),resume=false){
@@ -333,7 +347,7 @@ try{
   await click('[aria-label="Back to home"]');
   assert.ok(await evaluate(()=>!!document.querySelector('.native-quick-card.is-collapsed')),'Opening quick start keeps the home card compact afterwards');
   const before=await rewardSnapshot();await click('#native-quick-open');
-  assert.equal(await evaluate(()=>document.querySelectorAll('.native-letter-card').length),5);
+  assert.equal(await evaluate(()=>document.querySelectorAll('.native-letter-card').length),5);await assertLetterExamples();
   assert.equal(await evaluate(()=>document.querySelectorAll('.native-letter-audio').length),0);
   assert.ok(await evaluate(()=>document.querySelector('.native-alphabet-note:last-child').textContent.includes('unavailable')));
   await click('.native-quick-actions .button','Continue');
@@ -457,7 +471,8 @@ try{
   await click('[aria-label="Open Cyrillic guide"]');
   for(const full of [false,true]){
    if(full)await click('.native-guide-tabs button','See full alphabet');
-   const examples=await evaluate(()=>[...document.querySelectorAll('#native-alphabet-guide .native-letter-card')].map(el=>({letter:el.querySelector('strong').textContent.trim().split(' ')[0],example:el.querySelector('p > span[lang="ru"]').textContent})));
+   await assertLetterExamples();
+   const examples=await evaluate(()=>[...document.querySelectorAll('#native-alphabet-guide .native-letter-card')].map(el=>({letter:el.querySelector('strong').textContent.trim().split(' ')[0],example:el.querySelector('.native-letter-example > .native-sr-only').textContent})));
    const normalize=text=>text.normalize('NFD').replace(/\u0301/g,'').normalize('NFC').toLowerCase().replace(/[^а-яё]/g,'');
    for(const item of examples)assert.ok(!normalize(item.example).includes(normalize(definition.exercises[index].answer)),`${definition.id}/${index}/${item.letter} leaked answer`);
    if(full)assert.equal(examples.length,33);
@@ -509,6 +524,37 @@ try{
   console.log(`PASS: repeated words via ${input}: independent selection, unique keys, single-occurrence drag/removal, position-based keyboard focus, canonical checking and saved-session restoration.`);
  }
  repeatedSentence=false;await call('Emulation.setTouchEmulationEnabled',{enabled:false});
+ // Whole-word speech and accessible names remain independent of visual fragments.
+ russianAudio=true;skipQuickStart=true;
+ await open({[CYRILLIC_KEY]:{version:1,status:'started',page:0}});
+ const unchangedKeys=[NATIVE_STATS_KEY,...nativeLessons.map(sessionKey)];
+ const beforeAlphabetAudio=await Promise.all(unchangedKeys.map(stored));
+ await click('#native-quick-open');
+ for(let page=0;page<3;page++){
+  const cards=await assertLetterExamples();
+  if(page===2)assert.ok(await evaluate(()=>document.querySelector('.native-quick-scroll').textContent.includes('Meet a few more useful Russian letters. You can look them up any time.')));
+  for(let index=0;index<cards.length;index++){
+   await click(`.native-letter-card:nth-child(${index+1}) .native-letter-audio`);
+   assert.equal(await evaluate(()=>window.__speechTaps.at(-1)),cards[index].word,'Quick-start speech gets the full original example');
+  }
+  if(page<2)await click('.native-quick-actions .button','Continue');
+ }
+ assert.deepEqual(await Promise.all(unchangedKeys.map(stored)),beforeAlphabetAudio,'Alphabet audio has no rewards or lesson progress side effects');
+ await click('[aria-label="Back to home"]');
+ for(const definition of nativeLessons){
+  await open();await click(`#native-card-${definition.id} ~ .button`);await click('[aria-label="Open Cyrillic guide"]');
+  await assertLetterExamples();await click('.native-guide-tabs button','See full alphabet');
+  const cards=await assertLetterExamples();assert.equal(cards.length,33);
+  assert.deepEqual(new Set(cards.map(card=>card.word)),new Set(CYRILLIC.map(item=>item.example)));
+  const tree=await call('Accessibility.getFullAXTree');
+  assert.equal(tree.nodes.filter(node=>!node.ignored&&node.role?.value==='StaticText'&&node.name?.value==='Анна').length,1,'The accessibility tree exposes the complete word once, not highlighted fragments');
+  for(let index=0;index<cards.length;index++){
+   await click(`.native-letter-card .native-letter-audio[aria-label=${JSON.stringify(`Listen to ${cards[index].word}: ${CYRILLIC.find(item=>item.upper===cards[index].letter).meaning}`)}]`);
+   assert.equal(await evaluate(()=>window.__speechTaps.at(-1)),cards[index].word,'Guide speech gets the full original example');
+  }
+  await click('[aria-label="Close Cyrillic guide"]');
+ }
+ console.log('PASS: all 33 examples have correct non-color target emphasis, one complete accessible Russian word, and unmodified whole-word speech in quick start and both lesson guides; no reward/progress changes.');
  assert.deepEqual(browserErrors,[],'No uncaught browser exceptions');
  console.log('PASS: interaction checks use isolated Chromium shims; no real iPhone, ESP32, speech or payment verification.');
 }finally{
