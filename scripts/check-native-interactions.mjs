@@ -292,6 +292,11 @@ try{
   }
   await click('[aria-label="Return to app home"]');assert.deepEqual(await codes(),[...expected,4],`${scenario.name}: close sends IDLE`);
  }
+ await open({[lesson2Key]:complete});await connectAtHome();await click(`#native-card-${nativeLessons[1].id} ~ .button`);
+ assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.completion > button')].map(el=>({label:el.textContent.replace(/[→↻]/g,'').trim(),primary:el.classList.contains('teal')}))),[{label:'Go to home',primary:true},{label:'Replay the lesson',primary:false}],'Lesson 2 puts home first and replay underneath');
+ await click('.native-completion-home','Go to home');assert.ok(await evaluate(()=>!!document.querySelector('.native-home-scroll')));
+ assert.deepEqual(await codes(),[4,4],'Completion home action uses the existing close/IDLE path');
+ assert.equal((await stored(lesson2Key)).progress.complete,true,'Returning home preserves completed results');
  await open({[NATIVE_SESSION_KEY]:complete,[lesson2Key]:meaning()});await connectAtHome();await startCafe();
  assert.deepEqual(await codes(),[4]);await click('.native-next-lesson','Continue to Lesson 2');
  assert.deepEqual(await codes(),[4,6],'Direct lesson-view switch uses active target, not completed previous lesson');
