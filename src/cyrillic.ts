@@ -8,7 +8,7 @@ const letter=(upper:string,sound:string,example:string,meaning:string,group:Lett
 // Canonical Russian alphabet order, including Ё separately from Е. English
 // spellings are deliberately rough sound guides, not exact phonetic notation.
 export const CYRILLIC:readonly CyrillicLetter[]=[
- letter('А','a','чай','tea','familiar'),
+ letter('А','a','Анна','Anna','familiar'),
  letter('Б','b','Спасибо!','Thank you!','new'),
  letter('В','v','Привет!','Hi!','tricky','Looks like B, sounds like v.'),
  letter('Г','g','год','year','new'),
@@ -51,12 +51,26 @@ export function contextualLetters(definition:LessonDefinition,exercise:Exercise)
  const letters=new Set(canonical(material));
  return CYRILLIC.filter(item=>letters.has(item.lower));
 }
+// Neutral whole-word alternatives cover every letter, including letters absent
+// from safe lesson vocabulary. These are references, not additional lesson answers.
+const NEUTRAL_EXAMPLES=[
+ ['банк','bank'],['ваза','vase'],['гора','mountain'],['дом','home'],['река','river'],
+ ['ёж','hedgehog'],['жук','beetle'],['зима','winter'],['мир','peace'],['музей','museum'],
+ ['лампа','lamp'],['нос','nose'],['окно','window'],['парк','park'],['сыр','cheese'],
+ ['торт','cake'],['утро','morning'],['фото','photo'],['хлеб','bread'],['центр','centre'],
+ ['часы','clock'],['шар','ball'],['щётка','brush'],['подъезд','building entrance'],
+ ['день','day'],['экран','screen'],['юбка','skirt'],['яблоко','apple'],
+].map(([example,meaning])=>({example,meaning}));
 export function referenceExample(item:CyrillicLetter,definition?:LessonDefinition,exercise?:Exercise):CyrillicLetter{
  if(!definition||!exercise||exercise.kind==='vocabulary')return item;
- // An alphabet reference should not print the current assessed answer verbatim.
- const forbidden=[canonical(exercise.prompt),canonical(exercise.answer)];
+ // English-only answers are not Russian comparison targets. Also avoid repeating
+ // the Russian question word when its assessed answer is an English meaning.
+ const forbidden=[exercise.answer,exercise.prompt].filter(text=>/[а-яё]/iu.test(text)).map(canonical);
  const safe=(text:string)=>!forbidden.some(word=>word&&canonical(text).includes(word));
  if(safe(item.example))return item;
- const alternative=[...definition.words.map(w=>({example:w.text,meaning:w.meaning})),...CYRILLIC,{example:'фото',meaning:'photo'}].find(w=>canonical(w.example).includes(item.lower)&&safe(w.example));
- return alternative?{...item,example:alternative.example,meaning:alternative.meaning}:item;
+ const alternative=[...definition.words.map(w=>({example:w.text,meaning:w.meaning})),...NEUTRAL_EXAMPLES,...CYRILLIC]
+  .find(w=>canonical(w.example).includes(item.lower)&&safe(w.example));
+ // Fail closed for impossible future cases (e.g. assessing a single letter):
+ // keep the letter/sound visible, but never fall back to an unsafe example.
+ return {...item,example:alternative?.example??'',meaning:alternative?.meaning??'Example omitted for this question.'};
 }

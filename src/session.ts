@@ -1,3 +1,4 @@
+import {validSentenceTokens} from './sentenceOrder.ts';
 import {initialProgress,MAX_HEARTS,type Progress} from './engine.ts';
 import {cafeLesson,type LessonDefinition} from './lessons.ts';
 import {PRODUCT} from './config.ts';
@@ -31,7 +32,7 @@ export function restoreSession(serialized:string|null,definition:LessonDefinitio
    (p.failed&&(p.complete||p.feedback!=='incorrect'))||
    !Array.isArray(p.results)||p.results.length!==p.index||!p.results.every((r:unknown)=>typeof r==='boolean')||
    typeof s.selected!=='string'||s.selected.length>1000||
-   !Array.isArray(s.tokens)||!s.tokens.every((t:unknown)=>typeof t==='string'&&allowedTokens.includes(t))||new Set(s.tokens).size!==s.tokens.length||
+   !validSentenceTokens(s.tokens,allowedTokens)||
    !Array.isArray(s.revealed)||!s.revealed.every((id:unknown)=>words.some(w=>w.id===id))||new Set(s.revealed).size!==s.revealed.length||
    !(s.hintAt===null||(s.hintAt===p.index&&!p.complete))||
    !(s.vocabularyWord===null||words.some(w=>w.text===s.vocabularyWord))) return freshSession();

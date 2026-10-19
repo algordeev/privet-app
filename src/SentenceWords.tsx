@@ -1,17 +1,17 @@
 import {useEffect,useId,useRef,useState,type Dispatch,type SetStateAction,type PointerEvent} from 'react';
 import {createPortal} from 'react-dom';
-import {moveSentenceWord} from './sentenceOrder';
+import {moveSentenceWord,removeSentenceWord,sentenceOccurrences} from './sentenceOrder';
 import './sentenceWords.css';
 
 type Drag={pointer:number;word:string;from:number;x:number;y:number;offsetX:number;offsetY:number;width:number;height:number;font:string;fontSize:string;background:string;color:string;started:boolean;target:number|null;snapshot:string[]};
 export function SentenceWords({tokens,setTokens,disabled,displayToken}:{tokens:string[];setTokens:Dispatch<SetStateAction<string[]>>;disabled:boolean;displayToken:(word:string)=>string}){
- const container=useRef<HTMLDivElement>(null),drag=useRef<Drag|null>(null),suppressClick=useRef(false),focusWord=useRef<string|null>(null);
+ const container=useRef<HTMLDivElement>(null),drag=useRef<Drag|null>(null),suppressClick=useRef(false),focusPosition=useRef<number|null>(null);
  const [preview,setPreview]=useState<Drag|null>(null),[announcement,setAnnouncement]=useState('');
  const helpId=useId();
  function cancel(){drag.current=null;setPreview(null);}
  useEffect(()=>{
   if(disabled||drag.current&&drag.current.snapshot!==tokens)cancel();
-  if(focusWord.current){const word=focusWord.current;focusWord.current=null;container.current?.querySelectorAll<HTMLButtonElement>('[data-word]').forEach(button=>{if(button.dataset.word===word)button.focus({preventScroll:true});});}
+  if(focusPosition.current!==null){const position=focusPosition.current;focusPosition.current=null;container.current?.querySelector<HTMLButtonElement>(`[data-position="${position}"]`)?.focus({preventScroll:true});}
  },[tokens,disabled]);
  function targetAt(x:number,y:number){
   const button=document.elementFromPoint(x,y)?.closest<HTMLButtonElement>('button[data-word]');
@@ -42,13 +42,13 @@ export function SentenceWords({tokens,setTokens,disabled,displayToken}:{tokens:s
   cancel();
  }
  return <>
-  <div ref={container} className="sentence-answer" aria-label="Your sentence">{tokens.length===0?<span>Build your sentence here</span>:tokens.map((word,index)=><button key={word} data-word={word} data-position={index} data-dragging={preview?.word===word||undefined} data-drop-target={preview?.target===index&&preview.from!==index||undefined} disabled={disabled} aria-label={`Remove ${word}`} aria-describedby={helpId} lang="ru"
+  <div ref={container} className="sentence-answer" aria-label="Your sentence">{tokens.length===0?<span>Build your sentence here</span>:sentenceOccurrences(tokens).map(({word,key},index)=><button key={key} data-token-key={key} data-word={word} data-position={index} data-dragging={preview?.from===index||undefined} data-drop-target={preview?.target===index&&preview.from!==index||undefined} disabled={disabled} aria-label={`Remove ${word}`} aria-describedby={helpId} lang="ru"
    onPointerDown={event=>down(event,index)} onPointerMove={move} onPointerUp={up} onPointerCancel={()=>{suppressClick.current=!!drag.current?.started;cancel();}} onLostPointerCapture={()=>{if(drag.current)cancel();}}
-   onClick={event=>{if(suppressClick.current&&event.detail>0){suppressClick.current=false;event.preventDefault();return;}suppressClick.current=false;setTokens(previous=>previous.filter((_,i)=>i!==index));}}
+   onClick={event=>{if(suppressClick.current&&event.detail>0){suppressClick.current=false;event.preventDefault();return;}suppressClick.current=false;setTokens(previous=>removeSentenceWord(previous,index));}}
    onKeyDown={event=>{
     if(!disabled&&event.altKey&&(event.key==='ArrowLeft'||event.key==='ArrowRight')){
      event.preventDefault();const target=index+(event.key==='ArrowLeft'?-1:1);
-     if(target>=0&&target<tokens.length){focusWord.current=word;setTokens(previous=>moveSentenceWord(previous,index,target));setAnnouncement(`${displayToken(word)} moved to position ${target+1} of ${tokens.length}.`);}
+     if(target>=0&&target<tokens.length){focusPosition.current=target;setTokens(previous=>moveSentenceWord(previous,index,target));setAnnouncement(`${displayToken(word)} moved to position ${target+1} of ${tokens.length}.`);}
     }
    }}>{displayToken(word)} <small aria-hidden="true">×</small></button>)}</div>
   <span id={helpId} className="sentence-reorder-accessible">Drag selected words to reorder them, or use Alt and the left or right arrow key. Tap or press Enter to put a word back.</span>
