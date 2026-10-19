@@ -68,6 +68,8 @@ The native root owns safe-area spacing once (`ios.contentInset: never`, `viewpor
 
 ## Learning, audio and local state
 
+The native app offers an optional **Cyrillic quick start** before Lesson 1, plus an **АБВ** reference in both lesson headers. The guide starts with letters from the current exercise and can expand to all 33 letters. Quick-start progress is saved separately and clears with the full reset. Its home card stays compact after starting, skipping or completion, and remains available for review. It never changes lesson progress, hearts, XP, gems or streaks. Example-word audio shares the existing optional Russian device speech, which varies with installed system voices.
+
 Lessons use three session hearts, an in-lesson first-try combo and a local XP reward based on the lesson, remaining hearts and best combo. Daily XP appears in the native profile; completed lessons show Passed and the next lesson shows Up next while both remain open. See [Privet learning rewards](docs/learning-rewards.md).
 
 **Privet Plus (simulated)** is an optional local subscription that gives native lessons unlimited hearts. It is a demo only: no payment is processed.
@@ -96,6 +98,8 @@ Statistics use `privet-demo-v1-native-stats`; resumable sessions have separate k
 | `src/lesson.ts`, `src/lessons.ts`, `src/engine.ts` | Café content, native lesson catalogue/introductions content, exact answer normalization/checking and reducer transitions |
 | `src/LessonPanel.tsx`, `src/useLesson.ts`, `src/session.ts` | Shared exercises, hints/feedback and native session persistence |
 | `src/NativeLessonSettings.tsx` | Immediate native learning-aid settings |
+| `src/cyrillic.ts`, `src/cyrillicProgress.ts`, `src/useCyrillicProgress.ts` | Shared alphabet data and independent validated quick-start progress |
+| `src/NativeCyrillic.tsx`, `src/NativeSheet.tsx` | Optional quick start and contextual/full-alphabet dialog |
 | `src/Companion.tsx`, `src/nativeCompanion.ts`, `src/NativeRobot.tsx`, `src/useNativeCompanion.ts` | Simulated robot, semantic reactions, lifecycle and motion |
 | `src/speechController.ts`, `src/useSpeech.ts` | Single guarded pronunciation controller and lifecycle cancellation |
 | `src/nativeStats.ts`, `src/useNativeStats.ts`, `src/NativeProfile.tsx`, `src/GemsScreen.tsx` | Authoritative local activity, daily/attempt rewards, freezes, gems and profile |
@@ -114,7 +118,7 @@ Answer normalization ignores case, stress accents, surrounding/repeated spaces a
 
 ## Verification
 
-Latest app validation: **133 Node tests**, shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover lessons, replay, audio-completion safeguards, rewards/Plus and mock BLE navigation. Website HTML matched 31 baseline states. These checks use fake BLE/speech, not real hardware or sound. Documentation-only edits do not rerun application builds.
+Latest app validation: **138 Node tests**, shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover lessons, replay, Cyrillic onboarding/reference, audio-completion safeguards, rewards/Plus and mock BLE navigation. Website HTML matched 31 baseline states. These checks use fake BLE/speech, not real hardware or sound. Documentation-only edits do not rerun application builds.
 
 The project owner reports real-iPhone discovery/connection/ACKs, disconnect/reconnect, navigation continuity, commands 1–4, lock/background retention and servo movement. New states and the latest thinking/hint/audio/replay changes still need hardware validation. No exact device/software versions, timing, range or endurance results were supplied. Earlier milestone checks are historical; the current [protocol checklist](docs/companion-ble.md#verification) distinguishes remaining tests.
 

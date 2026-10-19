@@ -2,7 +2,7 @@
 // native-platform/voice shims. No device, radio, billing or simulator claims.
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
-import {mkdtemp,readFile,rm} from 'node:fs/promises';
+import {mkdtemp,readFile,rm,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawn} from 'node:child_process';
@@ -11,7 +11,7 @@ import {createServer} from 'vite';
 const executable=[process.env.PRIVET_CHROME_PATH,'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome','/usr/bin/chromium','/usr/bin/chromium-browser','/usr/bin/google-chrome'].find(path=>path&&existsSync(path));
 assert.ok(executable,'Install Chrome/Chromium or set PRIVET_CHROME_PATH to run interaction checks.');
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-let russianAudio=false;
+let russianAudio=false,skipQuickStart=true;
 let seed={},initialTime=new Date(2026,9,17,12).getTime();
 // Test-only driver substitution: exercise real root hook, scheduler and UI without radio.
 const server=await createServer({plugins:[{name:'privet-test-ble-driver',enforce:'pre',transform(_source,id){
@@ -45,6 +45,8 @@ try{
  const {freshSession,NATIVE_SESSION_KEY}=await server.ssrLoadModule('/src/session.ts');
  const {emptyStats,NATIVE_STATS_KEY,localDay}=await server.ssrLoadModule('/src/nativeStats.ts');
  const {SUBSCRIPTION_KEY}=await server.ssrLoadModule('/src/subscription.ts');
+ const {CYRILLIC_KEY}=await server.ssrLoadModule('/src/cyrillicProgress.ts');
+ const {contextualLetters}=await server.ssrLoadModule('/src/cyrillic.ts');
  profile=await mkdtemp(join(tmpdir(),'privet-native-checks-'));
  chrome=spawn(executable,['--headless=new','--no-first-run','--no-default-browser-check','--remote-debugging-port=0',`--user-data-dir=${profile}`,'about:blank'],{stdio:'ignore'});
  let port;for(let n=0;n<100;n++){try{port=(await readFile(join(profile,'DevToolsActivePort'),'utf8')).split('\n')[0];break;}catch{await pause(100);}}
@@ -67,7 +69,7 @@ try{
  };
  const until=async(fn,arg)=>{for(let n=0;n<120;n++){if(await evaluate(fn,arg))return;await pause(50);}throw Error(`UI condition timed out: ${fn}`);};
  async function assertNativeLayout(){
-  const panes=await evaluate(()=>[...document.querySelectorAll('.native-app,.native-home-scroll,.native-profile-scroll,.native-app .lesson-scroll')].map(el=>{
+  const panes=await evaluate(()=>[...document.querySelectorAll('.native-app,.native-home-scroll,.native-profile-scroll,.native-app .lesson-scroll,.native-sheet,.native-sheet-panel,.native-sheet-scroll,.native-quick-scroll')].map(el=>{
    el.scrollLeft=1000;
    return {name:el.className,width:el.clientWidth,content:el.scrollWidth,left:el.scrollLeft};
   }));
@@ -80,10 +82,11 @@ try{
   await until(({selector,text})=>[...document.querySelectorAll(selector)].some(el=>!el.disabled&&(!text||el.textContent.trim().replace(/\s*[→↻∞]\s*$/,'').trim()===text)),{selector,text});
   await evaluate(({selector,text})=>{const el=[...document.querySelectorAll(selector)].find(el=>!el.disabled&&(!text||el.textContent.trim().replace(/\s*[→↻∞]\s*$/,'').trim()===text));el.scrollIntoView({block:'nearest'});el.click();},{selector,text});await pause(60);await assertNativeLayout();
  };
+ const capture=async(name)=>{if(process.env.PRIVET_CYRILLIC_SCREENSHOTS){const shot=await call('Page.captureScreenshot',{format:'png'});await writeFile(`/private/tmp/privet-cyrillic-${name}.png`,Buffer.from(shot.data,'base64'));}};
  const stored=key=>evaluate(key=>JSON.parse(localStorage.getItem(key)),key);
  async function open(nextSeed={},time=new Date(2026,9,17,12).getTime(),resume=false){
   if(process.env.PRIVET_INTERACTION_DEBUG)console.log(`OPEN ${resume?'resume':'seed'} ${new Date(time).toISOString()}`);
-  seed=nextSeed;initialTime=time;await evaluate(()=>{window.__oldDocument=true;});
+  seed={...(skipQuickStart?{[CYRILLIC_KEY]:{version:1,status:'skipped',page:0}}:{}),...nextSeed};initialTime=time;await evaluate(()=>{window.__oldDocument=true;});
   await call('Page.navigate',{url:origin+'/__privet_native_checks'+(resume?'?resume=1':'')});
   await until(()=>!window.__oldDocument&&!!document.querySelector('.native-app'));
   await until(()=>document.querySelectorAll('.native-lesson-card').length===2);
@@ -295,6 +298,114 @@ try{
  await open();await startCafe();await click('[aria-label="Return to app home"]');await click(`#native-card-${nativeLessons[1].id} ~ .button`);
  assert.deepEqual(await codes(),[],'Disconnected lesson entries/close must send nothing');
  console.log('PASS: connected Lesson 1/2 start, saved resume and direct target switch→THINKING; completed/failed/answered target→IDLE without celebration; close→IDLE; disconnected entry sends nothing. Mock BLE only.');
+
+ // Optional Cyrillic onboarding has no lesson/reward side effects. Existing
+ // scenarios above explicitly seed it as skipped; test first-run behavior here.
+ skipQuickStart=false;russianAudio=false;
+ const rewardKeys=[NATIVE_STATS_KEY,NATIVE_SESSION_KEY,sessionKey(nativeLessons[1])];
+ const rewardSnapshot=()=>evaluate(keys=>Object.fromEntries(keys.map(key=>[key,localStorage.getItem(key)])),rewardKeys);
+ for(const viewport of [{width:375,height:667},{width:430,height:932}]){
+  await call('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:true});
+  await open();assert.ok(await evaluate(()=>!!document.querySelector('.native-quick-card')));await capture(`home-${viewport.width}`);
+  const expandedCardHeight=await evaluate(()=>document.querySelector('.native-quick-card').getBoundingClientRect().height);
+  await click('.native-quick-card .native-text-button','Skip for now');
+  const compactCard=await evaluate(()=>({height:document.querySelector('.native-quick-card').getBoundingClientRect().height,collapsed:document.querySelector('.native-quick-card').classList.contains('is-collapsed')}));
+  assert.equal(compactCard.collapsed,true);assert.ok(compactCard.height<expandedCardHeight/2,'Skip visibly collapses the card');await capture(`skipped-${viewport.width}`);
+  await open({},initialTime,true);assert.ok(await evaluate(()=>!!document.querySelector('.native-quick-card.is-collapsed')),'Skip persists across reload');
+  await click('#native-quick-open','Open');assert.ok(await evaluate(()=>!!document.querySelector('.native-quick-screen')),'Compact card remains reopenable');
+  await click('[aria-label="Back to home"]');await open();
+
+  await startCafe();await until(()=>!!document.querySelector('#native-cyrillic-recommendation:modal'));
+  await click('#native-cyrillic-recommendation button','Start Lesson 1 anyway');
+  assert.equal((await stored(CYRILLIC_KEY)).status,'skipped');
+  await click('[aria-label="Return to app home"]');await startCafe();
+  assert.equal(await evaluate(()=>!!document.querySelector('#native-cyrillic-recommendation')),false);
+  await click('[aria-label="Return to app home"]');
+
+  await open();await startCafe();await click('#native-cyrillic-recommendation button','Try the quick start');
+  assert.ok(await evaluate(()=>!!document.querySelector('.native-quick-screen')));
+  await click('[aria-label="Back to home"]');
+  assert.ok(await evaluate(()=>!!document.querySelector('.native-quick-card.is-collapsed')),'Opening quick start keeps the home card compact afterwards');
+  const before=await rewardSnapshot();await click('#native-quick-open');
+  assert.equal(await evaluate(()=>document.querySelectorAll('.native-letter-card').length),5);
+  assert.equal(await evaluate(()=>document.querySelectorAll('.native-letter-audio').length),0);
+  assert.ok(await evaluate(()=>document.querySelector('.native-alphabet-note:last-child').textContent.includes('unavailable')));
+  await click('.native-quick-actions .button','Continue');
+  assert.equal((await stored(CYRILLIC_KEY)).page,1);assert.equal(await evaluate(()=>document.querySelectorAll('.is-tricky .native-letter-card').length),6);await capture(`tricky-${viewport.width}`);
+  await click('[aria-label="Back to home"]');await open({},initialTime,true);await click('#native-quick-open','Continue');
+  assert.ok(await evaluate(()=>document.querySelector('.native-quick-progress').textContent.includes('Page 2')));
+  await click('.native-quick-actions .button','Continue');await click('.native-quick-actions .button','Continue');
+  await click('.native-reading-reveal');assert.ok(await evaluate(()=>document.querySelector('.native-reading-reveal').textContent.includes('coffee')));
+  await click('.native-quick-actions .button','Finish quick start');
+  assert.equal((await stored(CYRILLIC_KEY)).status,'completed');
+  assert.deepEqual(await rewardSnapshot(),before,'Quick start must not change lesson progress, stats, hearts, XP, gems or streaks');
+  assert.ok(await evaluate(()=>document.querySelector('.native-quick-scroll').textContent.includes('You don’t need to memorize everything.')));
+  await click('.native-quick-actions .native-secondary','Back to home');assert.ok(await evaluate(()=>!!document.querySelector('.native-quick-card.is-collapsed')),'Completed quick start keeps its compact card');await capture(`completed-card-${viewport.width}`);await click('#native-quick-open','Review');
+  assert.ok(await evaluate(()=>document.querySelector('.native-quick-progress').textContent.includes('Page 1')));
+  await click('[aria-label="Back to home"]');assert.equal((await stored(CYRILLIC_KEY)).status,'completed');
+  await click('#native-quick-open');for(let n=0;n<3;n++)await click('.native-quick-actions .button','Continue');
+  await click('.native-quick-actions .button','Finish quick start');await click('.native-quick-actions .button','Start Lesson 1');
+  assert.ok(await evaluate(()=>document.querySelector('.lesson-step-count').textContent.includes('STEP 1')));
+  assert.equal(await evaluate(()=>!!document.querySelector('#native-cyrillic-recommendation')),false);
+  await click('[aria-label="Return to app home"]');await click('.native-home-footer .native-text-button','Reset saved lesson & preferences');
+  assert.equal(await stored(CYRILLIC_KEY),null,'Full reset removes onboarding storage');
+
+  for(const [index,value] of [[1,'tea'],[2,'Я'],[4,'спа']]){
+   const session=freshSession();session.progress.index=index;session.progress.results=Array(index).fill(true);
+   if(index===2)session.tokens=[value];else session.selected=value;
+   await open({[NATIVE_SESSION_KEY]:session});await startCafe();
+   const saved=await stored(NATIVE_SESSION_KEY);
+   const top=await evaluate(()=>{const pane=document.querySelector('.lesson-scroll');pane.scrollTop=45;return pane.scrollTop;});
+   await click('[aria-label="Open Cyrillic guide"]');await until(()=>!!document.querySelector('#native-alphabet-guide:modal'));
+   const visibleSheet=await evaluate(()=>{const panel=document.querySelector('#native-alphabet-guide .native-sheet-panel'),scroll=document.querySelector('#native-alphabet-guide .native-sheet-scroll');const r=panel.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height,body:scroll.clientHeight};});
+   assert.ok(visibleSheet.top>=0&&visibleSheet.bottom<=viewport.height+1&&visibleSheet.height>viewport.height*.75&&visibleSheet.body>200,`Guide body must fit and be readable: ${JSON.stringify(visibleSheet)}`);
+
+   if(index===1)await capture(`guide-${viewport.width}`);
+   const expected=contextualLetters(nativeLessons[0],nativeLessons[0].exercises[index]).map(item=>`${item.upper} ${item.lower}`);
+   assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('#native-alphabet-guide .native-letter-card > strong')].map(el=>el.textContent)),expected);
+   await click('.native-guide-tabs button','See full alphabet');assert.equal(await evaluate(()=>document.querySelectorAll('#native-alphabet-guide .native-letter-card').length),33);
+   assert.ok(await evaluate(()=>document.querySelector('#native-alphabet-guide').textContent.includes('Ё')));
+   await click('.native-guide-tabs button','Current exercise');
+   await click('[aria-label="Close Cyrillic guide"]');
+   assert.deepEqual(await stored(NATIVE_SESSION_KEY),saved,'Guide preserves choice, sentence or typed input');
+   assert.equal(await evaluate(()=>document.querySelector('.lesson-scroll').scrollTop),top,'Lesson scroll is preserved');
+   assert.equal(await evaluate(()=>document.activeElement.getAttribute('aria-label')),'Open Cyrillic guide');
+   // The reference remains available with inline pronunciation disabled.
+   await click('[aria-label="Lesson display settings"]');await click('[aria-label="Pronunciation help"]');await click('[aria-label="Lesson display settings"]');
+   await click('[aria-label="Open Cyrillic guide"]');assert.ok(await evaluate(()=>!!document.querySelector('#native-alphabet-guide:modal')));await click('[aria-label="Close Cyrillic guide"]');
+  }
+  console.log(`PASS ${viewport.width}×${viewport.height}: optional recommendation/skip, persisted quick-start resume/review/reset, no rewards/progress changes; contextual/full alphabet and unchanged choice/sentence/typed input, scroll/focus; no-audio fallback.`);
+ }
+
+ // WebKit can expose a visual viewport smaller/offset from the layout viewport
+ // when keyboard dismissal or browser chrome changes. A max-height alone is insufficient.
+ await open({[NATIVE_SESSION_KEY]:meaning()});await startCafe();
+ await evaluate(()=>{
+  window.__realVisualViewportDescriptor=Object.getOwnPropertyDescriptor(window,'visualViewport');
+  window.__sheetViewport=Object.assign(new EventTarget(),{height:420,offsetTop:35});
+  Object.defineProperty(window,'visualViewport',{configurable:true,value:window.__sheetViewport});
+ });
+ await click('[aria-label="Open Cyrillic guide"]');
+ const sheetBounds=()=>evaluate(()=>{const r=document.querySelector('.native-sheet-panel').getBoundingClientRect();return {top:r.top,bottom:r.bottom,body:document.querySelector('.native-sheet-scroll').clientHeight};});
+ let bounds=await sheetBounds();assert.ok(bounds.top>=35&&bounds.bottom<=455&&bounds.body>150,JSON.stringify(bounds));
+ await evaluate(()=>{window.__sheetViewport.height=300;window.__sheetViewport.offsetTop=20;window.__sheetViewport.dispatchEvent(new Event('resize'));});
+ bounds=await sheetBounds();assert.ok(bounds.top>=20&&bounds.bottom<=321&&bounds.body>80,JSON.stringify(bounds));
+ await click('.native-guide-tabs button','See full alphabet');
+ const scrolls=await evaluate(()=>{const node=document.querySelector('.native-sheet-scroll');node.scrollTop=node.scrollHeight;return {top:node.scrollTop,height:node.clientHeight,total:node.scrollHeight};});
+ assert.ok(scrolls.top>0&&scrolls.total>scrolls.height,'Full alphabet scrolls inside bounded sheet');
+ await click('[aria-label="Close Cyrillic guide"]');await evaluate(()=>{if(window.__realVisualViewportDescriptor)Object.defineProperty(window,'visualViewport',window.__realVisualViewportDescriptor);else delete window.visualViewport;});
+ console.log('PASS: sheet bounds/scrolling track offset and resized visual viewports; Skip produces a persistent compact, reopenable card.');
+ // Guide audio shares the real pronunciation lifecycle and semantic callbacks.
+ russianAudio=true;await open({[NATIVE_SESSION_KEY]:meaning()});await connectAtHome();await startCafe();
+ await evaluate(()=>{window.__bleCommands=[];});await click('[aria-label="Open Cyrillic guide"]');await click('#native-alphabet-guide .native-letter-audio');
+ assert.deepEqual(await codes(),[5,6],'Guide audio uses LISTENING then successful-end THINKING');
+ await evaluate(()=>{window.__bleCommands=[];window.__holdSpeech=true;});await click('#native-alphabet-guide .native-letter-audio');
+ await evaluate(()=>{const u=window.__utterances.at(-1);window.__lateGuideEnd=u.onend;u.onstart?.();});
+ await click('[aria-label="Close Cyrillic guide"]');await evaluate(()=>window.__lateGuideEnd?.());assert.deepEqual(await codes(),[5],'Closing guide invalidates pending speech completion');
+ await click('.choice','2coffee');await click('.lesson-bottom .button','Check answer');await evaluate(()=>window.__lateGuideEnd?.());assert.deepEqual(await codes(),[5,1],'Stale guide audio cannot overwrite correct feedback');
+ // The second lesson has the same header/reference without changing its session.
+ await open({[sessionKey(nativeLessons[1])]:meaning()});await click(`#native-card-${nativeLessons[1].id} ~ .button`);await click('[aria-label="Open Cyrillic guide"]');await click('[aria-label="Close Cyrillic guide"]');
+ console.log('PASS: guide audio uses the shared controller and guarded LISTENING/THINKING callbacks; closing cancels stale completion; both lessons expose the reference.');
  assert.deepEqual(browserErrors,[],'No uncaught browser exceptions');
  console.log('PASS: interaction checks use isolated Chromium shims; no real iPhone, ESP32, speech or payment verification.');
 }finally{

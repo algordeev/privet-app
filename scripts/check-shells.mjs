@@ -175,6 +175,24 @@ try {
  storage.clear();assert.ok(renderToStaticMarkup(createElement(Profile)).includes('Get Plus'));
  console.log('PASS: own-feature descriptions replace comparisons, prices/hardware states are accurate, and Plus demo screens render inactive/active states.');
  console.log('PASS: native completion/replay and saved results render; browser sessions still start fresh.');
+ const {NativeAlphabetGuide,NativeCyrillicQuickStart}=await server.ssrLoadModule('/src/NativeCyrillic.tsx');
+ const {useCyrillicProgress}=await server.ssrLoadModule('/src/useCyrillicProgress.ts');
+ const {CYRILLIC_KEY}=await server.ssrLoadModule('/src/cyrillicProgress.ts');
+ assert.ok(home.includes('Cyrillic quick start'));assert.ok(home.includes('RECOMMENDED · ABOUT 3 MIN'));
+ for(const [status,page,action] of [['skipped',0,'Open'],['started',1,'Continue'],['completed',3,'Review']]){
+  storage.set(CYRILLIC_KEY,JSON.stringify({version:1,status,page}));Capacitor.isNativePlatform=()=>true;const compactHome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(compactHome.includes('native-quick-card is-collapsed'));assert.ok(compactHome.includes(`${action} Cyrillic quick start`));assert.ok(!compactHome.includes('Skip for now'));assert.ok(!compactHome.includes('RECOMMENDED · ABOUT 3 MIN'));
+ }Capacitor.isNativePlatform=()=>false;
+ assert.ok(!website.includes('Cyrillic quick start'));assert.ok(!website.includes('Open Cyrillic guide'));
+ storage.clear();
+ function QuickStart(){const onboarding=useCyrillicProgress();const controller=useLesson();return createElement(NativeCyrillicQuickStart,{onboarding,speech:controller.speech,onClose:noOp,onLesson:noOp});}
+ for(const [status,page] of [['started',0],['started',1],['started',2],['started',3],['completed',3]]){
+  storage.set(CYRILLIC_KEY,JSON.stringify({version:1,status,page}));
+  const quick=renderToStaticMarkup(createElement(QuickStart));assert.ok(quick.includes('Cyrillic quick start'));assert.ok(!quick.includes('lesson-vitals'));assert.ok(!quick.includes('XP earned'));
+ }
+ function Guide(){const controller=useLesson();return createElement(NativeAlphabetGuide,{definition:controller.definition,exercise:controller.exercise,speech:controller.speech,onListen:noOp,onClose:noOp});}
+ const guide=renderToStaticMarkup(createElement(Guide));assert.ok(guide.includes('Cyrillic guide'));assert.ok(guide.includes('Current exercise'));assert.ok(guide.includes('See full alphabet'));assert.ok(guide.includes('Russian audio unavailable'));
+ storage.clear();console.log('PASS: native-only optional Cyrillic card/pages and contextual guide render with accessible text/audio fallback; website excludes them.');
+
 
 }finally{
  Capacitor.isNativePlatform=platform;

@@ -375,3 +375,73 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
  pointer-events: none;
 }
 .native-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Optional Cyrillic aids: native-only, separate from lesson/reward state. */
+.native-app .native-quick-card { margin: 24px 0 18px; padding: 22px; border: 1px solid #d6d9c9; border-top: 3px solid #d98a70; border-radius: 20px; background: #fffdf7; }
+.native-app .native-quick-heading { display: flex; gap: 12px; align-items: center; margin: 14px 0 10px; }
+.native-app .native-quick-heading > span { color: #246653; background: #e9efdf; border-radius: 12px; padding: 9px; font-size: 23px; }
+.native-app .native-quick-heading h2 { font-size: 24px; line-height: 1.2; letter-spacing: -.5px; }
+.native-app .native-quick-card > p { color: #627458; font-size: 15px; margin-bottom: 20px; }
+.native-app .native-quick-card .button { width: 100%; justify-content: space-between; }
+.native-app .native-alphabet-trigger { font-size: 12px; font-weight: 650; color: #246653; border: 1px solid #d3dec7; }
+.native-app .app-navigation { gap: 7px; }
+.native-app .app-navigation > div { flex: 1; min-width: 0; }
+.native-app .app-navigation strong { font-size: 15px; white-space: normal; line-height: 1.25; }
+/* A definite viewport-sized shell avoids WebKit's auto-height dialog clipping. */
+.native-app .native-sheet { position: fixed; top: var(--sheet-viewport-top,0px); left: 0; right: auto; bottom: auto; margin: 0; width: 100%; max-width: none; height: var(--sheet-viewport-height,100dvh); max-height: none; padding: max(12px,env(safe-area-inset-top,0px)) env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px); border: 0; background: transparent; color: #25372d; overflow: hidden; box-sizing: border-box; }
+.native-app .native-sheet[open] { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.native-app .native-sheet::backdrop { background: #25372d70; }
+.native-app .native-sheet-panel { display: flex; flex-direction: column; flex: 0 1 auto; min-height: 0; width: min(100%,540px); max-height: 100%; padding-bottom: max(18px,env(safe-area-inset-bottom,0px)); border: 1px solid #d3dec7; border-bottom: 0; border-radius: 24px 24px 0 0; background: #f8f6f0; box-shadow: 0 -8px 40px #25372d20; overflow: hidden; animation: native-sheet-in .18s ease-out; }
+.native-app .native-sheet-panel[data-size=reference] { height: 100%; }
+.native-app .native-sheet-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 18px 10px; flex-shrink: 0; }
+.native-app .native-sheet-heading h2 { font-size: 22px; line-height: 1.25; letter-spacing: -.4px; outline: none; }
+.native-app .native-sheet-heading .app-icon-button { font-size: 28px; }
+.native-app .native-sheet-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 18px 14px; -webkit-overflow-scrolling: touch; }
+.native-app .native-sheet-scroll > .button { width: 100%; margin-top: 18px; }
+.native-app .native-guide-tabs { display: flex; gap: 6px; padding: 0 18px 12px; flex-shrink: 0; }
+.native-app .native-guide-tabs button { flex: 1; min-height: 44px; padding: 8px; font-size: 13px; border: 1px solid #c6d4bc; border-radius: 12px; background: #fffdf7; color: #31513a; }
+.native-app .native-guide-tabs [aria-pressed=true] { background: #246653; color: #fffdf7; border-color: #246653; }
+.native-app .native-alphabet-note { color: #586b50; font-size: 13px; line-height: 1.55; margin: 8px 0 15px; }
+.native-app .native-letter-list { display: flex; flex-direction: column; gap: 8px; }
+.native-app .native-letter-card { display: flex; align-items: flex-start; gap: 12px; padding: 13px 10px; border: 1px solid #d5dfcb; border-radius: 14px; background: #fffdf7; }
+.native-app .native-letter-card > strong { flex: 0 0 52px; font-size: 27px; line-height: 1.3; color: #246653; }
+.native-app .native-letter-card > strong span { font-size: 22px; }
+.native-app .native-letter-card > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.native-app .native-letter-card b { font-weight: 600; font-size: 17px; }
+.native-app .native-letter-card p { font-size: 15px; margin: 4px 0; }
+.native-app .native-example-meaning { display: block; font-size: 13px; color: #5a6d51; }
+.native-app .native-letter-card small { display: block; color: #586b50; font-size: 12px; line-height: 1.5; }
+.native-app .native-letter-audio { display: grid; place-items: center; width: 44px; min-height: 44px; flex-shrink: 0; border-radius: 12px; background: #e9efdf; color: #246653; }
+.native-app .native-letter-audio svg { width: 23px; height: 23px; }
+.native-app .native-letter-group { margin-top: 18px; }
+.native-app .native-letter-group h3 { font-size: 20px; margin: 10px 0 12px; }
+.native-app .native-letter-group.is-tricky { border-left: 3px solid #d98a70; padding: 12px 0 12px 12px; }
+.native-app .native-letter-group.is-tricky .native-letter-card { background: #fbefe6; border-color: #dfc4b1; }
+.native-app .native-quick-screen { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.native-app .native-quick-screen > header { flex-shrink: 0; padding: 10px 18px; }
+.native-app .native-quick-screen > header > span { font-size: 16px; font-weight: 600; }
+.native-app .native-quick-progress { flex-shrink: 0; padding: 4px 22px 10px; color: #5a7050; font-size: 13px; }
+.native-app .native-quick-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 22px 22px; }
+.native-app .native-quick-scroll h1 { font-size: 30px; line-height: 1.15; letter-spacing: -.7px; margin: 16px 0; outline: none; }
+.native-app .native-quick-scroll > p { color: #5b6e51; font-size: 16px; line-height: 1.6; }
+.native-app .native-quick-actions { display: flex; flex-shrink: 0; align-items: center; gap: 12px; padding: 12px 22px 16px; border-top: 1px solid #dce2d3; background: #f8f6f0; }
+.native-app .native-quick-actions .button { flex: 1.4; min-width: 0; gap: 8px; padding-inline: 12px; justify-content: space-between; }
+.native-app .native-quick-actions .native-secondary { flex: 1; justify-content: center; color: #31513a; background: #fffdf7; border: 1px solid #c6d4bc; }
+.native-app .native-quick-actions .native-secondary svg { width: 18px; height: 18px; flex-shrink: 0; }
+.native-app .native-quick-actions.is-finished { flex-direction: column; align-items: stretch; }
+.native-app .native-quick-actions.is-finished .button { flex: auto; }
+.native-app .native-quick-actions .native-text-button { margin: 0; }
+.native-app .native-reading-list { display: grid; gap: 12px; margin-top: 20px; }
+.native-app .native-reading-card { display: flex; align-items: center; gap: 8px; border: 1px solid #d5dfcb; background: #fffdf7; padding: 10px; border-radius: 14px; }
+.native-app .native-reading-reveal { flex: 1; text-align: left; padding: 10px; min-height: 66px; background: transparent; color: #31513a; }
+.native-app .native-reading-reveal strong { font-size: 26px; display: block; }
+.native-app .native-reading-reveal > span { font-size: 14px; display: block; margin-top: 5px; }
+@keyframes native-sheet-in { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .native-app .native-sheet-panel { animation: none; } }
+
+.native-app .native-quick-card.is-collapsed { display: flex; align-items: center; gap: 10px; padding: 14px; border-top-width: 1px; border-color: #d6d9c9; }
+.native-app .native-quick-monogram { display: grid; place-items: center; width: 38px; height: 42px; flex-shrink: 0; border-radius: 10px; background: #e9efdf; color: #246653; font-size: 21px; }
+.native-app .native-quick-card.is-collapsed > div { flex: 1; min-width: 0; }
+.native-app .native-quick-card.is-collapsed h2 { font-size: 17px; letter-spacing: -.3px; line-height: 1.3; }
+.native-app .native-quick-card.is-collapsed p { font-size: 12px; color: #627458; margin-top: 3px; }
+.native-app .native-quick-open { min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid #c6d4bc; border-radius: 12px; background: #fffdf7; color: #246653; font-size: 14px; font-weight: 600; }
