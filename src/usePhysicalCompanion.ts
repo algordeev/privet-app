@@ -45,9 +45,10 @@ export function usePhysicalCompanion(){
  const navigate=useCallback((screen:'home'|'profile'|'lesson'|'physical')=>transport.current?.navigate(screen),[]);
  const onListen=useCallback(()=>{transport.current?.request(COMMAND.LISTENING);},[]);
  const onListenEnd=useCallback(()=>{transport.current?.request(COMMAND.THINKING);},[]);
+ const onQuickStartListenEnd=useCallback(()=>{transport.current?.request(COMMAND.IDLE);},[]);
  const onHint=useCallback(()=>{transport.current?.request(COMMAND.HINT);},[]);
  const enterLesson=useCallback((hasActiveQuestion:boolean)=>transport.current?.enterLesson(hasActiveQuestion),[]);
  const onTransition=useCallback((previous:Progress,next:Progress,action:Action,lessonId='cafe')=>lessonEvents.current?.(previous,next,action,lessonId),[]);
- return {state,scan,connect,testHappy,disconnect,navigate,enterLesson,onListen,onListenEnd,onHint,onTransition};
+ return {state,scan,connect,testHappy,disconnect,navigate,enterLesson,onListen,onListenEnd,onQuickStartListenEnd,onHint,onTransition};
 }
 export type PhysicalCompanionController=ReturnType<typeof usePhysicalCompanion>;

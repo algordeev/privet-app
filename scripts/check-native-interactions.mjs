@@ -555,6 +555,31 @@ try{
   await click('[aria-label="Close Cyrillic guide"]');
  }
  console.log('PASS: all 33 examples have correct non-color target emphasis, one complete accessible Russian word, and unmodified whole-word speech in quick start and both lesson guides; no reward/progress changes.');
+ // Quick-start audio uses the root physical companion without becoming a lesson.
+ russianAudio=true;await open({[CYRILLIC_KEY]:{version:1,status:'started',page:0}});await connectAtHome();await click('#native-quick-open');
+ assert.deepEqual(await codes(),[],'Opening quick start does not autoplay speech or a listening reaction');
+ await click('.native-letter-audio');assert.deepEqual(await codes(),[5,4],'Quick-start letter pronunciation sends LISTENING, then IDLE on actual speech completion');
+ await evaluate(()=>{window.__bleCommands=[];window.__holdSpeech=true;});await click('.native-letter-audio');
+ await evaluate(()=>{const u=window.__utterances.at(-1);window.__oldQuickEnd=u.onend;u.onstart?.();});
+ await click('.native-letter-card:nth-child(2) .native-letter-audio');await evaluate(()=>window.__oldQuickEnd?.());
+ assert.deepEqual(await codes(),[5,5],'A replaced pronunciation cannot end the new listening reaction');
+ await evaluate(()=>{const u=window.__utterances.at(-1);u.onstart?.();u.onend?.();});assert.deepEqual(await codes(),[5,5,4]);
+ await evaluate(()=>{window.__bleCommands=[];});await click('.native-letter-audio');
+ await evaluate(()=>{const u=window.__utterances.at(-1);window.__oldQuickEnd=u.onend;u.onstart?.();});
+ await click('.native-quick-actions .button','Continue');await evaluate(()=>window.__oldQuickEnd?.());
+ assert.deepEqual(await codes(),[5,4],'Changing quick-start page cancels speech and restores idle, without a stale completion');
+ await click('.native-quick-actions .button','Continue');await click('.native-quick-actions .button','Continue');
+ await evaluate(()=>{window.__bleCommands=[];window.__holdSpeech=false;});await click('.native-reading-card .native-letter-audio');
+ assert.deepEqual(await codes(),[5,4],'The reading-word pronunciation buttons share LISTENING and IDLE');
+ await evaluate(()=>{window.__bleCommands=[];window.__holdSpeech=true;});await click('.native-reading-card .native-letter-audio');
+ await evaluate(()=>{const u=window.__utterances.at(-1);window.__oldQuickEnd=u.onend;u.onstart?.();});
+ await click('[aria-label="Back to home"]');await evaluate(()=>window.__oldQuickEnd?.());assert.deepEqual(await codes(),[5,4],'Closing while speech is pending cancels its late completion');
+ await click('#native-quick-open');await click('.native-reading-card .native-letter-audio');
+ await click('.native-quick-actions .button','Finish quick start');await evaluate(()=>{window.__bleCommands=[];});
+ await click('.native-quick-actions .button','Start Lesson 1');assert.deepEqual(await codes(),[6],'Quick-start cleanup cannot overwrite the new lesson THINKING context');
+ russianAudio=false;await open();await connectAtHome();await click('#native-quick-open');
+ assert.equal(await evaluate(()=>document.querySelectorAll('.native-letter-audio').length),0);assert.deepEqual(await codes(),[],'Unavailable speech never emits LISTENING');
+ console.log('PASS: connected quick-start letter and reading audio sends LISTENING→IDLE, with replacement/page/close cancellation, no unavailable-audio reaction and no stale cleanup overriding lesson entry.');
  assert.deepEqual(browserErrors,[],'No uncaught browser exceptions');
  console.log('PASS: interaction checks use isolated Chromium shims; no real iPhone, ESP32, speech or payment verification.');
 }finally{
