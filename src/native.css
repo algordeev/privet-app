@@ -404,15 +404,17 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-alphabet-note { color: #586b50; font-size: 13px; line-height: 1.55; margin: 8px 0 15px; }
 .native-app .native-letter-list { display: flex; flex-direction: column; gap: 8px; }
 .native-app .native-letter-card { display: flex; align-items: flex-start; gap: 12px; padding: 13px 10px; border: 1px solid #d5dfcb; border-radius: 14px; background: #fffdf7; }
-.native-app .native-letter-card > strong { flex: 0 0 52px; font-size: 27px; line-height: 1.3; color: #246653; }
-.native-app .native-letter-card > strong span { font-size: 22px; }
-.native-app .native-letter-card > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.native-app .native-letter-heading strong { flex-shrink: 0; font-size: 27px; line-height: 1.3; color: #246653; }
+.native-app .native-letter-heading strong span { font-size: 22px; }
+.native-app .native-letter-heading { flex: 0 0 52px; }
+.native-app .native-letter-copy { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .native-app .native-letter-card b { font-weight: 600; font-size: 17px; }
 .native-app .native-target-letter { font-weight: 800; text-decoration: underline; text-underline-offset: .16em; text-decoration-thickness: 1.5px; }
 .native-app .native-letter-card p { font-size: 15px; margin: 4px 0; }
 .native-app .native-example-meaning { display: block; font-size: 13px; color: #5a6d51; }
 .native-app .native-letter-card small { display: block; color: #586b50; font-size: 12px; line-height: 1.5; }
 .native-app .native-letter-audio { display: grid; place-items: center; width: 44px; min-height: 44px; flex-shrink: 0; border-radius: 12px; background: #e9efdf; color: #246653; }
+.native-app .native-letter-sound { display: flex; align-items: flex-start; justify-content: flex-start; text-align: left; min-width: 52px; min-height: 44px; padding: 0; flex-shrink: 0; border-radius: 6px; background: transparent; }
 .native-app .native-letter-audio svg { width: 23px; height: 23px; }
 .native-app .native-letter-group { margin-top: 18px; }
 .native-app .native-letter-group h3 { font-size: 20px; margin: 10px 0 12px; }

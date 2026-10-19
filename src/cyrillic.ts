@@ -85,3 +85,9 @@ export function targetLetterParts(example:string,target:string){
  const characters=Array.from(new Intl.Segmenter('ru',{granularity:'grapheme'}).segment(example),part=>part.segment),index=characters.findIndex(character=>canonical(character)===canonical(target));
  return index<0?{before:example,target:'',after:''}:{before:characters.slice(0,index).join(''),target:characters[index],after:characters.slice(index+1).join('')};
 }
+
+// Device speech may read consonants as letter names, not isolated phonemes.
+// Signs have no standalone sound; their example words remain playable.
+export function letterAudioText(item:CyrillicLetter){
+ return ['Ъ','Ь'].includes(item.upper)?null:item.lower;
+}

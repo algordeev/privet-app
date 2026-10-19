@@ -68,7 +68,7 @@ The native root owns safe-area spacing once (`ios.contentInset: never`, `viewpor
 
 ## Learning, audio and local state
 
-The native app offers an optional **Cyrillic quick start** before Lesson 1, plus an **АБВ** reference in both lesson headers. The guide starts with letters from the current exercise and can expand to all 33 letters. Quick-start progress is saved separately and clears with the full reset. Its home card stays compact after starting, skipping or completion, and remains available for review. It never changes lesson progress, hearts, XP, gems or streaks. Example-word audio shares the existing optional Russian device speech, which varies with installed system voices.
+The native app offers an optional **Cyrillic quick start** before Lesson 1, plus an **АБВ** reference in both lesson headers. The guide starts with letters from the current exercise and can expand to all 33 letters. Quick-start progress is saved separately and clears with the full reset. Its home card stays compact after starting, skipping or completion, and remains available for review. It never changes lesson progress, hearts, XP, gems or streaks. Tap green letters for letter audio; the right-hand speaker plays the example word. Both share the existing optional Russian device speech. Voices may say letter names rather than isolated sounds; Ъ and Ь have no standalone sound.
 
 Lessons use three session hearts, an in-lesson first-try combo and a local XP reward based on the lesson, remaining hearts and best combo. Daily XP appears in the native profile; completed lessons show Passed and the next lesson shows Up next while both remain open. See [Privet learning rewards](docs/learning-rewards.md).
 
@@ -118,7 +118,7 @@ Answer normalization ignores case, stress accents, surrounding/repeated spaces a
 
 ## Verification
 
-Latest local app validation: **149 Node tests**, shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover lessons, replay, Cyrillic onboarding/reference, letter highlighting and answer concealment, audio-completion safeguards, rewards/Plus and mock BLE navigation. Mouse/touch/keyboard checks also cover repeated sentence words and saved-session restoration. Website HTML matched 34 pre-change states exactly. These are local automated checks with fake BLE/speech, not real-device, real-audio or GitHub CI verification.
+Latest local app validation: **150 Node tests**, shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover lessons, replay, Cyrillic onboarding/reference, letter highlighting and answer concealment, audio-completion safeguards, rewards/Plus and mock BLE navigation. Mouse/touch/keyboard checks also cover repeated sentence words and saved-session restoration. Website HTML matched 34 pre-change states exactly. These are local automated checks with fake BLE/speech, not real-device, real-audio or GitHub CI verification.
 
 The project owner reports real-iPhone discovery/connection/ACKs, disconnect/reconnect, navigation continuity, commands 1–4, lock/background retention and servo movement. New states and the latest thinking/hint/audio/replay changes still need hardware validation. No exact device/software versions, timing, range or endurance results were supplied. Earlier milestone checks are historical; the current [protocol checklist](docs/companion-ble.md#verification) distinguishes remaining tests.
 
