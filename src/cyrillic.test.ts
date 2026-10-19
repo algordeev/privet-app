@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CYRILLIC,QUICK_LETTERS,READING_WORDS,contextualLetters,referenceExample,targetLetterParts} from './cyrillic.ts';
+import {CYRILLIC,QUICK_LETTERS,READING_WORDS,contextualLetters,referenceExample,targetLetterParts,letterAudioText} from './cyrillic.ts';
 import {cafeLesson,introductionsLesson} from './lessons.ts';
 
 test('all 33 Russian letters have unique correct forms, rough sounds and matching examples',()=>{
@@ -111,5 +111,12 @@ test('any future assessment matching a default example still cannot leak that an
    if(!['Ъ','Ы','Ь'].includes(item.upper))assert.ok(normalize(resolved.example).startsWith(item.lower),item.upper);
    const parts=targetLetterParts(resolved.example,item.lower);assert.ok(parts.target,item.upper);
   }
+ }
+});
+
+test('letter audio uses Russian letter text, never an English sound guide or a silent sign',()=>{
+ for(const item of CYRILLIC){
+  if(['Ъ','Ь'].includes(item.upper))assert.equal(letterAudioText(item),null);
+  else {assert.equal(letterAudioText(item),item.lower);assert.match(letterAudioText(item)!,/^[а-яё]$/u);}
  }
 });

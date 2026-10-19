@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {CYRILLIC,LETTER_GROUPS,QUICK_LETTERS,READING_WORDS,contextualLetters,referenceExample,targetLetterParts,type CyrillicLetter} from './cyrillic';
+import {CYRILLIC,LETTER_GROUPS,QUICK_LETTERS,READING_WORDS,contextualLetters,referenceExample,targetLetterParts,letterAudioText,type CyrillicLetter} from './cyrillic';
 import type {LessonDefinition} from './lessons';
 import type {Exercise} from './lesson';
 import type {LessonController} from './useLesson';
@@ -15,11 +15,11 @@ export function CyrillicExample({example,target}:{example:string;target:string})
 }
 function LetterCards({letters,speech,onListen}:{letters:readonly CyrillicLetter[];speech:Speech;onListen:(text:string)=>void}){
  return <div className="native-letter-list">{letters.map(item=><article className="native-letter-card" key={item.upper}>
-  <strong lang="ru">{item.upper} <span>{item.lower}</span></strong><div><b>{item.sound}</b><p><CyrillicExample example={item.example} target={item.lower}/><span className="native-example-meaning">{item.meaning}</span></p>{item.note&&<small>{item.note}</small>}</div>
+  <div className="native-letter-heading">{speech.available&&letterAudioText(item)?<button className="native-letter-sound" aria-label={`Hear letter ${item.upper} (device speech)`} onClick={()=>onListen(letterAudioText(item)!)}><strong lang="ru">{item.upper} <span>{item.lower}</span></strong></button>:<strong lang="ru">{item.upper} <span>{item.lower}</span></strong>}</div><div className="native-letter-copy"><b>{item.sound}</b><p><CyrillicExample example={item.example} target={item.lower}/><span className="native-example-meaning">{item.meaning}</span></p>{item.note&&<small>{item.note}</small>}</div>
   {speech.available&&item.example&&<button className="native-letter-audio" aria-label={`Listen to ${item.example}: ${item.meaning}`} onClick={()=>onListen(item.example)}><SoundIcon/></button>}
  </article>)}</div>;
 }
-function AudioNote({speech}:{speech:Speech}){return <p className="native-alphabet-note">{speech.message|| (speech.available?'Tap a speaker to hear the whole example word or phrase.':'Russian audio unavailable. You can keep learning with text.')}</p>;}
+function AudioNote({speech}:{speech:Speech}){return <p className="native-alphabet-note">{speech.message|| (speech.available?'Tap a green letter to hear it, or the speaker for its example. Device voices may say letter names rather than pure sounds.':'Russian audio unavailable. You can keep learning with text.')}</p>;}
 export function NativeAlphabetGuide({definition,exercise,speech,onListen,onClose}:{definition:LessonDefinition;exercise:Exercise;speech:Speech;onListen:(text:string)=>void;onClose:()=>void}){
  const [full,setFull]=useState(false);
  const scroll=useRef<HTMLDivElement>(null);
