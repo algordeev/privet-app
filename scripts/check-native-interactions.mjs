@@ -11,7 +11,7 @@ import {createServer} from 'vite';
 const executable=[process.env.PRIVET_CHROME_PATH,'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome','/usr/bin/chromium','/usr/bin/chromium-browser','/usr/bin/google-chrome'].find(path=>path&&existsSync(path));
 assert.ok(executable,'Install Chrome/Chromium or set PRIVET_CHROME_PATH to run interaction checks.');
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-let russianAudio=false,skipQuickStart=true;
+let russianAudio=false,skipQuickStart=true,repeatedSentence=false;
 let seed={},initialTime=new Date(2026,9,17,12).getTime();
 // Test-only driver substitution: exercise real root hook, scheduler and UI without radio.
 const server=await createServer({plugins:[{name:'privet-test-ble-driver',enforce:'pre',transform(_source,id){
@@ -34,6 +34,7 @@ server.middlewares.use('/__privet_native_checks',(req,res)=>{
  ${reset?`localStorage.clear();for(const [key,value] of Object.entries(${JSON.stringify(seed)}))localStorage.setItem(key,JSON.stringify(value));`:''}
  window.SpeechSynthesisUtterance=class{constructor(text){this.text=text;}};
  Object.defineProperty(window,'speechSynthesis',{value:{getVoices:()=>[{lang:window.__russianAudio?'ru-RU':'en-US',name:'Test voice'}],addEventListener:(_event,fn)=>window.__voiceListeners.add(fn),removeEventListener:(_event,fn)=>window.__voiceListeners.delete(fn),cancel:()=>{},speak:utterance=>{window.__speechTaps.push(utterance.text);window.__utterances.push(utterance);if(!window.__holdSpeech)queueMicrotask(()=>{utterance.onstart?.();utterance.onend?.();});}}});
+ ${repeatedSentence?`const {cafeLesson}=await import('/src/lessons.ts');cafeLesson.exercises=cafeLesson.exercises.map((exercise,index)=>index===2?{...exercise,tokens:['я','знаю','что','я'],answer:'я знаю что я'}:exercise);`:''}
  await import('/src/main.tsx');
  </script></body></html>`);
 });
@@ -449,6 +450,65 @@ try{
   console.log(`PASS: ${input} sentence drag, keyboard reorder/focus, tap removal, persistence and feedback locking in ${lesson.id}.`);
  }
  await call('Emulation.setTouchEmulationEnabled',{enabled:false});
+ // Safe examples are used in both reference views, not just by the data helper.
+ for(const [definition,index] of [[nativeLessons[0],2],[nativeLessons[0],3],[nativeLessons[0],4],[nativeLessons[1],3],[nativeLessons[1],4]]){
+  const session=freshSession();session.progress.index=index;session.progress.results=Array(index).fill(true);
+  await open({[sessionKey(definition)]:session});await click(`#native-card-${definition.id} ~ .button`);
+  await click('[aria-label="Open Cyrillic guide"]');
+  for(const full of [false,true]){
+   if(full)await click('.native-guide-tabs button','See full alphabet');
+   const examples=await evaluate(()=>[...document.querySelectorAll('#native-alphabet-guide .native-letter-card')].map(el=>({letter:el.querySelector('strong').textContent.trim().split(' ')[0],example:el.querySelector('p > span[lang="ru"]').textContent})));
+   const normalize=text=>text.normalize('NFD').replace(/\u0301/g,'').normalize('NFC').toLowerCase().replace(/[^а-яё]/g,'');
+   for(const item of examples)assert.ok(!normalize(item.example).includes(normalize(definition.exercises[index].answer)),`${definition.id}/${index}/${item.letter} leaked answer`);
+   if(full)assert.equal(examples.length,33);
+   if(definition.id==='cafe'&&index===4)assert.equal(examples.find(item=>item.letter==='Б').example,'банк');
+  }
+  await click('[aria-label="Close Cyrillic guide"]');
+ }
+ console.log('PASS: contextual and full 33-letter reference views conceal Russian sentence, choice and typed answers in both lessons.');
+ // A test-only sentence fixture exercises the real shared controls and native
+ // persistence. No shipped lesson content, correct answer or storage format changes.
+ repeatedSentence=true;
+ for(const input of ['mouse','touch']){
+  await call('Emulation.setTouchEmulationEnabled',{enabled:input==='touch',maxTouchPoints:1});
+  const session=freshSession();session.progress.index=2;session.progress.results=[true,true];
+  await open({[NATIVE_SESSION_KEY]:session});await startCafe();
+  await click('.word-bank button:nth-child(1)');
+  assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.word-bank button')].map(el=>el.disabled)),[true,false,false,false]);
+  await click('.word-bank button:nth-child(4)');await click('.word-bank button:nth-child(2)');await click('.word-bank button:nth-child(3)');
+  const identities=await evaluate(()=>[...document.querySelectorAll('.sentence-answer button')].map(el=>el.dataset.tokenKey));
+  assert.equal(new Set(identities).size,4,'Repeated words have unique render identities');
+  await evaluate(()=>{document.querySelector('.sentence-answer').scrollIntoView({block:'center'});});await pause(80);
+  const points=await evaluate(()=>[...document.querySelectorAll('.sentence-answer button')].map(el=>{const r=el.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};}));
+  const from=points[1],to=points[3];
+  if(input==='mouse'){
+   await call('Input.dispatchMouseEvent',{type:'mouseMoved',...from});await call('Input.dispatchMouseEvent',{type:'mousePressed',...from,button:'left',clickCount:1});await call('Input.dispatchMouseEvent',{type:'mouseMoved',...to,button:'left',buttons:1});
+  }else{
+   await call('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...from,id:1}]});await call('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...to,id:1}]});
+  }
+  await until(()=>!!document.querySelector('.sentence-drag-ghost'));
+  assert.equal(await evaluate(()=>document.querySelectorAll('.sentence-answer [data-dragging="true"]').length),1,'Only the dragged occurrence is highlighted');
+  if(input==='mouse')await call('Input.dispatchMouseEvent',{type:'mouseReleased',...to,button:'left',clickCount:1});else await call('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await until(()=>[...document.querySelectorAll('.sentence-answer button')].map(el=>el.dataset.word).join(' ')==='я знаю что я');
+  assert.deepEqual((await stored(NATIVE_SESSION_KEY)).tokens,['я','знаю','что','я']);
+  await evaluate(()=>{document.querySelectorAll('.sentence-answer button')[3].focus();});
+  for(const position of [2,1,0]){
+   await evaluate(()=>{document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',altKey:true,bubbles:true}));});
+   await until(position=>document.activeElement.dataset.position===String(position),position);
+  }
+  await evaluate(()=>{document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',altKey:true,bubbles:true}));});
+  await until(()=>document.activeElement.dataset.position==='1');
+  assert.deepEqual((await stored(NATIVE_SESSION_KEY)).tokens,['я','я','знаю','что']);
+  await click('.sentence-answer button:nth-child(2)');assert.deepEqual((await stored(NATIVE_SESSION_KEY)).tokens,['я','знаю','что']);
+  assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.word-bank button')].map(el=>el.disabled)),[true,true,true,false]);
+  await click('.word-bank button:nth-child(4)');
+  await open({},undefined,true);await startCafe();
+  assert.deepEqual((await stored(NATIVE_SESSION_KEY)).tokens,['я','знаю','что','я'],'Duplicate tokens survive reload in the existing string-array session');
+  assert.equal(await evaluate(()=>document.querySelectorAll('.sentence-answer button').length),4);
+  await click('.lesson-bottom .button','Check answer');assert.equal((await stored(NATIVE_SESSION_KEY)).progress.feedback,'correct','Canonical sentence text remains the checked answer');
+  console.log(`PASS: repeated words via ${input}: independent selection, unique keys, single-occurrence drag/removal, position-based keyboard focus, canonical checking and saved-session restoration.`);
+ }
+ repeatedSentence=false;await call('Emulation.setTouchEmulationEnabled',{enabled:false});
  assert.deepEqual(browserErrors,[],'No uncaught browser exceptions');
  console.log('PASS: interaction checks use isolated Chromium shims; no real iPhone, ESP32, speech or payment verification.');
 }finally{

@@ -12,7 +12,7 @@ function BackChevron(){return <svg viewBox="0 0 24 24" fill="none" stroke="curre
 function LetterCards({letters,speech,onListen}:{letters:readonly CyrillicLetter[];speech:Speech;onListen:(text:string)=>void}){
  return <div className="native-letter-list">{letters.map(item=><article className="native-letter-card" key={item.upper}>
   <strong lang="ru">{item.upper} <span>{item.lower}</span></strong><div><b>{item.sound}</b><p><span lang="ru">{item.example}</span><span className="native-example-meaning">{item.meaning}</span></p>{item.note&&<small>{item.note}</small>}</div>
-  {speech.available&&<button className="native-letter-audio" aria-label={`Listen to ${item.example}: ${item.meaning}`} onClick={()=>onListen(item.example)}><SoundIcon/></button>}
+  {speech.available&&item.example&&<button className="native-letter-audio" aria-label={`Listen to ${item.example}: ${item.meaning}`} onClick={()=>onListen(item.example)}><SoundIcon/></button>}
  </article>)}</div>;
 }
 function AudioNote({speech}:{speech:Speech}){return <p className="native-alphabet-note">{speech.message|| (speech.available?'Tap a speaker to hear the whole example word or phrase.':'Russian audio unavailable. You can keep learning with text.')}</p>;}
