@@ -5,4 +5,3 @@
 .native-app .native-companion-images button { display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:9px 12px;border:1px solid #ccd9c6;border-radius:12px;background:#fffdf7;color:#31513a;font-size:13px; }
 .native-app .native-companion-images button[aria-pressed=true] { border-color:#246653;background:#e9efdf;box-shadow:inset 0 0 0 1px #246653; }
 .native-app .native-companion-images i { width:12px;height:12px;border:1px solid #8a8d7b;border-radius:50%; }.native-app .native-companion-images .is-coral{background:#ed896e}.native-app .native-companion-images .is-white{background:#f8f6f0}
-.native-app .native-plus-companion-title { font:600 22px/1.25 -apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;letter-spacing:-.5px;margin-top:28px; }
