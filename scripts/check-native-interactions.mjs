@@ -610,6 +610,14 @@ try{
  // existing subscription/stats hooks and the same root BLE controller.
  async function finishWelcomeLesson(makeMistake=false){
   await until(()=>!!document.querySelector('.native-first-lesson .vocab-grid'));
+  if(await evaluate(()=>!!document.querySelector('.native-lesson-tour[open]'))){
+   assert.ok(await evaluate(()=>document.querySelector('#lesson-tour-title').textContent==='Meet a word'));
+   await click('.native-tour-next','Next');
+   if(russianAudio){assert.ok(await evaluate(()=>document.querySelector('#lesson-tour-title').textContent==='Hear it in Russian'));await click('.native-tour-next','Next');}
+   assert.ok(await evaluate(()=>document.querySelector('#lesson-tour-title').textContent==='A little letter help'));
+   await click('.native-tour-next','Got it');
+   assert.equal(await evaluate(()=>document.querySelectorAll('.vocab-card.revealed').length),0,'Tour never changes vocabulary progress');
+  }
   await click('[aria-label="Open Cyrillic guide"]');await click('[aria-label="Close Cyrillic guide"]');
   if(russianAudio)await click('.vocab-card .word-audio');
   for(let i=1;i<=3;i++)await click(`.vocab-card:nth-child(${i}) .vocab-reveal`);
@@ -682,7 +690,7 @@ try{
  await call('Emulation.setDeviceMetricsOverride',{width:320,height:568,deviceScaleFactor:1,mobile:true});
  await open({[FIRST_RUN_KEY]:{...initialFirstRun(),stage:'offer',reason:'Travel',level:'New to Russian'},[sessionKey(firstRunLesson)]:restoredResult});await assertNativeLayout();await evaluate(()=>document.querySelector('.first-offer-free .button').scrollIntoView({block:'center'}));await assertNativeLayout();assert.ok(await evaluate(()=>{const r=document.querySelector('.first-offer-free .button').getBoundingClientRect();return r.width>0&&r.height>=44&&r.top>=0&&r.bottom<=innerHeight;}));assert.equal(await evaluate(()=>document.querySelectorAll('.first-offer a[href]').length),0);await capture('free');
  await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});await open();await evaluate(()=>document.querySelector('.first-actions .button').click());assert.ok(await evaluate(()=>document.querySelector('.first-scroll h1').textContent.includes('Speak and listen')),'No-preference entrance keeps Continue immediately clickable');await capture('reduced-motion');
- await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await open();await click('.first-actions .button','Get started');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-options button[aria-label="Conversations"]');await click('.first-actions .button','Continue');await click('.first-options button[aria-label="New to Russian"]');await click('.first-actions .button','Meet your companion');await click('.first-actions .button','Continue');await capture('handoff');await capture('reduced-motion');await assertNativeLayout();
+ await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await open();await click('.first-actions .button','Get started');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-options button[aria-label="Conversations"]');await click('.first-actions .button','Continue');await click('.first-options button[aria-label="New to Russian"]');await click('.first-actions .button','A little Cyrillic first');assert.ok(await evaluate(()=>!!document.querySelector('[data-stage=alphabet]')));await assertNativeLayout();await click('.first-actions .button','Continue');assert.ok(await evaluate(()=>document.body.textContent.includes('Same shape. Different sound.')));await click('.first-actions .button','Meet your companion');await click('.first-actions .button','Continue');await capture('handoff');await capture('reduced-motion');await assertNativeLayout();
  console.log('PASS: monthly local confirmation, reduced-motion/no-preference entrance interaction, and offer/onboarding controls at 320×568 and 430×932.');
 
  assert.deepEqual(browserErrors,[],'No uncaught browser exceptions');
