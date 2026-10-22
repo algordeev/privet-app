@@ -43,12 +43,13 @@ export function usePhysicalCompanion(){
  const testHappy=useCallback(()=>{void transport.current?.testHappy();},[]);
  const disconnect=useCallback(()=>transport.current?.disconnect(),[]);
  const navigate=useCallback((screen:'home'|'profile'|'lesson'|'physical')=>transport.current?.navigate(screen),[]);
+ const greet=useCallback(()=>{transport.current?.request(COMMAND.HAPPY);},[]);
  const onListen=useCallback(()=>{transport.current?.request(COMMAND.LISTENING);},[]);
  const onListenEnd=useCallback(()=>{transport.current?.request(COMMAND.THINKING);},[]);
  const onQuickStartListenEnd=useCallback(()=>{transport.current?.request(COMMAND.IDLE);},[]);
  const onHint=useCallback(()=>{transport.current?.request(COMMAND.HINT);},[]);
  const enterLesson=useCallback((hasActiveQuestion:boolean)=>transport.current?.enterLesson(hasActiveQuestion),[]);
  const onTransition=useCallback((previous:Progress,next:Progress,action:Action,lessonId='cafe')=>lessonEvents.current?.(previous,next,action,lessonId),[]);
- return {state,scan,connect,testHappy,disconnect,navigate,enterLesson,onListen,onListenEnd,onQuickStartListenEnd,onHint,onTransition};
+ return {state,scan,connect,testHappy,disconnect,navigate,enterLesson,greet,onListen,onListenEnd,onQuickStartListenEnd,onHint,onTransition};
 }
 export type PhysicalCompanionController=ReturnType<typeof usePhysicalCompanion>;

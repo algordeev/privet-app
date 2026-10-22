@@ -1,0 +1,49 @@
+.native-app .native-first-run { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+.native-app .first-navigation { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 20px 22px 12px; flex-shrink: 0; }
+.native-app .first-navigation > span { max-width: 130px; text-align: right; font-size: 12px; color: #64715b; }
+.native-app .first-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 10px 22px 24px; }
+.native-app .first-scroll h1 { font-size: clamp(29px,8vw,40px); line-height: 1.14; letter-spacing: -1.1px; margin: 14px 0; outline: none; }
+.native-app .first-scroll > p { line-height: 1.65; color: #53664f; }
+.native-app .first-robot { display: flex; align-items: center; justify-content: center; position: relative; min-height: 180px; margin: 6px 0 20px; padding: 14px; border-radius: 30px; background: #e9efdf; }
+.native-app .first-hello { background: #fffdf7; color: #246653; padding: 10px 15px; border-radius: 18px 18px 18px 3px; font-weight: 600; }
+.native-app .first-features { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; margin-top: 24px; font-size: 13px; color: #31513a; }
+.native-app .first-features > span { padding: 10px 0; border-top: 1px solid #d6dfce; }
+.native-app .first-actions { display: flex; flex-direction: column; gap: 0; min-height: 0; width: 100%; margin: 0; flex-shrink: 0; padding: 12px 22px 18px; border-top: 1px solid #dce2d3; background: #f8f6f0; }
+.native-app .first-actions > .button { width: 100%; }
+.native-app .first-options { border: 0; margin: 26px 0 0; padding: 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
+.native-app .first-options legend { font-weight: 600; margin-bottom: 11px; }
+.native-app .first-options button { display: flex; align-items: center; gap: 9px; min-height: 60px; text-align: left; padding: 12px; border: 1px solid #c8d4be; border-radius: 15px; background: #fffdf7; color: #31513a; }
+.native-app .first-options [aria-pressed=true] { border: 2px solid #246653; padding: 11px; background: #e9efdf; }
+.native-app .first-options i { margin-left: auto; font-style: normal; min-width: 15px; }
+.native-app .first-levels { grid-template-columns: 1fr; }
+.native-app .first-fine { font-size: 12px; line-height: 1.6; color: #61705b; margin-top: 16px; }
+.native-app .first-note { border: 1px solid #cbd7c1; border-radius: 20px; padding: 18px; background: #fffdf7; margin: 24px 0; }
+.native-app .first-note p { margin-top: 7px; font-size: 14px; line-height: 1.65; color: #53664f; }
+.native-app .first-lesson-preview { display: flex; align-items: center; gap: 16px; padding: 18px; border-radius: 20px; background: #e9efdf; }
+.native-app .first-lesson-preview > span { font-size: 32px; }
+.native-app .first-lesson-preview p { font-size: 13px; color: #61705b; }
+.native-app .first-offers { display: grid; gap: 16px; margin-top: 22px; }
+.native-app .first-offer { padding: 22px; border: 1px solid #cad6c0; border-radius: 23px; background: #fffdf7; }
+.native-app .first-offer-plus { background: #e9efdf; border: 2px solid #246653; }
+.native-app .first-offer h2 { font-size: 25px; line-height: 1.2; letter-spacing: -.7px; margin: 10px 0 16px; }
+.native-app .first-offer ul { padding-left: 20px; font-size: 14px; line-height: 1.8; margin: 14px 0 20px; }
+.native-app .first-offer li small { font-size: 11px; color: #64715b; }
+.native-app .first-offer > .button { width: 100%; white-space: normal; }
+.native-app .first-secondary { background: transparent; border: 1px solid #92af8c; color: #246653; }
+.native-app .first-plan-options { display: flex; gap: 8px; margin-bottom: 15px; }
+.native-app .first-plan-options button { min-height: 44px; flex: 1; border-radius: 12px; border: 1px solid #a8bda0; background: #fffdf7; color: #31513a; }
+.native-app .first-plan-options [aria-pressed=true] { background: #246653; color: #fffdf7; }
+.native-app .first-demo-notice { border-left: 3px solid #d98a70; padding-left: 12px; font-size: 13px; margin-top: 20px; }
+.native-app .first-confirm-mark { display: grid; place-items: center; width: 76px; height: 76px; border-radius: 50%; font-size: 38px; margin: 35px 0 25px; color: #246653; background: #e9efdf; }
+.native-app .first-result-metrics { display: flex; flex-wrap: wrap; gap: 10px; margin: 15px 0 22px; }
+.native-app .first-result-metrics > div { flex: 1; min-width: 78px; padding: 12px 8px; border-radius: 13px; background: #e9efdf; }
+.native-app .first-result-metrics dt { font-size: 11px; color: #53664f; }
+.native-app .first-result-metrics dd { margin: 4px 0 0; font-size: 23px; font-weight: 600; color: #246653; }
+@media (prefers-reduced-motion: reduce) { .native-app .native-first-run * { scroll-behavior: auto; } }
+
+.native-app .first-note h2 { font-size: 24px; line-height: 1.2; letter-spacing: -.7px; margin-bottom: 12px; }
+.native-app .first-note > .button { width: 100%; margin-top: 14px; white-space: normal; }
+
+.native-app .first-options:not(.first-levels) button { display: grid; grid-template-columns: minmax(0,1fr) auto; min-width: 0; min-height: 76px; gap: 6px; }
+.native-app .first-option-label { grid-column: 1 / -1; grid-row: 2; font-size: 15px; overflow-wrap: anywhere; }
+.native-app .first-options:not(.first-levels) button > i { grid-column: 2; grid-row: 1; }

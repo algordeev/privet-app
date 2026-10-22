@@ -16,6 +16,8 @@ try {
  const {PhysicalCompanionSettings,PhysicalCompanionHomeStatus}=await server.ssrLoadModule('/src/PhysicalCompanionSettings.tsx');
  const {initialBleState}=await server.ssrLoadModule('/src/bleTransport.ts');
  const {RuntimeApp}=await server.ssrLoadModule('/src/RuntimeApp.tsx');
+ const {FIRST_RUN_KEY,initialFirstRun}=await server.ssrLoadModule('/src/firstRun.ts');
+ const completedFirstRun={...initialFirstRun(),stage:'done',completed:true};storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));
  const {useLesson}=await server.ssrLoadModule('/src/useLesson.ts');
  const {useSubscription}=await server.ssrLoadModule('/src/useSubscription.ts');
  const {PlusScreen}=await server.ssrLoadModule('/src/PlusScreen.tsx');
@@ -38,6 +40,12 @@ try {
  if(baseline&&existsSync(baseline)){assert.equal(website.replace('class="app-audio-note" role="status" aria-live="polite" aria-atomic="true"','class="app-audio-note"'),readFileSync(baseline,'utf8'));console.log('PASS: browser markup preserved, with accessible audio status attributes added.');}
  else console.log('PASS: browser runtime retains marketing, navigation, phone preview, lesson, and companion.');
  Capacitor.isNativePlatform=()=>true;
+ storage.set(FIRST_RUN_KEY,JSON.stringify(initialFirstRun()));
+ const welcome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(welcome.includes('Learn Russian with a companion that reacts to you.'));assert.ok(welcome.includes('Get started'));assert.ok(!welcome.includes('site-header'));
+ storage.set(FIRST_RUN_KEY,JSON.stringify(initialFirstRun()));Capacitor.isNativePlatform=()=>false;
+ const {NativeApp}=await server.ssrLoadModule('/src/NativeApp.tsx');const browserPhone=renderToStaticMarkup(createElement(NativeApp));assert.ok(!browserPhone.includes('Get started'));assert.ok(!browserPhone.includes('native-settings-open'));
+ Capacitor.isNativePlatform=()=>true;
+ storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));
  const home=renderToStaticMarkup(createElement(RuntimeApp));
  for(const marker of ['class="native-app"','Café essentials','Start lesson','Your virtual companion','Привет! Ready for a little Russian?'])assert.ok(home.includes(marker),marker);
  for(const marker of ['site-header','class="hero','lesson-phone','ios-status-bar','dynamic-island','ios-home-area','Demo connection'])assert.ok(!home.includes(marker),marker);
@@ -104,8 +112,9 @@ try {
   assert.ok(!feedback.includes('data-expression="encouraging"')); // Restoring old feedback does not replay a reaction.
  }
  console.log('PASS: all five native exercise views reuse LessonPanel without fake device chrome or answer leaks.');
- storage.clear();
+ storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));
  storage.set(NATIVE_SESSION_KEY,JSON.stringify({...freshSession(),revealed:['hi']}));
+ storage.delete(FIRST_RUN_KEY);
  const partialHome=renderToStaticMarkup(createElement(RuntimeApp));
  assert.ok(partialHome.includes('Continue lesson'));
  assert.ok(partialHome.includes('Shall we pick up where we left off?'));
@@ -133,7 +142,7 @@ try {
  assert.ok(settings.includes('Reactions are turned off.'));
  assert.ok(!settings.includes('data-running="true"'));
  console.log('PASS: progress-based greetings, immediate learning-aid settings, disabled static robot, and truthful completion summary.');
- storage.clear();
+ storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));
  function SecondLesson(){const controller=useLesson({persistSession:true,definition:introductionsLesson});return createElement(LessonPanel,{controller,native:true});}
  for(const [index,exercise] of introductionsLesson.exercises.entries()){
   const snapshot={...freshSession(),progress:{...freshSession().progress,index,results:Array(index).fill(true)}};
@@ -165,14 +174,14 @@ try {
  assert.ok(website.includes('20 gems'));assert.ok(website.includes('30 gems'));assert.ok(website.includes('no payment processing'));
  assert.ok(website.includes('robot on this website is simulated'));assert.ok(website.includes('working iPhone + ESP32 prototype'));
  function Plus(){const subscription=useSubscription();return createElement(PlusScreen,{subscription,onClose:()=>{}});}
- storage.clear();assert.ok(renderToStaticMarkup(createElement(Plus)).includes('Activate Plus demo'));
+ storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));assert.ok(renderToStaticMarkup(createElement(Plus)).includes('Activate Plus demo'));
  storage.set(SUBSCRIPTION_KEY,JSON.stringify({version:1,plan:'monthly',since:'2026-10-18'}));
  assert.ok(renderToStaticMarkup(createElement(Plus)).includes('Cancel Plus'));assert.ok(renderToStaticMarkup(createElement(Profile)).includes('Manage Plus'));
  Capacitor.isNativePlatform=()=>true;
  const plusHome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(plusHome.includes('native-profile-open is-plus'));assert.ok(plusHome.includes('Plus demo active'));assert.ok(!plusHome.includes('native-plus-open'));
  const plusProfile=renderToStaticMarkup(createElement(Profile));assert.ok(plusProfile.includes('native-profile-avatar is-plus'));assert.ok(plusProfile.includes('native-profile-plus-tag'));
  Capacitor.isNativePlatform=()=>false;
- storage.clear();assert.ok(renderToStaticMarkup(createElement(Profile)).includes('Get Plus'));
+ storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));assert.ok(renderToStaticMarkup(createElement(Profile)).includes('Get Plus'));
  console.log('PASS: own-feature descriptions replace comparisons, prices/hardware states are accurate, and Plus demo screens render inactive/active states.');
  console.log('PASS: native completion/replay and saved results render; browser sessions still start fresh.');
  const {NativeAlphabetGuide,NativeCyrillicQuickStart,CyrillicExample}=await server.ssrLoadModule('/src/NativeCyrillic.tsx');
@@ -189,7 +198,7 @@ try {
   storage.set(CYRILLIC_KEY,JSON.stringify({version:1,status,page}));Capacitor.isNativePlatform=()=>true;const compactHome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(compactHome.includes('native-quick-card is-collapsed'));assert.ok(compactHome.includes(`${action} Cyrillic quick start`));assert.ok(!compactHome.includes('Skip for now'));assert.ok(!compactHome.includes('RECOMMENDED · ABOUT 3 MIN'));
  }Capacitor.isNativePlatform=()=>false;
  assert.ok(!website.includes('Cyrillic quick start'));assert.ok(!website.includes('Open Cyrillic guide'));
- storage.clear();
+ storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));
  function QuickStart(){const onboarding=useCyrillicProgress();const controller=useLesson();return createElement(NativeCyrillicQuickStart,{onboarding,speech:controller.speech,onClose:noOp,onLesson:noOp});}
  for(const [status,page] of [['started',0],['started',1],['started',2],['started',3],['completed',3]]){
   storage.set(CYRILLIC_KEY,JSON.stringify({version:1,status,page}));
@@ -197,7 +206,7 @@ try {
  }
  function Guide(){const controller=useLesson();return createElement(NativeAlphabetGuide,{definition:controller.definition,exercise:controller.exercise,speech:controller.speech,onListen:noOp,onClose:noOp});}
  const guide=renderToStaticMarkup(createElement(Guide));assert.ok(guide.includes('Cyrillic guide'));assert.ok(guide.includes('Current exercise'));assert.ok(guide.includes('See full alphabet'));assert.ok(guide.includes('Russian audio unavailable'));
- storage.clear();console.log('PASS: native-only optional Cyrillic card/pages and contextual guide render with accessible text/audio fallback; website excludes them.');
+ storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));console.log('PASS: native-only optional Cyrillic card/pages and contextual guide render with accessible text/audio fallback; website excludes them.');
 
 
 }finally{
