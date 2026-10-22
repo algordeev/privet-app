@@ -48,7 +48,7 @@ try{
  const {sessionKey}=await server.ssrLoadModule('/src/session.ts');
  const {freshSession,NATIVE_SESSION_KEY}=await server.ssrLoadModule('/src/session.ts');
  const {emptyStats,NATIVE_STATS_KEY,localDay}=await server.ssrLoadModule('/src/nativeStats.ts');
- const {SUBSCRIPTION_KEY}=await server.ssrLoadModule('/src/subscription.ts');
+ const {SUBSCRIPTION_KEY,PLUS_MONTHLY_PRICE}=await server.ssrLoadModule('/src/subscription.ts');
  const {CYRILLIC_KEY}=await server.ssrLoadModule('/src/cyrillicProgress.ts');
  const {CYRILLIC,contextualLetters}=await server.ssrLoadModule('/src/cyrillic.ts');
  profile=await mkdtemp(join(tmpdir(),'privet-native-checks-'));
@@ -612,6 +612,11 @@ try{
   await until(()=>!!document.querySelector('.native-first-lesson .vocab-grid'));
   if(await evaluate(()=>!!document.querySelector('.native-lesson-tour[open]'))){
    assert.ok(await evaluate(()=>document.querySelector('#lesson-tour-title').textContent==='Meet a word'));
+   await evaluate(()=>{const style=document.createElement('style');style.id='tour-large-text-check';style.textContent='.native-tour-card h2{font-size:36px!important}.native-tour-card p{font-size:28px!important}.native-tour-card button{font-size:22px!important}';document.head.append(style);});
+   await pause(300);
+   assert.ok(await evaluate(()=>{const card=document.querySelector('.native-tour-card'),r=card.getBoundingClientRect(),v=window.visualViewport;return r.top>=(v?.offsetTop??0)&&r.bottom<=(v?.offsetTop??0)+(v?.height??innerHeight)&&r.left>=0&&r.right<=innerWidth&&getComputedStyle(card).overflowY==='auto';}),'Large-text tour card fits the visible viewport and allows scrolling');
+   await evaluate(()=>document.querySelector('#tour-large-text-check').remove());
+
    await click('.native-tour-next','Next');
    if(russianAudio){assert.ok(await evaluate(()=>document.querySelector('#lesson-tour-title').textContent==='Hear it in Russian'));await click('.native-tour-next','Next');}
    assert.ok(await evaluate(()=>document.querySelector('#lesson-tour-title').textContent==='A little letter help'));
@@ -684,7 +689,8 @@ try{
  firstTime=true;
  const restoredResult={...freshSession(),progress:{...freshSession().progress,index:5,complete:true,results:[true,true,true,true,true]}};
  await open({[FIRST_RUN_KEY]:{...initialFirstRun(),stage:'offer',reason:'Travel',level:'New to Russian'},[sessionKey(firstRunLesson)]:restoredResult});
- await click('.first-offer-plus .button','Try Privet Plus');assert.ok(await evaluate(()=>document.querySelector('.first-scroll').textContent.includes('monthly Plus demo')));
+ await click('.first-offer-plus .button','Try Privet Plus');assert.deepEqual(await evaluate(()=>Array.from(document.querySelectorAll('.first-review dl>div')).map(row=>[row.querySelector('dt').textContent,row.querySelector('dd').textContent])),[['Selected plan','Monthly'],['Concept price',PLUS_MONTHLY_PRICE+' / month'],['Hearts','Unlimited'],['Payment today','None · local demo']]);
+ assert.equal((await stored(SUBSCRIPTION_KEY)).plan,null,'Review must not activate Plus before Continue');
  await click('.first-actions .button','Continue');assert.equal((await stored(SUBSCRIPTION_KEY)).plan,'monthly');
  // The narrower iPhone viewport also keeps choices and the primary action usable.
  await call('Emulation.setDeviceMetricsOverride',{width:320,height:568,deviceScaleFactor:1,mobile:true});
