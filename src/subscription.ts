@@ -2,6 +2,8 @@ import {PRODUCT} from './config.ts';
 
 export type Subscription={version:1;plan:'monthly'|'yearly'|null;since:string|null};
 export const SUBSCRIPTION_KEY=`${PRODUCT.storageKey}-subscription`;
+export const PLUS_MONTHLY_PRICE='$4.99';
+export const PLUS_YEARLY_PRICE='$39.99';
 export const emptySubscription=():Subscription=>({version:1,plan:null,since:null});
 function validDate(value:unknown):value is string{return typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&!Number.isNaN(Date.parse(`${value}T00:00:00Z`))&&new Date(`${value}T00:00:00Z`).toISOString().slice(0,10)===value;}
 export function restoreSubscription(raw:string|null):Subscription{
