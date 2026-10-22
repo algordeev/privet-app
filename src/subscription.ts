@@ -2,6 +2,7 @@ import {PRODUCT} from './config.ts';
 
 export type Subscription={version:1;plan:'monthly'|'yearly'|null;since:string|null};
 export const SUBSCRIPTION_KEY=`${PRODUCT.storageKey}-subscription`;
+export const COMPANION_PRICE='$59.99';
 export const PLUS_MONTHLY_PRICE='$4.99';
 export const PLUS_YEARLY_PRICE='$39.99';
 export const emptySubscription=():Subscription=>({version:1,plan:null,since:null});
