@@ -47,7 +47,7 @@ White and coral explorations of the optional desk companion, showing a possible 
 
 | Warm white | Soft coral |
 | --- | --- |
-| [![White desk companion concept with enclosed and open rear views](public/images/companion-white.png)](public/images/companion-white.png) | [![Coral desk companion concept with enclosed and open rear views](public/images/companion-coral.png)](public/images/companion-coral.png) |
+| [![White desk companion concept with enclosed and open rear views](public/images/companion-white.webp)](public/images/companion-white.webp) | [![Coral desk companion concept with enclosed and open rear views](public/images/companion-coral.webp)](public/images/companion-coral.webp) |
 
 Illustrations supplied by the project creator. The original PNGs live in `public/images/` and also appear in the website’s companion gallery. On the website, click an illustration to open a same-page image viewer and switch between Warm white and Soft coral. Close with the close button, Escape, or the backdrop; left/right arrow keys also switch images. README image links open the original files.
 

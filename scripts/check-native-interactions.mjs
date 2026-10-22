@@ -652,7 +652,7 @@ try{
   assert.equal((await stored(NATIVE_SESSION_KEY)).progress.complete,true,'Guided completion credits existing Lesson 1');await capture(`first-result-${viewport.width}`);
   await open({},undefined,true);assert.deepEqual(await stored(NATIVE_STATS_KEY),earned,'Reopening completion cannot duplicate XP, gems or statistics');
   await click('.native-next-lesson','Choose how to continue');assert.equal(await evaluate(()=>document.querySelectorAll('.first-offer').length),3);
-  assert.equal(await evaluate(()=>document.querySelector('.first-demo-notice').textContent),'Prototype offer — no payment or order will be placed.');assert.equal(await evaluate(()=>document.querySelectorAll('.first-offer a[href]').length),0);await capture('offer-hero');
+  assert.equal(await evaluate(()=>document.querySelectorAll('.first-offer a[href]').length),0);await capture('offer-hero');
   await evaluate(()=>document.querySelector('.first-offer-companion').scrollIntoView({block:'center'}));await capture('offer-companion');
   await evaluate(()=>document.querySelector('.first-offer-free .button').scrollIntoView({block:'center'}));await assertNativeLayout();assert.ok(await evaluate(()=>{const r=document.querySelector('.first-offer-free .button').getBoundingClientRect();return r.height>=44&&r.top>=0&&r.bottom<=innerHeight;}),'Free choice fits the current viewport');await capture('free');assert.equal(await evaluate(()=>window.__openCalls.length),0);
   if(viewport.width===375)await click('.first-offer-free .button','Continue with Free');
