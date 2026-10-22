@@ -9,7 +9,7 @@ import {cafeLesson} from './lessons.ts';
 import {CYRILLIC,referenceExample} from './cyrillic.ts';
 const date=new Date(2026,9,22,12);
 function completed(){let p=initialProgress();for(const exercise of firstRunLesson.exercises){p=progressReducer(p,{type:'check',value:exercise.answer},firstRunLesson.exercises);p=progressReducer(p,{type:'continue'},firstRunLesson.exercises);}return p;}
-function offer(){let s=updateFirstRun(initialFirstRun(),{type:'start'});s=updateFirstRun(s,{type:'reason',value:'Travel'});s=updateFirstRun(s,{type:'level',value:'New to Russian'});s=updateFirstRun(s,{type:'personalized'});s=updateFirstRun(s,{type:'lesson'});return updateFirstRun(s,{type:'offer'});}
+function offer(){let s=updateFirstRun(initialFirstRun(),{type:'start'});s=updateFirstRun(s,{type:'reason',value:'Travel'});s=updateFirstRun(s,{type:'level',value:'New to Russian'});s=updateFirstRun(s,{type:'personalized'});s=updateFirstRun(s,{type:'alphabetDone'});s=updateFirstRun(s,{type:'lesson'});return updateFirstRun(s,{type:'offer'});}
 test('first-run defaults, legacy learner migration and malformed data are safe',()=>{
  assert.ok(FIRST_RUN_KEY.startsWith('privet-demo-v1'));assert.deepEqual(restoreFirstRun(null),initialFirstRun());
  assert.equal(restoreFirstRun(null,true).stage,'done');
@@ -19,7 +19,7 @@ test('every motivation and level persists, with progression gated on both select
  for(const reason of REASONS)for(const level of LEVELS){
   let s=updateFirstRun(initialFirstRun(),{type:'start'});assert.equal(updateFirstRun(s,{type:'personalized'}),s);
   s=updateFirstRun(s,{type:'reason',value:reason});s=updateFirstRun(s,{type:'level',value:level});s=restoreFirstRun(JSON.stringify(s));
-  assert.equal(s.reason,reason);assert.equal(s.level,level);assert.equal(updateFirstRun(s,{type:'personalized'}).stage,'companion');
+  assert.equal(s.reason,reason);assert.equal(s.level,level);assert.equal(updateFirstRun(s,{type:'personalized'}).stage,level===LEVELS[0]?'alphabet':'companion');
  }
 });
 test('free finishes and paid choices require local confirmation, with valid completion persistence',()=>{
@@ -49,4 +49,11 @@ test('onboarding rewards have one durable receipt across rerenders, reopening, r
 test('new café references retain every letter and never reveal assessed Russian answers',()=>{
  const normalize=(s:string)=>s.toLowerCase().normalize('NFD').replace(/\u0301/g,'').normalize('NFC').replace(/[^а-яё]/g,'');
  for(const exercise of firstRunLesson.exercises)for(const letter of CYRILLIC){const resolved=referenceExample(letter,firstRunLesson,exercise);assert.equal(resolved.upper,letter.upper);if(/[а-яё]/iu.test(exercise.answer))assert.ok(!normalize(resolved.example).includes(normalize(exercise.answer)),letter.upper);}
+});
+
+test('brief Cyrillic bridge is new-learner only, restorable, skippable and separate from rewards',()=>{
+ let s=updateFirstRun(initialFirstRun(),{type:'start'});s=updateFirstRun(s,{type:'reason',value:'Culture'});s=updateFirstRun(s,{type:'level',value:LEVELS[0]});s=updateFirstRun(s,{type:'personalized'});
+ assert.equal(s.stage,'alphabet');assert.deepEqual(restoreFirstRun(JSON.stringify(s)),s);assert.equal(s.completed,false);
+ assert.equal(updateFirstRun(s,{type:'back'}).stage,'personalize');const next=updateFirstRun(s,{type:'alphabetDone'});assert.equal(next.stage,'companion');assert.equal(next.completed,false);assert.equal(next.choice,null);
+ assert.equal(updateFirstRun(next,{type:'back'}).stage,'alphabet');assert.equal(updateFirstRun(initialFirstRun(),{type:'alphabetDone'}).stage,'welcome');
 });
