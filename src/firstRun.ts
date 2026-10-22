@@ -18,7 +18,7 @@ export function restoreFirstRun(raw:string|null,existingLearner=false):FirstRun{
 export type FirstRunAction={type:'start'|'personalized'|'lesson'|'offer'|'finish'|'replay'|'resetFlag'|'back'|'resumeLesson'|'alphabetDone'}|{type:'reason';value:typeof REASONS[number]}|{type:'level';value:typeof LEVELS[number]}|{type:'choose';choice:Offer};
 export function updateFirstRun(state:FirstRun,action:FirstRunAction):FirstRun{
  switch(action.type){
-  case 'back':return {...state,stage:state.stage==='personalize'?'welcome':state.stage==='alphabet'?'personalize':state.stage==='companion'?(state.level===LEVELS[0]?'alphabet':'personalize'):state.stage==='lesson'?'companion':state.stage};
+  case 'back':return {...state,stage:state.stage==='confirmation'?'offer':state.stage==='personalize'?'welcome':state.stage==='alphabet'?'personalize':state.stage==='companion'?(state.level===LEVELS[0]?'alphabet':'personalize'):state.stage==='lesson'?'companion':state.stage};
   case 'resumeLesson':return state.stage==='offer'?{...state,stage:'lesson'}:state;
   case 'start':return state.stage==='welcome'?{...state,stage:'personalize'}:state;
   case 'reason':return REASONS.includes(action.value)?{...state,reason:action.value}:state;
