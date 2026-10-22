@@ -11,6 +11,16 @@ Privet is a React + TypeScript + Vite learning prototype with a native Capacitor
 
 The **phone** owns lessons, answer checking, progress/statistics and optional synthesized pronunciation. The **ESP32** displays predefined OLED faces/animations and drives the servo motion associated with them; it does not check answers or play audio. Lessons remain fully usable without hardware.
 
+## First-time native welcome
+
+Fresh iOS installs start with Welcome → motivation and level → companion introduction → a five-step **coffee, please** lesson → completion → concept offers → Home. Returning learners with saved lessons, statistics or an active Plus demo keep their existing home. The browser website and browser phone preview do not enter this flow.
+
+The introduction reuses the lesson engine, speech controller, Cyrillic guide, hearts and companion events. Its separate `welcome-cafe` session introduces кофе, пожалуйста, ordering “Кофе, пожалуйста” and thanking the barista. Its first completion credits Café essentials once, leaving the existing lesson definitions available for normal practice and Lesson 2 up next. A durable `onboardingAwarded` receipt is stored atomically with statistics; reopening results cannot grant duplicate rewards.
+
+Motivation, level, flow stage and completion live under `${PRODUCT.storageKey}-first-run` (currently `privet-demo-v1-first-run`). **Settings → Replay onboarding** uses fresh practice without changing existing lesson sessions, rewards, subscription state or the established BLE connection. Replay XP is labelled a practice score. From native Web Inspector, `window.privetResetOnboarding()` resets only the welcome flow, keeps personalization, and uses replay mode for previously completed onboarding so it cannot mint another reward.
+
+All three offers are concepts, with no checkout, StoreKit or payment. Free preserves any existing Plus state. Monthly/annual Plus first shows a local confirmation, then activates the existing unlimited-hearts demo if no Plus plan is already active. Companion only confirms exploration of a preorder concept; no order, payment or lifetime entitlement is created. Full-course/practice access, advanced insights and the lifetime bundle are explicitly planned.
+
 ## Physical ESP32 OLED + servo companion
 
 Open **Physical companion settings** from native home, tap Connect, choose the advertised companion, and use Test happy reaction. Connect through Privet, rather than manually pairing in iPhone Settings. Bluetooth access is requested only after Connect.
@@ -98,6 +108,8 @@ Statistics use `privet-demo-v1-native-stats`; resumable sessions have separate k
 | `src/lesson.ts`, `src/lessons.ts`, `src/engine.ts` | Café content, native lesson catalogue/introductions content, exact answer normalization/checking and reducer transitions |
 | `src/LessonPanel.tsx`, `src/useLesson.ts`, `src/session.ts` | Shared exercises, hints/feedback and native session persistence |
 | `src/NativeLessonSettings.tsx` | Immediate native learning-aid settings |
+| `src/firstRun.ts`, `src/useFirstRun.ts` | Validated native welcome/personalization state and safe replay/reset |
+| `src/firstRunLesson.ts`, `src/NativeFirstRun.tsx`, `src/firstRun.css` | Guided café content, native welcome/offer UI and scoped styles |
 | `src/cyrillic.ts`, `src/cyrillicProgress.ts`, `src/useCyrillicProgress.ts` | Shared alphabet data and independent validated quick-start progress |
 | `src/NativeCyrillic.tsx`, `src/NativeSheet.tsx` | Optional quick start and contextual/full-alphabet dialog |
 | `src/Companion.tsx`, `src/nativeCompanion.ts`, `src/NativeRobot.tsx`, `src/useNativeCompanion.ts` | Simulated robot, semantic reactions, lifecycle and motion |
@@ -118,7 +130,7 @@ Answer normalization ignores case, stress accents, surrounding/repeated spaces a
 
 ## Verification
 
-Latest local app validation: **150 Node tests**, shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover lessons, replay, Cyrillic onboarding/reference, letter highlighting and answer concealment, audio-completion safeguards, rewards/Plus and mock BLE navigation. Mouse/touch/keyboard checks also cover repeated sentence words and saved-session restoration. Website HTML matched 34 pre-change states exactly. These are local automated checks with fake BLE/speech, not real-device, real-audio or GitHub CI verification.
+Latest local app validation: **157 Node tests**, shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover lessons, replay, first-time welcome/lesson/offers/replay, Cyrillic reference, letter highlighting and answer concealment, audio-completion safeguards, rewards/Plus and mock BLE navigation. Mouse/touch/keyboard checks also cover repeated sentence words and saved-session restoration. Website HTML matched 36 pre-change states exactly, including completion and failure screens. These are local automated checks with fake BLE/speech, not real-device, real-audio or GitHub CI verification.
 
 The project owner reports real-iPhone discovery/connection/ACKs, disconnect/reconnect, navigation continuity, commands 1–4, lock/background retention and servo movement. New states and the latest thinking/hint/audio/replay changes still need hardware validation. No exact device/software versions, timing, range or endurance results were supplied. Earlier milestone checks are historical; the current [protocol checklist](docs/companion-ble.md#verification) distinguishes remaining tests.
 

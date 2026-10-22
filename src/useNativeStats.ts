@@ -1,12 +1,13 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {readSaved} from './session';
-import {applyStreakFreezes,buyFreeze as purchaseFreeze,createStatsTracker,restoreStats,spendGems,statsSummary,NATIVE_STATS_KEY,GEM_RULES,type NativeStats} from './nativeStats';
+import {applyStreakFreezes,recordOnboardingFinish,buyFreeze as purchaseFreeze,createStatsTracker,restoreStats,spendGems,statsSummary,NATIVE_STATS_KEY,GEM_RULES,type NativeStats} from './nativeStats';
 import type {Action,Progress} from './engine';
 
 function load(){try{return applyStreakFreezes(restoreStats(localStorage.getItem(NATIVE_STATS_KEY),readSaved().completion),new Date());}catch{return restoreStats(null);}}
 export function useNativeStats(){
  const [stats,setStats]=useState(load);
  const [persistent,setPersistent]=useState(true);
+ const [ready,setReady]=useState(false);
  const [,refresh]=useState(0);
  const actor=useRef<ReturnType<typeof createStatsTracker>|null>(null);
  useEffect(()=>{
@@ -15,7 +16,7 @@ export function useNativeStats(){
    setStats(value);
   };
   save(stats);
-  actor.current=createStatsTracker(stats,save,()=>new Date());
+  actor.current=createStatsTracker(stats,save,()=>new Date());setReady(true);
   let alive=true,timer:ReturnType<typeof setTimeout>;
   const update=()=>{
    if(!alive)return;
@@ -30,9 +31,10 @@ export function useNativeStats(){
   // a restored completed lesson to be counted twice.
  },[]);
  const onTransition=useCallback((previous:Progress,next:Progress,action:Action,lessonId='cafe')=>actor.current?.transition(previous,next,action,lessonId),[]);
+ const onboardingFinish=useCallback((progress:Progress)=>actor.current?.update(current=>recordOnboardingFinish(current,progress,new Date()))??false,[]);
  const reset=useCallback(()=>actor.current?.reset(),[]);
  const buyFreeze=useCallback(()=>actor.current?.update(purchaseFreeze)??false,[]);
  const spendForRefill=useCallback(()=>actor.current?.update(current=>spendGems(current,GEM_RULES.refill))??false,[]);
- return {stats,summary:statsSummary(stats,new Date()),persistent,onTransition,reset,buyFreeze,spendForRefill};
+ return {stats,summary:statsSummary(stats,new Date()),persistent,ready,onTransition,onboardingFinish,reset,buyFreeze,spendForRefill};
 }
 export type NativeStatsController=ReturnType<typeof useNativeStats>;
