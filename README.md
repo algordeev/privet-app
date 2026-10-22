@@ -13,11 +13,11 @@ The **phone** owns lessons, answer checking, progress/statistics and optional sy
 
 ## First-time native welcome
 
-Fresh iOS installs start with Welcome → motivation and level → companion introduction → a five-step **coffee, please** lesson → completion → concept offers → Home. Returning learners with saved lessons, statistics or an active Plus demo keep their existing home. The browser website and browser phone preview do not enter this flow.
+Fresh iOS installs start with Welcome → optional companion connection → motivation and level → a five-step **coffee, please** lesson → completion → concept offers → Home. Returning learners with saved lessons, statistics or an active Plus demo keep their existing home. Bluetooth setup reuses the physical companion settings; permission is requested only after Connect, and learners can continue with the virtual companion at any point. Established connections carry into the mini-class. The browser website and browser phone preview do not enter this flow.
 
 The introduction reuses the lesson engine, speech controller, Cyrillic guide, hearts and companion events. Its separate `welcome-cafe` session introduces кофе, пожалуйста, ordering “Кофе, пожалуйста” and thanking the barista. Its first completion credits Café essentials once, leaving the existing lesson definitions available for normal practice and Lesson 2 up next. A durable `onboardingAwarded` receipt is stored atomically with statistics; reopening results cannot grant duplicate rewards.
 
-Choosing **New to Russian** adds a skippable, two-screen Cyrillic introduction before the companion and café lesson: the letters in кофе, four tricky look-alikes, optional whole-word audio, and a reminder about the in-lesson АБВ guide. It adds no rewards or assessment.
+Choosing **New to Russian** adds a skippable, two-screen Cyrillic introduction before the café mini-class: the letters in кофе, four tricky look-alikes, optional whole-word audio, and a reminder about the in-lesson АБВ guide. It adds no rewards or assessment.
 
 Motivation, level, flow stage and completion live under `${PRODUCT.storageKey}-first-run` (currently `privet-demo-v1-first-run`). **Settings → Replay onboarding** uses fresh practice without changing existing lesson sessions, rewards, subscription state or the established BLE connection. Replay XP is labelled a practice score. From native Web Inspector, `window.privetResetOnboarding()` resets only the welcome flow, keeps personalization, and uses replay mode for previously completed onboarding so it cannot mint another reward.
 
@@ -132,7 +132,7 @@ Answer normalization ignores case, stress accents, surrounding/repeated spaces a
 
 ## Verification
 
-Latest local app validation: **163 Node tests**, shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover lessons, replay, first-time welcome/lesson/offers/replay, Cyrillic reference, letter highlighting and answer concealment, audio-completion safeguards, rewards/Plus and mock BLE navigation. Mouse/touch/keyboard checks also cover repeated sentence words and saved-session restoration. Website HTML matched 36 pre-change states exactly, including completion and failure screens. These are local automated checks with fake BLE/speech, not real-device, real-audio or GitHub CI verification.
+Latest local app validation: **164 Node tests**, shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover lessons, replay, first-time welcome/lesson/offers/replay, Cyrillic reference, letter highlighting and answer concealment, audio-completion safeguards, rewards/Plus and mock BLE navigation. Mouse/touch/keyboard checks also cover repeated sentence words and saved-session restoration. Website HTML matched 36 pre-change states exactly, including completion and failure screens. These are local automated checks with fake BLE/speech, not real-device, real-audio or GitHub CI verification.
 
 The project owner reports real-iPhone discovery/connection/ACKs, disconnect/reconnect, navigation continuity, commands 1–4, lock/background retention and servo movement. New states and the latest thinking/hint/audio/replay changes still need hardware validation. No exact device/software versions, timing, range or endurance results were supplied. Earlier milestone checks are historical; the current [protocol checklist](docs/companion-ble.md#verification) distinguishes remaining tests.
 

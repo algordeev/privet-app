@@ -4,23 +4,24 @@ export const FIRST_RUN_KEY=`${PRODUCT.storageKey}-first-run`;
 export const REASONS=['Travel','Conversations','Studies','Culture'] as const;
 export const LEVELS=['New to Russian','I know the Cyrillic alphabet','I know some Russian'] as const;
 export type Offer='free'|'plus-monthly'|'plus-yearly'|'companion';
-export type FirstRun={version:1;stage:'welcome'|'personalize'|'alphabet'|'companion'|'lesson'|'offer'|'confirmation'|'done';reason:typeof REASONS[number]|null;level:typeof LEVELS[number]|null;completed:boolean;replay:boolean;choice:Offer|null};
+export type FirstRun={version:1;stage:'welcome'|'connection'|'personalize'|'alphabet'|'companion'|'lesson'|'offer'|'confirmation'|'done';reason:typeof REASONS[number]|null;level:typeof LEVELS[number]|null;completed:boolean;replay:boolean;choice:Offer|null};
 export const initialFirstRun=():FirstRun=>({version:1,stage:'welcome',reason:null,level:null,completed:false,replay:false,choice:null});
 export function restoreFirstRun(raw:string|null,existingLearner=false):FirstRun{
  if(raw===null)return existingLearner?{...initialFirstRun(),stage:'done',completed:true}:initialFirstRun();
  try{
   const s=JSON.parse(raw);
-  if(s?.version!==1||!['welcome','personalize','alphabet','companion','lesson','offer','confirmation','done'].includes(s.stage)||!(s.reason===null||REASONS.includes(s.reason))||!(s.level===null||LEVELS.includes(s.level))||typeof s.completed!=='boolean'||typeof s.replay!=='boolean'||!(s.choice===null||['free','plus-monthly','plus-yearly','companion'].includes(s.choice)))return initialFirstRun();
+  if(s?.version!==1||!['welcome','connection','personalize','alphabet','companion','lesson','offer','confirmation','done'].includes(s.stage)||!(s.reason===null||REASONS.includes(s.reason))||!(s.level===null||LEVELS.includes(s.level))||typeof s.completed!=='boolean'||typeof s.replay!=='boolean'||!(s.choice===null||['free','plus-monthly','plus-yearly','companion'].includes(s.choice)))return initialFirstRun();
   if(['alphabet','companion','lesson','offer','confirmation'].includes(s.stage)&&(!s.reason||!s.level)||s.stage==='done'&&!s.completed||s.stage==='confirmation'&&(!s.choice||s.choice==='free'))return initialFirstRun();
   return {version:1,stage:s.stage,reason:s.reason,level:s.level,completed:s.completed,replay:s.replay,choice:s.choice};
  }catch{return initialFirstRun();}
 }
-export type FirstRunAction={type:'start'|'personalized'|'lesson'|'offer'|'finish'|'replay'|'resetFlag'|'back'|'resumeLesson'|'alphabetDone'}|{type:'reason';value:typeof REASONS[number]}|{type:'level';value:typeof LEVELS[number]}|{type:'choose';choice:Offer};
+export type FirstRunAction={type:'start'|'personalized'|'lesson'|'offer'|'finish'|'replay'|'resetFlag'|'back'|'resumeLesson'|'alphabetDone'|'connectionDone'}|{type:'reason';value:typeof REASONS[number]}|{type:'level';value:typeof LEVELS[number]}|{type:'choose';choice:Offer};
 export function updateFirstRun(state:FirstRun,action:FirstRunAction):FirstRun{
  switch(action.type){
-  case 'back':return {...state,stage:state.stage==='confirmation'?'offer':state.stage==='personalize'?'welcome':state.stage==='alphabet'?'personalize':state.stage==='companion'?(state.level===LEVELS[0]?'alphabet':'personalize'):state.stage==='lesson'?'companion':state.stage};
+  case 'back':return {...state,stage:state.stage==='confirmation'?'offer':state.stage==='connection'?'welcome':state.stage==='personalize'?'connection':state.stage==='alphabet'?'personalize':state.stage==='companion'?(state.level===LEVELS[0]?'alphabet':'personalize'):state.stage==='lesson'?'companion':state.stage};
   case 'resumeLesson':return state.stage==='offer'?{...state,stage:'lesson'}:state;
-  case 'start':return state.stage==='welcome'?{...state,stage:'personalize'}:state;
+  case 'start':return state.stage==='welcome'?{...state,stage:'connection'}:state;
+  case 'connectionDone':return state.stage==='connection'?{...state,stage:'personalize'}:state;
   case 'reason':return REASONS.includes(action.value)?{...state,reason:action.value}:state;
   case 'level':return LEVELS.includes(action.value)?{...state,level:action.value}:state;
   case 'personalized':return state.stage==='personalize'&&state.reason&&state.level?{...state,stage:state.level===LEVELS[0]?'alphabet':'companion'}:state;

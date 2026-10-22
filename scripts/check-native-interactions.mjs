@@ -641,6 +641,12 @@ try{
   assert.equal(await evaluate(()=>document.querySelectorAll('.first-offer').length),0,'No offer before a completed lesson');
   await click('.first-actions .button','Get started');
   for(let story=0;story<3;story++)await click('.first-actions .button','Continue');
+  assert.ok(await evaluate(()=>document.querySelector('[data-stage=connection]')?.textContent.includes('Have a physical companion?')));
+  const beforeSetup=await codes();await click('.first-connect-button','Connect companion');
+  assert.deepEqual(await codes(),beforeSetup,'Opening connection settings does not request access or send a command');
+  await click('.native-physical-actions .button','Connect');await until(()=>!!document.querySelector('.native-physical-devices button'));
+  await click('[aria-label="Back to companion setup"]');assert.ok(await evaluate(()=>!document.querySelector('.native-physical-devices')),'Leaving setup stops discovery');
+  await click('.first-actions .button','Continue with virtual companion');
   for(const reason of REASONS)await click(`.first-options button[aria-label=${JSON.stringify(reason)}]`);
   await click('.first-actions .button','Continue');
   for(const level of LEVELS)await click(`.first-options button[aria-label=${JSON.stringify(level)}]`);
@@ -648,9 +654,9 @@ try{
   await click('.first-actions .button','Continue');assert.ok(await evaluate(()=>document.querySelector('.first-options button[aria-label="I know some Russian"]').getAttribute('aria-pressed')==='true'),'Back preserves selected level');
   assert.equal((await stored(FIRST_RUN_KEY)).reason,'Culture');assert.equal((await stored(FIRST_RUN_KEY)).level,'I know some Russian');
   await open({},undefined,true);assert.ok(await evaluate(()=>!!document.querySelector('.first-options button[aria-label="Culture"][aria-pressed="true"]')),'Reload returns to purpose with the saved selection');
-  await capture('personalize');await click('.first-actions .button','Continue');assert.ok(await evaluate(()=>!!document.querySelector('.first-options button[aria-label="I know some Russian"][aria-pressed="true"]')),'Stored level remains selected');await click('.first-actions .button','Meet your companion');
+  await capture('personalize');await click('.first-actions .button','Continue');assert.ok(await evaluate(()=>!!document.querySelector('.first-options button[aria-label="I know some Russian"][aria-pressed="true"]')),'Stored level remains selected');await click('.first-actions .button','Continue');
   assert.deepEqual(await codes(),[],'Disconnected greeting never initializes or writes Bluetooth');
-  await capture('companion');await click('.first-actions .button','Continue');await capture('handoff');await click('.first-actions .button','Start lesson');
+  await capture('handoff');await click('.first-actions .button','Start lesson');
   const mistake=viewport.width===375;await finishWelcomeLesson(mistake);
   assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.first-result-metrics dd')].map(el=>el.textContent)),mistake?['80%','2/3','3']:['100%','3/3','5']);
   const earned=await stored(NATIVE_STATS_KEY);assert.equal(Object.values(earned.days).reduce((a,b)=>a+b,0),1);assert.equal(earned.onboardingAwarded,true);await capture('completion');
@@ -673,8 +679,11 @@ try{
  firstTime=false;await connectAtHome();
  const preservedKeys=[NATIVE_STATS_KEY,NATIVE_SESSION_KEY,sessionKey(nativeLessons[1]),SUBSCRIPTION_KEY];const preserved=await Promise.all(preservedKeys.map(stored));
  await click('#native-settings-open');await click('#native-replay-onboarding');await evaluate(()=>{window.__bleCommands=[];});
- await click('.first-actions .button','Get started');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-actions .button','Meet your companion');assert.deepEqual(await codes(),[1],'An already-connected companion gets one short HAPPY greeting');
- await click('.first-actions .button','Continue');await click('.first-actions .button','Start lesson');assert.deepEqual(await codes(),[1,6],'First unanswered onboarding question enters THINKING');
+ await click('.first-actions .button','Get started');for(let story=0;story<3;story++)await click('.first-actions .button','Continue');
+ assert.ok(await evaluate(()=>document.querySelector('.first-scroll').textContent.includes('Your companion is ready.')));
+ await click('.first-actions .button','Continue');assert.deepEqual(await codes(),[1],'Connected setup greets without reconnecting');
+ await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');
+ await click('.first-actions .button','Start lesson');assert.deepEqual(await codes(),[1,6],'First unanswered onboarding question enters THINKING');
  await finishWelcomeLesson();assert.equal((await codes()).filter(code=>code===3).length,1,'Accepted final Continue sends CELEBRATE exactly once');
  assert.ok(await evaluate(()=>document.querySelector('.xp-breakdown').textContent.includes('practice score')));
  await click('.native-next-lesson','Choose how to continue');await click('.first-offer-companion .button','Explore Companion');
@@ -696,9 +705,19 @@ try{
  await call('Emulation.setDeviceMetricsOverride',{width:320,height:568,deviceScaleFactor:1,mobile:true});
  await open({[FIRST_RUN_KEY]:{...initialFirstRun(),stage:'offer',reason:'Travel',level:'New to Russian'},[sessionKey(firstRunLesson)]:restoredResult});await assertNativeLayout();await evaluate(()=>document.querySelector('.first-offer-free .button').scrollIntoView({block:'center'}));await assertNativeLayout();assert.ok(await evaluate(()=>{const r=document.querySelector('.first-offer-free .button').getBoundingClientRect();return r.width>0&&r.height>=44&&r.top>=0&&r.bottom<=innerHeight;}));assert.equal(await evaluate(()=>document.querySelectorAll('.first-offer a[href]').length),0);await capture('free');
  await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});await open();await evaluate(()=>document.querySelector('.first-actions .button').click());assert.ok(await evaluate(()=>document.querySelector('.first-scroll h1').textContent.includes('Listen and repeat')),'No-preference entrance keeps Continue immediately clickable');await capture('reduced-motion');
- await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await open();await click('.first-actions .button','Get started');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-options button[aria-label="Conversations"]');await click('.first-actions .button','Continue');await click('.first-options button[aria-label="New to Russian"]');await click('.first-actions .button','A little Cyrillic first');assert.ok(await evaluate(()=>!!document.querySelector('[data-stage=alphabet]')));await assertNativeLayout();await click('.first-actions .button','Continue');assert.ok(await evaluate(()=>document.body.textContent.includes('Same shape. Different sound.')));await click('.first-actions .button','Meet your companion');await click('.first-actions .button','Continue');await capture('handoff');await capture('reduced-motion');await assertNativeLayout();
+ await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await open();await click('.first-actions .button','Get started');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue with virtual companion');await click('.first-options button[aria-label="Conversations"]');await click('.first-actions .button','Continue');await click('.first-options button[aria-label="New to Russian"]');await click('.first-actions .button','A little Cyrillic first');assert.ok(await evaluate(()=>!!document.querySelector('[data-stage=alphabet]')));await assertNativeLayout();await click('.first-actions .button','Continue');assert.ok(await evaluate(()=>document.body.textContent.includes('Same shape. Different sound.')));await click('.first-actions .button','Ready for the mini-class');await capture('handoff');await capture('reduced-motion');await assertNativeLayout();
  console.log('PASS: monthly local confirmation, reduced-motion/no-preference entrance interaction, and offer/onboarding controls at 320×568 and 430×932.');
 
+ // A first-time owner can pair before personalization, without leaving onboarding.
+ await open({[FIRST_RUN_KEY]:{...initialFirstRun(),stage:'connection'}});
+ await click('.first-connect-button','Connect companion');await click('.native-physical-actions .button','Connect');
+ await until(()=>!!document.querySelector('.native-physical-devices button'));await click('.native-physical-devices button');
+ await until(()=>document.querySelector('.native-physical-status strong')?.textContent==='Connected');
+ await click('[aria-label="Back to companion setup"]');assert.ok(await evaluate(()=>document.querySelector('.first-scroll').textContent.includes('Your companion is ready.')));
+ await click('.first-actions .button','Continue');await click('.first-options button[aria-label="Travel"]');await click('.first-actions .button','Continue');await click('.first-options button[aria-label="I know some Russian"]');await click('.first-actions .button','Continue');
+ assert.ok(await evaluate(()=>document.querySelector('.first-scroll h1').textContent.includes('A little Russian at the café.')),'No product introduction between personalization and mini-class');
+ await click('.first-actions .button','Start lesson');assert.deepEqual(await codes(),[9,4,1,6],'Fresh subscription, neutral return from settings, ready greeting, then first-question THINKING without reconnect');
+ console.log('PASS: first-time companion setup, scan cancellation, virtual fallback, retained connection and direct mini-class handoff.');
  assert.deepEqual(browserErrors,[],'No uncaught browser exceptions');
  console.log('PASS: interaction checks use isolated Chromium shims; no real iPhone, ESP32, speech or payment verification.');
 }finally{
