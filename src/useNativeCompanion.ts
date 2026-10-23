@@ -1,10 +1,11 @@
+import {appStorage} from './previewStorage';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {Capacitor} from '@capacitor/core';
 import {App} from '@capacitor/app';
 import {companionEnabled,COMPANION_PREFERENCE_KEY,createNativeCompanion,initialCompanion} from './nativeCompanion';
 import type {Action,Progress} from './engine';
 
-function readPreference(){try{return companionEnabled(localStorage.getItem(COMPANION_PREFERENCE_KEY));}catch{return true;}}
+function readPreference(){try{return companionEnabled(appStorage.getItem(COMPANION_PREFERENCE_KEY));}catch{return true;}}
 export function useNativeCompanion(){
  const [view,setView]=useState(()=>initialCompanion(readPreference()));
  const initialEnabled=useRef(view.enabled);
@@ -38,11 +39,11 @@ export function useNativeCompanion(){
  },[]);
  const setEnabled=useCallback((value:boolean)=>{
   initialEnabled.current=value;actor.current?.setEnabled(value);
-  try{localStorage.setItem(COMPANION_PREFERENCE_KEY,JSON.stringify(value));}catch{/* Preference remains usable without storage. */}
+  try{appStorage.setItem(COMPANION_PREFERENCE_KEY,JSON.stringify(value));}catch{/* Preference remains usable without storage. */}
  },[]);
  const resetPreference=useCallback(()=>{
   initialEnabled.current=true;actor.current?.setEnabled(true);
-  try{localStorage.removeItem(COMPANION_PREFERENCE_KEY);}catch{}
+  try{appStorage.removeItem(COMPANION_PREFERENCE_KEY);}catch{}
  },[]);
  const navigate=useCallback((scope:'home'|'lesson')=>actor.current?.navigate(scope),[]);
  const onTransition=useCallback((previous:Progress,next:Progress,action:Action)=>actor.current?.transition(previous,next,action),[]);

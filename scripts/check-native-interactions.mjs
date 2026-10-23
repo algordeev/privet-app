@@ -11,7 +11,7 @@ import {createServer} from 'vite';
 const executable=[process.env.PRIVET_CHROME_PATH,'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome','/usr/bin/chromium','/usr/bin/chromium-browser','/usr/bin/google-chrome',...[process.env.PROGRAMFILES,process.env['PROGRAMFILES(X86)'],process.env.LOCALAPPDATA].filter(Boolean).map(dir=>join(dir,'Google','Chrome','Application','chrome.exe'))].find(path=>path&&existsSync(path));
 assert.ok(executable,'Install Chrome/Chromium or set PRIVET_CHROME_PATH to run interaction checks.');
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-let russianAudio=false,skipQuickStart=true,repeatedSentence=false,firstTime=false;
+let browserPreview=false,russianAudio=false,skipQuickStart=true,repeatedSentence=false,firstTime=false;
 let seed={},initialTime=new Date(2026,9,17,12).getTime();
 // Test-only driver substitution: exercise real root hook, scheduler and UI without radio.
 const server=await createServer({plugins:[{name:'privet-test-ble-driver',enforce:'pre',transform(_source,id){
@@ -27,7 +27,7 @@ server.middlewares.use('/__privet_native_checks',(req,res)=>{
  res.setHeader('Content-Type','text/html; charset=utf-8');
  const reset=!req.url.includes('resume');
  res.end(`<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body><div id="root"></div><script type="module">
- window.CapacitorCustomPlatform={name:'ios'};window.Capacitor={PluginHeaders:[{name:'BluetoothLe',methods:[]}]};
+ ${browserPreview?'':`window.CapacitorCustomPlatform={name:'ios'};window.Capacitor={PluginHeaders:[{name:'BluetoothLe',methods:[]}]};`}
  window.__bleCommands=[];window.__speechTaps=[];window.__utterances=[];window.__holdSpeech=false;window.__russianAudio=${russianAudio};window.__voiceListeners=new Set();window.__openCalls=[];window.open=(...args)=>{window.__openCalls.push(args);};
  window.__realDate=Date;window.__now=${initialTime};
  window.Date=class extends window.__realDate{constructor(...args){super(...(args.length?args:[window.__now]));}static now(){return window.__now;}};
@@ -114,7 +114,7 @@ try{
  async function open(nextSeed={},time=new Date(2026,9,17,12).getTime(),resume=false){
   if(process.env.PRIVET_INTERACTION_DEBUG)console.log(`OPEN ${resume?'resume':'seed'} ${new Date(time).toISOString()}`);
   seed={...(!firstTime?{[FIRST_RUN_KEY]:{...initialFirstRun(),stage:'done',completed:true}}:{}),...(skipQuickStart?{[CYRILLIC_KEY]:{version:1,status:'skipped',page:0}}:{}),...nextSeed};initialTime=time;await evaluate(()=>{window.__oldDocument=true;});
-  await call('Page.navigate',{url:origin+'/__privet_native_checks'+(resume?'?resume=1':'')});
+  await call('Page.navigate',{url:origin+'/__privet_native_checks'+(browserPreview?'?native=1&onboarding=1'+(resume?'&resume=1':''):(resume?'?resume=1':''))});
   await until(()=>!window.__oldDocument&&!!document.querySelector('.native-app'));
   if(firstTime)await until(()=>!!document.querySelector('.native-first-run,.native-first-lesson'));else await until(()=>document.querySelectorAll('.native-lesson-card').length===2);
   await pause(80);await assertNativeLayout();
@@ -718,6 +718,20 @@ try{
  assert.ok(await evaluate(()=>document.querySelector('.first-scroll h1').textContent.includes('A little Russian at the café.')),'No product introduction between personalization and mini-class');
  await click('.first-actions .button','Start lesson');assert.deepEqual(await codes(),[9,4,1,6],'Fresh subscription, neutral return from settings, ready greeting, then first-question THINKING without reconnect');
  console.log('PASS: first-time companion setup, scan cancellation, virtual fallback, retained connection and direct mini-class handoff.');
+ // Real browser runtime: no native-platform shim, isolated demo storage and no BLE.
+ browserPreview=true;russianAudio=false;firstTime=true;
+ const originalBrowserData={[NATIVE_SESSION_KEY]:meaning(),[NATIVE_STATS_KEY]:emptyStats(),[SUBSCRIPTION_KEY]:{version:1,plan:'monthly',since:'2026-10-17'}};
+ await open(originalBrowserData);
+ assert.ok(await evaluate(()=>document.querySelector('.first-scroll h1').textContent.includes('Meet your Russian learning companion')));
+ await click('.first-actions .button','Get started');for(let i=0;i<3;i++)await click('.first-actions .button','Continue');
+ await click('.first-connect-button','Connect companion');await click('.native-physical-actions .button','Connect');
+ await until(()=>document.querySelector('.native-physical-status strong')?.textContent==='Bluetooth unavailable');assert.deepEqual(await codes(),[]);
+ await click('.first-actions .button','Continue with virtual companion');await click('.first-options button[aria-label="Travel"]');await click('.first-actions .button','Continue');await click('.first-options button[aria-label="I know some Russian"]');await click('.first-actions .button','Continue');await click('.first-actions .button','Start lesson');await finishWelcomeLesson();await click('.native-next-lesson','Choose how to continue');await click('.first-offer-free .button','Continue with Free');
+ for(const [key,value] of Object.entries(originalBrowserData))assert.deepEqual(await stored(key),value,'Browser onboarding must not overwrite ordinary progress or Plus');
+ const previewFirstRunKey='privet-demo-v1-onboarding-preview:'+FIRST_RUN_KEY;assert.equal((await stored(previewFirstRunKey)).completed,true);
+ firstTime=false;await open({},undefined,true);await click('#native-settings-open');await click('#native-replay-onboarding');await until(()=>!!document.querySelector('.native-first-run[data-stage=welcome]'));
+ for(const [key,value] of Object.entries(originalBrowserData))assert.deepEqual(await stored(key),value,'Replay must remain isolated');
+ console.log('PASS: browser onboarding URL, unavailable Bluetooth fallback, no-audio full lesson/offers/home, isolated rewards/subscription, reload and Settings replay.');
  assert.deepEqual(browserErrors,[],'No uncaught browser exceptions');
  console.log('PASS: interaction checks use isolated Chromium shims; no real iPhone, ESP32, speech or payment verification.');
 }finally{

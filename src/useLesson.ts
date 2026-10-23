@@ -1,3 +1,4 @@
+import {appStorage} from './previewStorage';
 import {useEffect,useReducer,useRef,useState,type Dispatch,type SetStateAction} from 'react';
 import {cafeLesson,type LessonDefinition} from './lessons';
 import {companionReaction,lessonCompanionEvent,progressReducer,type Action,type Progress} from './engine';
@@ -32,7 +33,7 @@ export function useLesson({persistSession=false,saveResults=true,definition=cafe
  const exercise=lesson[Math.min(progress.index,lesson.length-1)];
  const hintRequested=hintAt===progress.index;
  const reaction=companionReaction(lessonCompanionEvent(progress,{thinking:thinkingAt===progress.index,hintRequested,vocabularyWord},lesson));
- useEffect(()=>{if(!saveResults)return;try{localStorage.setItem(savedKey(definition),JSON.stringify({...saved,preferences}));}catch{/* Storage is optional. */}},[saved,preferences,saveResults]);
+ useEffect(()=>{if(!saveResults)return;try{appStorage.setItem(savedKey(definition),JSON.stringify({...saved,preferences}));}catch{/* Storage is optional. */}},[saved,preferences,saveResults]);
  useEffect(()=>{
   if(previousStep.current!==progress.index){setSelected('');setTokens([]);setLessonSettings(false);setHintAt(null);}
   previousStep.current=progress.index;
@@ -46,7 +47,7 @@ export function useLesson({persistSession=false,saveResults=true,definition=cafe
   // A transition may render before the step-cleanup effect; don't persist a
   // prior step's hint as though it belonged to the newly opened question.
   const snapshot={progress,selected,tokens,revealed,hintAt:hintAt===progress.index&&!progress.complete?hintAt:null,vocabularyWord};
-  try{localStorage.setItem(sessionKey(definition),JSON.stringify(snapshot));}catch{/* Continue without persistence. */}
+  try{appStorage.setItem(sessionKey(definition),JSON.stringify(snapshot));}catch{/* Continue without persistence. */}
  },[persistSession,progress,selected,tokens,revealed,hintAt,vocabularyWord]);
  useEffect(()=>{if(progress.feedback&&lessonScroll.current)lessonScroll.current.scrollTop=lessonScroll.current.scrollHeight;},[progress.feedback]);
  const display=(id:string)=>{const w=words.find(w=>w.id===id)!;return preferences.stress?w.stressed:w.text;};
@@ -60,7 +61,7 @@ export function useLesson({persistSession=false,saveResults=true,definition=cafe
  function adoptCompletion(value:Progress){if(progress.complete||!value.complete||value.failed||value.index!==lesson.length||value.results.length!==lesson.length)return;speech.stop();setSelected('');setTokens([]);setHintAt(null);reduce({type:'adoptCompletion',progress:{...value,results:[...value.results]}});}
  function revive(){dispatch({type:'revive'});}
  function refill(){dispatch({type:'refill'});}
- function resetAll(){restart();setPreferences({stress:false,pronunciation:true});setSaved({preferences:{stress:false,pronunciation:true}});try{localStorage.removeItem(savedKey(definition));if(persistSession)localStorage.removeItem(sessionKey(definition));}catch{}setNotice('Saved completion and display preferences cleared.');}
+ function resetAll(){restart();setPreferences({stress:false,pronunciation:true});setSaved({preferences:{stress:false,pronunciation:true}});try{appStorage.removeItem(savedKey(definition));if(persistSession)appStorage.removeItem(sessionKey(definition));}catch{}setNotice('Saved completion and display preferences cleared.');}
  return {definition,saved,preferences,setPreferences,progress,dispatch,thinkingAt,setThinkingAt,hintAt,setHintAt,vocabularyWord,setVocabularyWord,selected,setSelected,tokens,setTokens,revealed,setRevealed,lessonSettings,setLessonSettings,notice,setNotice,lessonScroll,inputRef,lessonHeading,speech,exercise,hintRequested,reaction,display,ready,check,restart,adoptCompletion,revive,refill,resetAll,unlimitedHearts,incorrect:progress.feedback==='incorrect'};
 }
 export type LessonController=ReturnType<typeof useLesson>;
