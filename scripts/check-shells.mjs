@@ -51,7 +51,7 @@ try {
  for(const marker of ['site-header','class="hero','lesson-phone','ios-status-bar','dynamic-island','ios-home-area','Demo connection'])assert.ok(!home.includes(marker),marker);
  assert.ok(home.includes('Nice to meet you'));assert.ok(home.includes('LESSON 02'));
  console.log('PASS: Capacitor runtime renders app home with local lesson entry and simulated companion.');
- assert.ok(home.includes('Physical companion settings'));
+ assert.ok(!home.includes('Physical companion settings'));assert.ok(home.includes('native-settings-open'));assert.ok(!home.includes('Reset saved lesson &amp; preferences'));
  assert.ok(!website.includes('Physical companion settings'));
  const noOp=()=>{};
  function physical(state){return renderToStaticMarkup(createElement(PhysicalCompanionSettings,{controller:{state,scan:noOp,connect:noOp,disconnect:noOp,testHappy:noOp},onClose:noOp}));}
@@ -66,7 +66,7 @@ try {
   assert.ok(!status.includes('Physical companion: Connected'));
  }
  assert.ok(!disconnectedPhysical.includes('Leaving this screen or backgrounding'));
- assert.ok(home.includes('Physical companion: Disconnected. Open settings.'));
+ assert.ok(!home.includes('Physical companion: Disconnected. Open settings.'));
  const connectedHomeStatus=renderToStaticMarkup(createElement(PhysicalCompanionHomeStatus,{state:{...initialBleState(),phase:'connected',ready:true,notice:'Companion update needed for all lesson reactions.'},onOpen:noOp}));
  assert.ok(connectedHomeStatus.includes('Connected · Update needed'));
  assert.ok(connectedHomeStatus.includes('role="status"'));
