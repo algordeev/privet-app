@@ -43,7 +43,7 @@ try {
  storage.set(FIRST_RUN_KEY,JSON.stringify(initialFirstRun()));
  const welcome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(welcome.includes('Meet your Russian learning companion'));assert.ok(welcome.includes('Get started'));assert.ok(!welcome.includes('site-header'));
  storage.set(FIRST_RUN_KEY,JSON.stringify(initialFirstRun()));Capacitor.isNativePlatform=()=>false;
- const {NativeApp}=await server.ssrLoadModule('/src/NativeApp.tsx');const browserPhone=renderToStaticMarkup(createElement(NativeApp));assert.ok(!browserPhone.includes('Get started'));assert.ok(!browserPhone.includes('native-settings-open'));
+ const {NativeApp}=await server.ssrLoadModule('/src/NativeApp.tsx');const browserPhone=renderToStaticMarkup(createElement(NativeApp));assert.ok(!browserPhone.includes('Get started'));assert.ok(browserPhone.includes('native-settings-open'));
  Capacitor.isNativePlatform=()=>true;
  storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));
  const home=renderToStaticMarkup(createElement(RuntimeApp));

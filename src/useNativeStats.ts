@@ -1,9 +1,10 @@
+import {appStorage} from './previewStorage';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {readSaved} from './session';
 import {applyStreakFreezes,recordOnboardingFinish,buyFreeze as purchaseFreeze,createStatsTracker,restoreStats,spendGems,statsSummary,NATIVE_STATS_KEY,GEM_RULES,type NativeStats} from './nativeStats';
 import type {Action,Progress} from './engine';
 
-function load(){try{return applyStreakFreezes(restoreStats(localStorage.getItem(NATIVE_STATS_KEY),readSaved().completion),new Date());}catch{return restoreStats(null);}}
+function load(){try{return applyStreakFreezes(restoreStats(appStorage.getItem(NATIVE_STATS_KEY),readSaved().completion),new Date());}catch{return restoreStats(null);}}
 export function useNativeStats(){
  const [stats,setStats]=useState(load);
  const [persistent,setPersistent]=useState(true);
@@ -12,7 +13,7 @@ export function useNativeStats(){
  const actor=useRef<ReturnType<typeof createStatsTracker>|null>(null);
  useEffect(()=>{
   const save=(value:NativeStats)=>{
-   try{localStorage.setItem(NATIVE_STATS_KEY,JSON.stringify(value));setPersistent(true);}catch{setPersistent(false);}
+   try{appStorage.setItem(NATIVE_STATS_KEY,JSON.stringify(value));setPersistent(true);}catch{setPersistent(false);}
    setStats(value);
   };
   save(stats);
