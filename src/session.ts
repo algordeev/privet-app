@@ -1,3 +1,4 @@
+import {appStorage} from './previewStorage.ts';
 import {validSentenceTokens} from './sentenceOrder.ts';
 import {initialProgress,MAX_HEARTS,type Progress} from './engine.ts';
 import {cafeLesson,type LessonDefinition} from './lessons.ts';
@@ -43,7 +44,7 @@ export function loadSession(enabled:boolean,definition:LessonDefinition=cafeLess
  const lesson=definition.exercises;
  if(!enabled) return freshSession();
  try{
-  const stored=localStorage.getItem(sessionKey(definition));
+  const stored=appStorage.getItem(sessionKey(definition));
   if(stored)return restoreSession(stored,definition);
   const completion=readSaved(definition).completion;
   if(!completion)return freshSession();
@@ -53,7 +54,7 @@ export function loadSession(enabled:boolean,definition:LessonDefinition=cafeLess
 }
 export function readSaved(definition:LessonDefinition=cafeLesson):Saved {
  try {
-  const data=JSON.parse(localStorage.getItem(savedKey(definition))||'{}');
+  const data=JSON.parse(appStorage.getItem(savedKey(definition))||'{}');
   const completion=data.completion;
   const validCompletion=Array.isArray(completion?.results)&&completion.results.length===definition.exercises.length&&completion.results.every((v:unknown)=>typeof v==='boolean')&&typeof completion.date==='string'&&
    (completion.hearts===undefined||Number.isInteger(completion.hearts)&&completion.hearts>=0&&completion.hearts<=MAX_HEARTS)&&
