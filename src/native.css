@@ -448,3 +448,14 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-quick-card.is-collapsed h2 { font-size: 17px; letter-spacing: -.3px; line-height: 1.3; }
 .native-app .native-quick-card.is-collapsed p { font-size: 12px; color: #627458; margin-top: 3px; }
 .native-app .native-quick-open { min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid #c6d4bc; border-radius: 12px; background: #fffdf7; color: #246653; font-size: 14px; font-weight: 600; }
+
+/* App Settings shares the profile typography and lesson button proportions. */
+.native-app .native-settings-list { display:grid;gap:16px;margin-top:24px; }
+.native-app .native-settings-card { min-width:0;padding:20px;border:1px solid #d3dec8;border-radius:22px;background:#fffdf7; }
+.native-app .native-settings-card h2 { font-family:inherit;font-size:20px;font-weight:600;line-height:1.3;letter-spacing:-.4px;margin:0 0 16px; }
+.native-app .native-settings-card > p { font-size:14px;line-height:1.6;color:#627458;margin:0 0 18px; }
+.native-app .native-settings-card > .button,
+.native-app .native-settings-card > .native-text-button { width:100%;min-height:52px;margin:0;padding:14px 16px;border-radius:13px;font-family:inherit;font-size:15px;font-weight:600;line-height:1.4;white-space:normal;text-decoration:none; }
+.native-app .native-settings-card .native-physical-home { display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:5px;border:1px solid #aac09d;background:#eef3e7;color:#285b48;text-align:left; }
+.native-app .native-settings-card .native-physical-home-status { font-size:12px;font-weight:400;line-height:1.4;color:#61705b; }
+.native-app .native-settings-card .native-settings-reset { display:block;border:1px solid #d5b6a9;background:#fcf1e9;color:#874b3b;text-align:center; }
