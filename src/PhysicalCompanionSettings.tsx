@@ -23,3 +23,14 @@ export function PhysicalCompanionHomeStatus({state,onOpen}:{state:BleState;onOpe
  const label=state.phase==='connected'?(state.notice?'Connected · Update needed':'Connected'):phases[state.phase];
  return <button id="native-physical-open" className="native-text-button native-physical-home" onClick={onOpen} aria-label={`Physical companion: ${label}. Open settings.`}><span>Physical companion settings</span><span className="native-physical-home-status" role="status" aria-live="polite"><i aria-hidden="true" data-connected={state.phase==='connected'}/>{label}</span></button>;
 }
+
+export function PhysicalCompanionChip({state,onOpen,greeting}:{state:BleState;onOpen:()=>void;greeting?:string}){
+ const connected=state.phase==='connected'&&state.ready;
+ const label=connected?'Companion connected':state.phase==='suspended'?'Companion paused':state.phase==='reconciling'?'Checking companion…':state.phase==='connecting'?'Connecting companion…':state.phase==='scanning'?'Finding companion…':'Have a physical companion? Let’s connect it.';
+ return <div className="native-companion-bubble" data-connected={connected}>
+  <button id="native-companion-chip" className="native-companion-chip" data-connected={connected} onClick={onOpen} aria-label={connected?'Companion connected. Open physical companion settings.':`${label} Open physical companion settings.`}>
+   {connected?<><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m7 7 10 10-5 4V3l5 4L7 17"/></svg><span className="native-sr-only" role="status" aria-live="polite" aria-atomic="true">{label}</span></>:<><span role="status" aria-live="polite" aria-atomic="true">{label}</span><span aria-hidden="true">›</span></>}
+  </button>
+  {connected&&<p role="status" aria-live="polite" aria-atomic="true">{greeting}</p>}
+ </div>;
+}

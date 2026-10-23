@@ -13,7 +13,7 @@ const storageDescriptor=Object.getOwnPropertyDescriptor(globalThis,'localStorage
 const storage=new Map();
 Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:key=>storage.get(key)??null}});
 try {
- const {PhysicalCompanionSettings,PhysicalCompanionHomeStatus}=await server.ssrLoadModule('/src/PhysicalCompanionSettings.tsx');
+ const {PhysicalCompanionSettings,PhysicalCompanionHomeStatus,PhysicalCompanionChip}=await server.ssrLoadModule('/src/PhysicalCompanionSettings.tsx');
  const {initialBleState}=await server.ssrLoadModule('/src/bleTransport.ts');
  const {RuntimeApp}=await server.ssrLoadModule('/src/RuntimeApp.tsx');
  const {FIRST_RUN_KEY,initialFirstRun}=await server.ssrLoadModule('/src/firstRun.ts');
@@ -26,11 +26,12 @@ try {
  const {NativeProfile}=await server.ssrLoadModule('/src/NativeProfile.tsx');
  const {NATIVE_STATS_KEY}=await server.ssrLoadModule('/src/nativeStats.ts');
  const {useNativeCompanion}=await server.ssrLoadModule('/src/useNativeCompanion.ts');
+ const {homeGreeting} = await server.ssrLoadModule('/src/nativeCompanion.ts');
  const {COMPANION_PREFERENCE_KEY}=await server.ssrLoadModule('/src/nativeCompanion.ts');
  const {LessonPanel}=await server.ssrLoadModule('/src/LessonPanel.tsx');
  const {freshSession,NATIVE_SESSION_KEY}=await server.ssrLoadModule('/src/session.ts');
  const {lesson}=await server.ssrLoadModule('/src/lesson.ts');
- const {introductionsLesson}=await server.ssrLoadModule('/src/lessons.ts');
+ const {introductionsLesson,cafeLesson}=await server.ssrLoadModule('/src/lessons.ts');
  const {sessionKey}=await server.ssrLoadModule('/src/session.ts');
  Capacitor.isNativePlatform=()=>false;
  const website=renderToStaticMarkup(createElement(RuntimeApp));
@@ -47,13 +48,20 @@ try {
  Capacitor.isNativePlatform=()=>true;
  storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));
  const home=renderToStaticMarkup(createElement(RuntimeApp));
- for(const marker of ['class="native-app"','Café essentials','Start lesson','Your virtual companion','Привет! Ready for a little Russian?'])assert.ok(home.includes(marker),marker);
+ for(const marker of ['class="native-app"','Café essentials','Start lesson','Your virtual companion','Have a physical companion? Let’s connect it.'])assert.ok(home.includes(marker),marker);
  for(const marker of ['site-header','class="hero','lesson-phone','ios-status-bar','dynamic-island','ios-home-area','Demo connection'])assert.ok(!home.includes(marker),marker);
  assert.ok(home.includes('Nice to meet you'));assert.ok(home.includes('LESSON 02'));
  console.log('PASS: Capacitor runtime renders app home with local lesson entry and simulated companion.');
+ assert.ok(home.includes('Have a physical companion? Let’s connect it.'));assert.ok(!website.includes('native-companion-chip'));
  assert.ok(!home.includes('Physical companion settings'));assert.ok(home.includes('native-settings-open'));assert.ok(!home.includes('Reset saved lesson &amp; preferences'));
  assert.ok(!website.includes('Physical companion settings'));
  const noOp=()=>{};
+ function ConnectedGreeting({definition=cafeLesson}){
+  const controller=useLesson({persistSession:true,definition});
+  return createElement(PhysicalCompanionChip,{state:{...initialBleState(),phase:'connected',ready:true},onOpen:noOp,greeting:homeGreeting(controller,definition.title)});
+ }
+ const connectedGreeting=(definition=cafeLesson)=>renderToStaticMarkup(createElement(ConnectedGreeting,{definition}));
+ assert.ok(connectedGreeting().includes('Привет! Ready for a little Russian?'));
  function physical(state){return renderToStaticMarkup(createElement(PhysicalCompanionSettings,{controller:{state,scan:noOp,connect:noOp,disconnect:noOp,testHappy:noOp},onClose:noOp}));}
  const disconnectedPhysical=physical(initialBleState());
  assert.ok(disconnectedPhysical.includes('Physical companion'));
@@ -67,6 +75,10 @@ try {
  }
  assert.ok(!disconnectedPhysical.includes('Leaving this screen or backgrounding'));
  assert.ok(!home.includes('Physical companion: Disconnected. Open settings.'));
+ for(const phase of ['disconnected','suspended','reconciling','connected']){
+  const chip=renderToStaticMarkup(createElement(PhysicalCompanionChip,{state:{...initialBleState(),phase,ready:phase==='connected'},onOpen:noOp}));
+  assert.equal(chip.includes('Companion connected'),phase==='connected');assert.ok(chip.includes('role="status"'));
+ }
  const connectedHomeStatus=renderToStaticMarkup(createElement(PhysicalCompanionHomeStatus,{state:{...initialBleState(),phase:'connected',ready:true,notice:'Companion update needed for all lesson reactions.'},onOpen:noOp}));
  assert.ok(connectedHomeStatus.includes('Connected · Update needed'));
  assert.ok(connectedHomeStatus.includes('role="status"'));
@@ -117,7 +129,7 @@ try {
  storage.delete(FIRST_RUN_KEY);
  const partialHome=renderToStaticMarkup(createElement(RuntimeApp));
  assert.ok(partialHome.includes('Continue lesson'));
- assert.ok(partialHome.includes('Shall we pick up where we left off?'));
+ assert.ok(connectedGreeting().includes('Shall we pick up where we left off?'));
  console.log('PASS: app home offers Continue for a saved partial lesson.');
  const completed={...freshSession(),progress:{index:5,attempts:0,results:[true,false,true,true,true],feedback:null,complete:true}};
  storage.set(NATIVE_SESSION_KEY,JSON.stringify(completed));
@@ -127,7 +139,7 @@ try {
  assert.ok(!results.includes('Check answer'));
  const completedHome=renderToStaticMarkup(createElement(RuntimeApp));
  assert.ok(completedHome.includes('See your results'));
- assert.ok(completedHome.includes('Молодец! You finished Café essentials.'));
+ assert.ok(connectedGreeting().includes('Молодец! You finished Café essentials.'));
  assert.ok(!completedHome.includes('Practise again'));
  assert.ok(results.includes('You practised greetings, tea and coffee, ordering tea, and saying thank you.'));
  storage.set(COMPANION_PREFERENCE_KEY,'false');
@@ -154,13 +166,13 @@ try {
  }
  storage.set(sessionKey(introductionsLesson),JSON.stringify({...freshSession(),revealed:['name']}));
  const secondPartial=renderToStaticMarkup(createElement(RuntimeApp));
- assert.ok(secondPartial.includes('Continue lesson'));assert.ok(secondPartial.includes('Shall we pick up where we left off?'));
+ assert.ok(secondPartial.includes('Continue lesson'));assert.ok(connectedGreeting(introductionsLesson).includes('Shall we pick up where we left off?'));
  storage.set(sessionKey(introductionsLesson),JSON.stringify(completed));
  const secondResults=renderToStaticMarkup(createElement(SecondLesson));
  assert.ok(secondResults.includes('You practised introducing yourself'));assert.ok(secondResults.includes('Очень приятно! → Nice to meet you!'));
  storage.set(sessionKey(introductionsLesson),JSON.stringify({...completed,progress:{...completed.progress,results:Array(5).fill(true)}}));
  assert.ok(renderToStaticMarkup(createElement(SecondLesson)).includes('Анна was just our example.'));
- const secondHome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(secondHome.includes('Молодец! You finished Nice to meet you.'));
+ const secondHome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(connectedGreeting(introductionsLesson).includes('Молодец! You finished Nice to meet you.'));
  storage.set(NATIVE_STATS_KEY,JSON.stringify({version:1,days:{'2020-01-01':1},earlierFinishes:0,latest:{day:'2020-01-01',firstTry:5,lessonId:'introductions'}}));
  assert.ok(renderToStaticMarkup(createElement(Profile)).includes('<h2 id="native-result-title">Nice to meet you</h2>'));
  console.log('PASS: second lesson renders all five exercises, separate progress/results, matching greeting and profile title.');

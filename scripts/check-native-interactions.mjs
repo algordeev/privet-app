@@ -768,6 +768,16 @@ try{
  await click('.native-alphabet-trigger');await click('[aria-label="Close Cyrillic guide"]');
  assert.ok(await evaluate(()=>{const b=document.querySelector('.native-alphabet-trigger');return document.activeElement===b&&getComputedStyle(b).outlineStyle==='none';}),'Closing АБВ after touch retains focus without a lingering ring');
  console.log('PASS: pointer-restored Settings/АБВ focus has no ring; real keyboard Tab retains a visible green indicator.');
+ // Home chip is discoverable beside the virtual robot and shares the existing BLE controller.
+ await open();assert.equal(await evaluate(()=>document.querySelector('#native-companion-chip [role=status]').textContent),'Have a physical companion? Let’s connect it.');
+ assert.ok(await evaluate(()=>{const chip=document.querySelector('#native-companion-chip'),r=chip.getBoundingClientRect();return !!chip.closest('.native-companion-bubble')&&getComputedStyle(chip).backgroundColor==='rgba(0, 0, 0, 0)'&&getComputedStyle(chip).borderTopWidth==='0px'&&!chip.closest('.native-companion-bubble').querySelector('p')&&r.height>=44&&r.width<=innerWidth;}));
+ await click('#native-companion-chip');await click('.native-physical-actions .button','Connect');await click('.native-physical-devices button');await until(()=>document.querySelector('.native-physical-status strong')?.textContent==='Connected');
+ await click('[aria-label="Back to home"]');assert.equal(await evaluate(()=>document.querySelector('#native-companion-chip [role=status]').textContent),'Companion connected');assert.equal(await evaluate(()=>document.activeElement?.id),'native-companion-chip');
+ assert.ok(await evaluate(()=>{const chip=document.querySelector('#native-companion-chip'),r=chip.getBoundingClientRect();return !!chip.querySelector('svg')&&r.width===44&&r.height>=44&&chip.closest('.native-companion-bubble').querySelector('p').textContent==='Привет! Ready for a little Russian?'&&chip.querySelector('[role=status]').classList.contains('native-sr-only');}));
+ await click('#native-companion-chip');await click('[aria-label="Back to home"]');assert.ok(await evaluate(()=>document.querySelector('#native-companion-chip').dataset.connected==='true'));
+ assert.equal((await codes()).filter(code=>code===9).length,1,'Home chip never creates a second subscription/reconnect');
+ await openPhysicalSettings();await click('.native-physical-disconnect','Disconnect');await physicalBackHome();assert.equal(await evaluate(()=>document.querySelector('#native-companion-chip [role=status]').textContent),'Have a physical companion? Let’s connect it.');
+ console.log('PASS: Home companion chip placement, real status, direct settings shortcut, return focus, connection continuity and explicit disconnect.');
  assert.deepEqual(browserErrors,[],'No uncaught browser exceptions');
  console.log('PASS: interaction checks use isolated Chromium shims; no real iPhone, ESP32, speech or payment verification.');
 }finally{
