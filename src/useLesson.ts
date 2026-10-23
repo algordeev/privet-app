@@ -2,7 +2,7 @@ import {appStorage} from './previewStorage';
 import {useEffect,useReducer,useRef,useState,type Dispatch,type SetStateAction} from 'react';
 import {cafeLesson,type LessonDefinition} from './lessons';
 import {companionReaction,lessonCompanionEvent,progressReducer,type Action,type Progress} from './engine';
-import {loadSession,sessionKey,savedKey,readSaved,type Preferences} from './session';
+import {loadSession,sessionKey,savedKey,readSaved,lessonPassed,recordLessonCompletion,type Preferences} from './session';
 import {useSpeech} from './useSpeech';
 
 export function useLesson({persistSession=false,saveResults=true,definition=cafeLesson,sharedPreferences,sharedSpeech,onTransition,unlimitedHearts=false}:{persistSession?:boolean;saveResults?:boolean;definition?:LessonDefinition;sharedSpeech?:ReturnType<typeof useSpeech>;sharedPreferences?:{value:Preferences;set:Dispatch<SetStateAction<Preferences>>};onTransition?:(previous:Progress,next:Progress,action:Action)=>void;unlimitedHearts?:boolean}={}) {
@@ -41,7 +41,7 @@ export function useLesson({persistSession=false,saveResults=true,definition=cafe
   if(mounted.current)lessonHeading.current?.focus({preventScroll:true});
   mounted.current=true;
  },[progress.index,progress.complete,progress.failed,exercise.prompt]);
- useEffect(()=>{if(progress.complete)setSaved(s=>({...s,completion:{results:progress.results,date:new Date().toISOString(),hearts:progress.hearts,bestCombo:progress.bestCombo}}));},[progress.complete,progress.results,progress.hearts,progress.bestCombo]);
+ useEffect(()=>{if(progress.complete)setSaved(s=>{const completion={results:progress.results,date:new Date().toISOString(),hearts:progress.hearts,bestCombo:progress.bestCombo};return persistSession?recordLessonCompletion(s,completion):{...s,completion};});},[progress.complete,progress.results,progress.hearts,progress.bestCombo]);
  useEffect(()=>{
   if(!persistSession)return;
   // A transition may render before the step-cleanup effect; don't persist a
@@ -62,6 +62,6 @@ export function useLesson({persistSession=false,saveResults=true,definition=cafe
  function revive(){dispatch({type:'revive'});}
  function refill(){dispatch({type:'refill'});}
  function resetAll(){restart();setPreferences({stress:false,pronunciation:true});setSaved({preferences:{stress:false,pronunciation:true}});try{appStorage.removeItem(savedKey(definition));if(persistSession)appStorage.removeItem(sessionKey(definition));}catch{}setNotice('Saved completion and display preferences cleared.');}
- return {definition,saved,preferences,setPreferences,progress,dispatch,thinkingAt,setThinkingAt,hintAt,setHintAt,vocabularyWord,setVocabularyWord,selected,setSelected,tokens,setTokens,revealed,setRevealed,lessonSettings,setLessonSettings,notice,setNotice,lessonScroll,inputRef,lessonHeading,speech,exercise,hintRequested,reaction,display,ready,check,restart,adoptCompletion,revive,refill,resetAll,unlimitedHearts,incorrect:progress.feedback==='incorrect'};
+ return {definition,saved,passed:lessonPassed(progress,saved),preferences,setPreferences,progress,dispatch,thinkingAt,setThinkingAt,hintAt,setHintAt,vocabularyWord,setVocabularyWord,selected,setSelected,tokens,setTokens,revealed,setRevealed,lessonSettings,setLessonSettings,notice,setNotice,lessonScroll,inputRef,lessonHeading,speech,exercise,hintRequested,reaction,display,ready,check,restart,adoptCompletion,revive,refill,resetAll,unlimitedHearts,incorrect:progress.feedback==='incorrect'};
 }
 export type LessonController=ReturnType<typeof useLesson>;

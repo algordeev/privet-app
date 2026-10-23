@@ -64,6 +64,6 @@ export function NativeCyrillicQuickStart({onboarding,speech,onClose,onLesson,onL
     <AudioNote speech={speech}/>
    </>}
   </div>
-  <div className={`native-quick-actions ${finished?'is-finished':''}`}>{finished?<><button className="button teal" onClick={onLesson}>Start Lesson 1 <span aria-hidden="true">→</span></button><button className="button native-secondary" onClick={onClose}><BackChevron/>Back to home</button></>:<>{page>0&&<button className="button native-secondary" onClick={()=>move(page-1)}><BackChevron/>Previous</button>}<button className="button teal" onClick={()=>{if(page<3)move(page+1);else{stopListening();onboarding.dispatch({type:'complete'});setFinished(true);}}}>{page<3?'Continue':'Finish quick start'} <span aria-hidden="true">→</span></button></>}</div>
+  <div className={`native-quick-actions ${finished?'is-finished':''}`}>{finished?<><button className="button teal" onClick={onLesson}>Start Lesson 1 <span aria-hidden="true">→</span></button><button className="native-text-button" onClick={onClose}>Go back home</button></>:<>{page>0&&<button className="button native-secondary" onClick={()=>move(page-1)}><BackChevron/>Previous</button>}<button className="button teal" onClick={()=>{if(page<3)move(page+1);else{stopListening();onboarding.dispatch({type:'complete'});setFinished(true);}}}>{page<3?'Continue':'Finish quick start'} <span aria-hidden="true">→</span></button></>}</div>
  </div>;
 }
