@@ -45,7 +45,7 @@ try{
  const {FIRST_RUN_KEY,initialFirstRun}=await server.ssrLoadModule('/src/firstRun.ts');
  const {firstRunLesson}=await server.ssrLoadModule('/src/firstRunLesson.ts');
  const {REASONS,LEVELS}=await server.ssrLoadModule('/src/firstRun.ts');
- const {sessionKey}=await server.ssrLoadModule('/src/session.ts');
+ const {sessionKey,savedKey}=await server.ssrLoadModule('/src/session.ts');
  const {freshSession,NATIVE_SESSION_KEY}=await server.ssrLoadModule('/src/session.ts');
  const {emptyStats,NATIVE_STATS_KEY,localDay}=await server.ssrLoadModule('/src/nativeStats.ts');
  const {SUBSCRIPTION_KEY,PLUS_MONTHLY_PRICE}=await server.ssrLoadModule('/src/subscription.ts');
@@ -116,7 +116,7 @@ try{
   seed={...(!firstTime?{[FIRST_RUN_KEY]:{...initialFirstRun(),stage:'done',completed:true}}:{}),...(skipQuickStart?{[CYRILLIC_KEY]:{version:1,status:'skipped',page:0}}:{}),...nextSeed};initialTime=time;await evaluate(()=>{window.__oldDocument=true;});
   await call('Page.navigate',{url:origin+'/__privet_native_checks'+(browserPreview?'?native=1&onboarding=1'+(resume?'&resume=1':''):(resume?'?resume=1':''))});
   await until(()=>!window.__oldDocument&&!!document.querySelector('.native-app'));
-  if(firstTime)await until(()=>!!document.querySelector('.native-first-run,.native-first-lesson'));else await until(()=>document.querySelectorAll('.native-lesson-card').length===2);
+  if(firstTime)await until(()=>!!document.querySelector('.native-first-run,.native-first-lesson'));else await until(()=>document.querySelectorAll('.native-lesson-card').length===8);
   await pause(80);await assertNativeLayout();
  }
  const startCafe=()=>click('#native-card-cafe ~ .button');
@@ -327,9 +327,32 @@ try{
   }
   await click('[aria-label="Return to app home"]');assert.deepEqual(await codes(),[...expected,4],`${scenario.name}: close sends IDLE`);
  }
+ for(const definition of nativeLessons.slice(2)){
+  await open();await connectAtHome();await click(`#native-card-${definition.id} ~ .button`);assert.deepEqual(await codes(),[6]);
+  await click('[aria-label="Return to app home"]');assert.equal((await codes()).at(-1),4);
+ }
+ // Latest finished practice can be lower without reducing the Home high score.
+ const lowerResult={...complete,progress:{...complete.progress,results:[true,true,false,false,false]}};
+ await open({[NATIVE_SESSION_KEY]:lowerResult,[savedKey(nativeLessons[0])]:{preferences:{stress:false,pronunciation:true},bestFirstTry:5,completion:{results:Array(5).fill(true),date:'2026-10-23'}}});
+ await startCafe();assert.ok(await evaluate(()=>document.querySelector('.completion .score').textContent.includes('2/ 5')));
+ assert.ok(await evaluate(()=>document.querySelector('.completion .score').textContent.includes('Correct on firstsubmission')));
+ await click('[aria-label="Return to app home"]');
+ assert.ok(await evaluate(()=>document.querySelector('#native-card-cafe').closest('.native-lesson-card').querySelector('.native-card-progress').textContent.includes('Best: 5/5')));
+ const latestPractice=await stored(savedKey(nativeLessons[0]));assert.equal(latestPractice.bestFirstTry,5);assert.equal(latestPractice.completion.results.filter(Boolean).length,2);
+ // A replay is a new attempt, not a revocation of previously earned completion.
+ for(const definition of [nativeLessons[0],nativeLessons[2]]){
+  await open({[sessionKey(definition)]:complete});await click(`#native-card-${definition.id} ~ .button`);
+  await click('.completion button','Replay the lesson');await click('[aria-label="Return to app home"]');
+  for(let reload=0;reload<2;reload++){
+   const card=await evaluate(id=>{const el=document.querySelector(`#native-card-${id}`).closest('.native-lesson-card');return {state:el.querySelector('.native-path-state').textContent,action:el.querySelector('.button').textContent,progress:el.querySelector('progress').value};},definition.id);
+   assert.equal(card.state,'Passed');assert.ok(card.action.includes('Continue practice'));assert.equal(card.progress,5);
+   if(reload===0)await open({},initialTime,true);
+  }
+  await click(`#native-card-${definition.id} ~ .button`);assert.ok(await evaluate(()=>document.querySelector('.lesson-step-count').textContent.includes('STEP 1 OF 5')));
+ }
  await open({[lesson2Key]:complete});await connectAtHome();await click(`#native-card-${nativeLessons[1].id} ~ .button`);
- assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.completion > button')].map(el=>({label:el.textContent.replace(/[→↻]/g,'').trim(),primary:el.classList.contains('teal')}))),[{label:'Go to home',primary:true},{label:'Replay the lesson',primary:false}],'Lesson 2 puts home first and replay underneath');
- await click('.native-completion-home','Go to home');assert.ok(await evaluate(()=>!!document.querySelector('.native-home-scroll')));
+ assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.completion > button')].map(el=>({label:el.textContent.replace(/[→↻]/g,'').trim(),primary:el.classList.contains('teal')}))),[{label:'Continue to Lesson 3',primary:true},{label:'Replay the lesson',primary:false}],'Lesson 2 offers the next catalogue lesson and replay underneath');
+ await click('[aria-label="Return to app home"]');assert.ok(await evaluate(()=>!!document.querySelector('.native-home-scroll')));
  assert.deepEqual(await codes(),[4,4],'Completion home action uses the existing close/IDLE path');
  assert.equal((await stored(lesson2Key)).progress.complete,true,'Returning home preserves completed results');
  await open({[NATIVE_SESSION_KEY]:complete,[lesson2Key]:meaning()});await connectAtHome();await startCafe();
@@ -380,7 +403,8 @@ try{
   assert.equal((await stored(CYRILLIC_KEY)).status,'completed');
   assert.deepEqual(await rewardSnapshot(),before,'Quick start must not change lesson progress, stats, hearts, XP, gems or streaks');
   assert.ok(await evaluate(()=>document.querySelector('.native-quick-scroll').textContent.includes('You don’t need to memorize everything.')));
-  await click('.native-quick-actions .native-secondary','Back to home');assert.ok(await evaluate(()=>!!document.querySelector('.native-quick-card.is-collapsed')),'Completed quick start keeps its compact card');await capture(`completed-card-${viewport.width}`);await click('#native-quick-open','Review');
+  assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.native-quick-actions button')].map(button=>({label:button.textContent.replace('→','').trim(),primary:button.classList.contains('teal')}))),[{label:'Start Lesson 1',primary:true},{label:'Go back home',primary:false}]);
+  await click('.native-quick-actions .native-text-button','Go back home');assert.ok(await evaluate(()=>!!document.querySelector('.native-quick-card.is-collapsed')),'Completed quick start keeps its compact card');await capture(`completed-card-${viewport.width}`);await click('#native-quick-open','Review');
   assert.ok(await evaluate(()=>document.querySelector('.native-quick-progress').textContent.includes('Page 1')));
   await click('[aria-label="Back to home"]');assert.equal((await stored(CYRILLIC_KEY)).status,'completed');
   await click('#native-quick-open');for(let n=0;n<3;n++)await click('.native-quick-actions .button','Continue');

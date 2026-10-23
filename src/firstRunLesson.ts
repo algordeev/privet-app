@@ -1,6 +1,6 @@
 import type {LessonDefinition} from './lessons.ts';
 export const firstRunLesson:LessonDefinition={
- id:'welcome-cafe',number:'01',title:'Your first café order',icon:'☕',description:'A coffee, a please, and a little confidence.',
+ id:'welcome-cafe',motivationTags:['Travel','Conversations'],skills:['order a coffee'],prerequisiteIds:[],number:'01',title:'Your first café order',icon:'☕',description:'A coffee, a please, and a little confidence.',
  summary:'You recognized кофе, used пожалуйста, ordered a coffee and said thank you.',completionTip:'Кофе, пожалуйста. Two words you can use on your next café visit.',
  words:[
   {id:'coffee',text:'кофе',stressed:'ко́фе',meaning:'coffee',pronunciation:'KO-fyeh'},

@@ -5,11 +5,32 @@ Privet is a React + TypeScript + Vite learning prototype with a native Capacitor
 | Part | Current experience |
 | --- | --- |
 | Browser website | Landing page, interactive café lesson inside a decorative phone, simulated robot, and enclosure concept gallery. No real Bluetooth connection. |
-| Native iOS app | Capacitor selects an app home, profile/statistics and two full-screen lessons using `Capacitor.isNativePlatform()`. Content is bundled locally. |
+| Native iOS app | Capacitor selects an app home, profile/statistics and eight full-screen lessons using `Capacitor.isNativePlatform()`. Content is bundled locally. |
 | Virtual companion | Coral SVG/CSS robot with predefined greetings and reactions; works independently of physical hardware. |
 | Optional physical companion | ESP32 ESP-32S with SSD1306 128×64 OLED and SG90-targeted servo firmware, receiving predefined emotion commands over native iOS BLE. |
 
 The **phone** owns lessons, answer checking, progress/statistics and optional synthesized pronunciation. The **ESP32** displays predefined OLED faces/animations and drives the servo motion associated with them; it does not check answers or play audio. Lessons remain fully usable without hardware.
+
+## Beginner curriculum
+
+The native app and native browser preview use one canonical course. The public website retains its café demo.
+
+| Lesson | Practical outcome |
+| --- | --- |
+| 01 · Café essentials | Greet, order tea, and say thank you. |
+| 02 · Nice to meet you | Introduce yourself, ask a name, and say goodbye. |
+| 03 · Around town | Ask where the metro is and understand simple directions. |
+| 04 · At the shop | Ask a price and buy bread politely. |
+| 05 · My day | Describe morning coffee, work, and an evening rest. |
+| 06 · Making plans | Invite a friend for a walk and agree on tomorrow. |
+| 07 · Study and work | Say where you study and ask a peer where they work. |
+| 08 · A Russian weekend | Combine greetings and plans in a museum-and-tea conversation. |
+
+Each lesson has five exercises, its own saved session and completion summary. Later/completed cards are compact; no lesson is locked. Existing café/introduction IDs and storage keys are unchanged. A completed lesson stays Passed during unfinished replays; Continue practice resumes the current attempt without undoing the saved completion. Home shows the best first-submission score; results and Profile show the latest completed attempt. Older saved results initialize the best score, since overwritten history cannot be recovered.
+
+To add a lesson, create a declarative file in `src/curriculum/lessons/` using `LessonDefinition` from `types.ts`, then register it in `catalog.ts`. Give it a stable unique ID/number, vocabulary, five or six exercises, motivation tags, skills and valid earlier prerequisites. Home, next-lesson navigation, per-lesson persistence and statistics use the catalogue; no engine or screen edit is needed. Run the content, answer-safety and interaction checks before shipping.
+
+`curriculumForMotivation()` is a deterministic, prerequisite-respecting ranking extension point. The current prerequisite chain preserves the canonical order for every motivation. Future optional branches could be ranked by Travel, Conversations, Studies or Culture while retaining stable IDs/progress. Motivation currently neither personalizes the visible order nor hides or locks lessons.
 
 ## First-time native welcome
 
@@ -89,7 +110,7 @@ Lessons use three session hearts, an in-lesson first-try combo and a local XP re
 **Gems** are earned only by learning, at the same rate for everyone. A heart refill costs **20 gems** and a streak freeze costs **30 gems**; gems cannot be bought, there are no ads, and Plus has no gem advantage. Daily awards stay cumulative across replays, while completion screens show only that attempt’s reward. See [the full rules](docs/learning-rewards.md).
 
 - Five café steps: reveal vocabulary, choose a meaning, build a sentence by tapping, reply to the barista, and type a translation. Check/retry/explicit Continue, first-attempt results, mistake review, replay and reset are implemented.
-- **Native Lesson 02 — Nice to meet you:** five steps for Меня зовут Анна., Как тебя зовут?, А тебя?, Очень приятно! and Пока! Vocabulary, meaning selection, sentence building, a social exchange and typed goodbye use the same check/retry/hint/review flow. Informal address and the example name are explained. Both lessons are available without a prerequisite lock. The browser keeps its café demo.
+- **Native Lesson 02 — Nice to meet you:** five steps for Меня зовут Анна., Как тебя зовут?, А тебя?, Очень приятно! and Пока! Vocabulary, meaning selection, sentence building, a social exchange and typed goodbye use the same check/retry/hint/review flow. Informal address and the example name are explained. All eight lessons are available without a prerequisite lock. The browser keeps its café demo.
 - Optional stress marks and pronunciation help keep canonical Russian separate from display aids. Assessed companion prompts do not reveal answers before a correct response or explicit hint.
 - Pronunciation uses a Russian system voice when available. Delayed voice loading, errors and a six-second startup timeout have visible feedback; text activities work without audio. No microphone, speech assessment or automatic speech is used.
 - One cancellable speech controller replaces old taps and cancels active/pending audio on navigation, close, restart, completion, background and unmount. No automatic replay occurs on foregrounding.
@@ -107,7 +128,9 @@ Statistics use `privet-demo-v1-native-stats`; resumable sessions have separate k
 | `src/config.ts` | Temporary product name/storage key |
 | `src/RuntimeApp.tsx`, `src/App.tsx` | Native runtime selection; browser landing/demo/gallery |
 | `src/NativeApp.tsx`, `src/native.css`, `src/useNativeViewport.ts` | Native home/navigation, root ownership, safe areas and keyboard layout |
-| `src/lesson.ts`, `src/lessons.ts`, `src/engine.ts` | Café content, native lesson catalogue/introductions content, exact answer normalization/checking and reducer transitions |
+| `src/curriculum/types.ts`, `catalog.ts`, `motivation.ts`, `lessons/*.ts` | Reusable content types, canonical catalogue, future recommendation ranking, and individual lesson data |
+| `src/lesson.ts`, `src/lessons.ts`, `src/engine.ts` | Compatibility exports and unchanged answer normalization/checking and reducer transitions |
+| `src/CurriculumControllers.tsx` | One stable controller component per catalogue entry, shared speech and preferences |
 | `src/LessonPanel.tsx`, `src/useLesson.ts`, `src/session.ts` | Shared exercises, hints/feedback and native session persistence |
 | `src/NativeLessonSettings.tsx` | Immediate native learning-aid settings |
 | `src/firstRun.ts`, `src/useFirstRun.ts` | Validated native welcome/personalization state and safe replay/reset |
@@ -132,7 +155,7 @@ Answer normalization ignores case, stress accents, surrounding/repeated spaces a
 
 ## Verification
 
-Latest local app validation: **167 Node tests**, shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover lessons, replay, first-time welcome/lesson/offers/replay, Cyrillic reference, letter highlighting and answer concealment, audio-completion safeguards, rewards/Plus and mock BLE navigation. Mouse/touch/keyboard checks also cover repeated sentence words and saved-session restoration. Website HTML matched 36 pre-change states exactly, including completion and failure screens. These are local automated checks with fake BLE/speech, not real-device, real-audio or GitHub CI verification.
+Latest local app validation: **175 Node tests**, shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover lessons, replay, first-time welcome/lesson/offers/replay, Cyrillic reference, letter highlighting and answer concealment, audio-completion safeguards, rewards/Plus and mock BLE navigation. Mouse/touch/keyboard checks also cover repeated sentence words and saved-session restoration. The browser café content is unchanged; current shell checks retain the website layout and demo. An unsigned iOS Simulator build also passed (compile only). These are local automated checks with fake BLE/speech, not real-device, real-audio or GitHub CI verification.
 
 The project owner reports real-iPhone discovery/connection/ACKs, disconnect/reconnect, navigation continuity, commands 1–4, lock/background retention and servo movement. New states and the latest thinking/hint/audio/replay changes still need hardware validation. No exact device/software versions, timing, range or endurance results were supplied. Earlier milestone checks are historical; the current [protocol checklist](docs/companion-ble.md#verification) distinguishes remaining tests.
 
