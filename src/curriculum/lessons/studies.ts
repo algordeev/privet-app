@@ -124,8 +124,8 @@ export const lesson:LessonDefinition={
   {
    "id": "exchange",
    "kind": "choice",
-   "title": "Something in common.",
-   "instruction": "You study too. A simple Я учусь. answers the classmate.",
+   "title": "Different days, a new connection.",
+   "instruction": "Your classmate studies at university. You work. What do you say?",
    "prompt": "Я учусь в университете. А ты?",
    "exchange": {
     "speaker": "CLASSMATE",
@@ -133,15 +133,15 @@ export const lesson:LessonDefinition={
     "meaning": "I study at university. And you?"
    },
    "choices": [
-    "Я учусь.",
+    "А я работаю.",
     "До завтра!",
     "Хлеб, пожалуйста."
    ],
-   "answer": "Я учусь.",
-   "review": "Я учусь в университете. А ты? → Я учусь.",
-   "success": "You study too. A simple Я учусь. answers the classmate. Я учусь.",
-   "retryFeedback": "Your classmate asks about you. Answer with what you do.",
-   "hint": "Choose a reply that fits the invitation or question, rather than starting a new topic."
+   "answer": "А я работаю.",
+   "review": "А я работаю. → And I work.",
+   "success": "А я работаю. — “And I work.” Here, А introduces a contrast with your classmate.",
+   "retryFeedback": "Your classmate asks about you. Choose the reply that describes what you do.",
+   "hint": "Use the work expression from My day. The short word А introduces a contrast."
   }
  ],
  "summary": "You said you study at university, recognized at home, and asked a peer where they work.",
