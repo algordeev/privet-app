@@ -116,7 +116,7 @@ try{
   seed={...(!firstTime?{[FIRST_RUN_KEY]:{...initialFirstRun(),stage:'done',completed:true}}:{}),...(skipQuickStart?{[CYRILLIC_KEY]:{version:1,status:'skipped',page:0}}:{}),...nextSeed};initialTime=time;await evaluate(()=>{window.__oldDocument=true;});
   await call('Page.navigate',{url:origin+'/__privet_native_checks'+(browserPreview?'?native=1&onboarding=1'+(resume?'&resume=1':''):(resume?'?resume=1':''))});
   await until(()=>!window.__oldDocument&&!!document.querySelector('.native-app'));
-  if(firstTime)await until(()=>!!document.querySelector('.native-first-run,.native-first-lesson'));else await until(()=>document.querySelectorAll('.native-lesson-card').length===2);
+  if(firstTime)await until(()=>!!document.querySelector('.native-first-run,.native-first-lesson'));else await until(()=>document.querySelectorAll('.native-lesson-card').length===8);
   await pause(80);await assertNativeLayout();
  }
  const startCafe=()=>click('#native-card-cafe ~ .button');
@@ -327,9 +327,13 @@ try{
   }
   await click('[aria-label="Return to app home"]');assert.deepEqual(await codes(),[...expected,4],`${scenario.name}: close sends IDLE`);
  }
+ for(const definition of nativeLessons.slice(2)){
+  await open();await connectAtHome();await click(`#native-card-${definition.id} ~ .button`);assert.deepEqual(await codes(),[6]);
+  await click('[aria-label="Return to app home"]');assert.equal((await codes()).at(-1),4);
+ }
  await open({[lesson2Key]:complete});await connectAtHome();await click(`#native-card-${nativeLessons[1].id} ~ .button`);
- assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.completion > button')].map(el=>({label:el.textContent.replace(/[→↻]/g,'').trim(),primary:el.classList.contains('teal')}))),[{label:'Go to home',primary:true},{label:'Replay the lesson',primary:false}],'Lesson 2 puts home first and replay underneath');
- await click('.native-completion-home','Go to home');assert.ok(await evaluate(()=>!!document.querySelector('.native-home-scroll')));
+ assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.completion > button')].map(el=>({label:el.textContent.replace(/[→↻]/g,'').trim(),primary:el.classList.contains('teal')}))),[{label:'Continue to Lesson 3',primary:true},{label:'Replay the lesson',primary:false}],'Lesson 2 offers the next catalogue lesson and replay underneath');
+ await click('[aria-label="Return to app home"]');assert.ok(await evaluate(()=>!!document.querySelector('.native-home-scroll')));
  assert.deepEqual(await codes(),[4,4],'Completion home action uses the existing close/IDLE path');
  assert.equal((await stored(lesson2Key)).progress.complete,true,'Returning home preserves completed results');
  await open({[NATIVE_SESSION_KEY]:complete,[lesson2Key]:meaning()});await connectAtHome();await startCafe();

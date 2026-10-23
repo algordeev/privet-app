@@ -176,6 +176,16 @@ try {
  storage.set(NATIVE_STATS_KEY,JSON.stringify({version:1,days:{'2020-01-01':1},earlierFinishes:0,latest:{day:'2020-01-01',firstTry:5,lessonId:'introductions'}}));
  assert.ok(renderToStaticMarkup(createElement(Profile)).includes('<h2 id="native-result-title">Nice to meet you</h2>'));
  console.log('PASS: second lesson renders all five exercises, separate progress/results, matching greeting and profile title.');
+ for(const definition of (await server.ssrLoadModule('/src/curriculum/catalog.ts')).nativeLessons){
+  function CurriculumLesson(){const controller=useLesson({persistSession:true,definition});return createElement(LessonPanel,{controller,native:true});}
+  for(const [index,exercise] of definition.exercises.entries()){
+   storage.set(sessionKey(definition),JSON.stringify({...freshSession(),progress:{...freshSession().progress,index,results:Array(index).fill(true)}}));
+   const html=renderToStaticMarkup(createElement(CurriculumLesson));assert.ok(html.includes(exercise.title));assert.ok(html.includes(definition.title));assert.ok(html.includes('Open Cyrillic guide'));
+  }
+  storage.set(NATIVE_STATS_KEY,JSON.stringify({version:1,days:{'2020-01-01':1},earlierFinishes:0,latest:{day:'2020-01-01',firstTry:5,lessonId:definition.id}}));
+  assert.ok(renderToStaticMarkup(createElement(Profile)).includes(`<h2 id="native-result-title">${definition.title}</h2>`));
+ }
+ console.log('PASS: all eight curriculum lessons render every exercise/Cyrillic entry and correct profile result title.');
  Capacitor.isNativePlatform=()=>false;
  const unchangedWebsite=renderToStaticMarkup(createElement(RuntimeApp));
  assert.ok(unchangedWebsite.includes('STEP 1 OF 5'));assert.ok(!unchangedWebsite.includes('Nice to meet you'));

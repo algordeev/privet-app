@@ -480,3 +480,12 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-companion-chip[data-connected=true] { flex:none;width:44px;height:44px;justify-content:center;color:#246653; }
 .native-app .native-companion-chip > svg { width:18px;height:18px; }
 .native-app .native-companion-chip > span[aria-hidden=true] { flex:none;font-size:20px;line-height:1; }
+
+/* Later and completed lessons stay scannable; the next lesson keeps its full card. */
+.native-app .native-lesson-compact { padding:18px; }
+.native-app .native-lesson-compact .native-card-top { gap:8px; }
+.native-app .native-lesson-compact .native-cup { width:36px;height:36px;font-size:22px; }
+.native-app .native-lesson-compact h2 { font-size:22px;margin:12px 0 6px; }
+.native-app .native-lesson-compact > p { font-size:14px;line-height:1.5;margin-bottom:12px; }
+.native-app .native-lesson-compact .native-card-progress { margin-top:12px; }
+.native-app .native-lesson-compact > .button { min-height:44px;padding:10px 14px;margin-top:12px;font-size:15px; }

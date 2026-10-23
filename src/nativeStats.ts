@@ -1,5 +1,5 @@
 import {validFirstLessonResult} from './firstRun.ts';
-import {lessonById} from './lessons.ts';
+import {lessonById,nativeLessons} from './lessons.ts';
 import {PRODUCT} from './config.ts';
 import {lessonXp,type Action,type Progress} from './engine.ts';
 import type {Saved} from './session.ts';
@@ -13,12 +13,12 @@ export const emptyStats=():NativeStats=>({version:3,days:{},xp:{},earlierFinishe
 export function localDay(date:Date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;}
 export function validDay(day:string){if(!/^\d{4}-\d{2}-\d{2}$/.test(day))return false;const d=new Date(`${day}T12:00:00Z`);return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===day;}
 export function shiftDay(day:string,offset:number){const d=new Date(`${day}T12:00:00Z`);d.setUTCDate(d.getUTCDate()+offset);return d.toISOString().slice(0,10);}
-const lessonIds=['cafe','introductions'];
+const lessonIds=nativeLessons.map(item=>item.id);
 function validCounts(obj:unknown){return !!obj&&typeof obj==='object'&&!Array.isArray(obj)&&Object.entries(obj).every(([day,n])=>validDay(day)&&Number.isSafeInteger(n)&&Number(n)>0&&Number(n)<1_000_000);}
 function validGemBreakdown(a:any){return !!a&&Number.isSafeInteger(a.finish)&&[0,GEM_RULES.finish].includes(a.finish)&&Number.isSafeInteger(a.perfect)&&[0,GEM_RULES.perfect].includes(a.perfect)&&Number.isSafeInteger(a.streakWeek)&&[0,GEM_RULES.streakWeek].includes(a.streakWeek);}
 function validGems(g:any){return !!g&&Number.isSafeInteger(g.balance)&&g.balance>=0&&Number.isInteger(g.freezes)&&g.freezes>=0&&g.freezes<=GEM_RULES.maxFreezes&&!!g.awarded&&typeof g.awarded==='object'&&!Array.isArray(g.awarded)&&Object.entries(g.awarded).every(([day,ids])=>validDay(day)&&Array.isArray(ids)&&ids.every((id:any)=>lessonIds.includes(id))&&new Set(ids).size===ids.length)&&Array.isArray(g.milestones)&&g.milestones.every((day:any)=>validDay(day))&&new Set(g.milestones).size===g.milestones.length&&!!g.awards&&typeof g.awards==='object'&&!Array.isArray(g.awards)&&Object.entries(g.awards).every(([day,items])=>validDay(day)&&!!items&&typeof items==='object'&&!Array.isArray(items)&&Object.entries(items).every(([id,a]:[string,any])=>lessonIds.includes(id)&&validGemBreakdown(a)));}
 export function restoreStats(raw:string|null,legacy?:Saved['completion']):NativeStats{
- if(raw!==null){try{const s=JSON.parse(raw);const validLatest=(s:any)=>s.latest===null||(s.latest&&Number.isInteger(s.latest.firstTry)&&s.latest.firstTry>=0&&s.latest.firstTry<=5&&(s.latest.lessonId===undefined||lessonIds.includes(s.latest.lessonId))&&(s.latest.gemAward===undefined||validGemBreakdown(s.latest.gemAward))&&(s.latest.day===null?s.earlierFinishes===1:typeof s.latest.day==='string'&&validDay(s.latest.day)&&Object.hasOwn(s.days,s.latest.day)));const validBase=(s:any)=>validCounts(s.days)&&[0,1].includes(s.earlierFinishes)&&validLatest(s);
+ if(raw!==null){try{const s=JSON.parse(raw);const validLatest=(s:any)=>s.latest===null||(s.latest&&Number.isInteger(s.latest.firstTry)&&s.latest.firstTry>=0&&s.latest.firstTry<=lessonById(s.latest.lessonId).exercises.length&&(s.latest.lessonId===undefined||lessonIds.includes(s.latest.lessonId))&&(s.latest.gemAward===undefined||validGemBreakdown(s.latest.gemAward))&&(s.latest.day===null?s.earlierFinishes===1:typeof s.latest.day==='string'&&validDay(s.latest.day)&&Object.hasOwn(s.days,s.latest.day)));const validBase=(s:any)=>validCounts(s.days)&&[0,1].includes(s.earlierFinishes)&&validLatest(s);
   if((s?.version===1||s?.version===2)&&validBase(s)&&(s.version===1||validCounts(s.xp)))return {...s,version:3,xp:s.version===1?{}:s.xp,gems:emptyGems(),frozen:[]};
   if(s?.version===3&&(s.onboardingAwarded===undefined||s.onboardingAwarded===true)&&validBase(s)&&validCounts(s.xp)&&validGems(s.gems)&&Array.isArray(s.frozen)&&s.frozen.every((day:any)=>validDay(day))&&new Set(s.frozen).size===s.frozen.length)return s;
  }catch{/* Ignore malformed local storage. */}}
