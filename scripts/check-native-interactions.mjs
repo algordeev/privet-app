@@ -120,6 +120,11 @@ try{
   await pause(80);await assertNativeLayout();
  }
  const startCafe=()=>click('#native-card-cafe ~ .button');
+ async function openPhysicalSettings(){await click('#native-settings-open');
+  assert.ok(await evaluate(()=>{const root=document.querySelector('.native-settings-screen'),family=getComputedStyle(root).fontFamily;return !root.textContent.includes('Revisit the introduction')&&Array.from(root.querySelectorAll('.native-settings-card h2')).every(h=>{const s=getComputedStyle(h);return s.fontFamily===family&&parseFloat(s.fontSize)<=22&&parseFloat(s.letterSpacing)>-1;})&&Array.from(root.querySelectorAll('.native-settings-card button')).every(b=>{const s=getComputedStyle(b);return s.fontFamily===family&&s.textDecorationLine==='none'&&b.getBoundingClientRect().height>=44;});}),'Settings has consistent headings and full touch-target buttons, without the removed replay description');
+  await assertNativeLayout();await click('#native-physical-open');}
+
+ async function physicalBackHome(){await click('[aria-label="Back to settings"]');await click('[aria-label="Back to home"]');}
  function meaning(){const s=freshSession();s.progress.index=1;s.progress.results=[true];return s;}
  function finalStep(){const s=freshSession();s.progress={...s.progress,index:4,results:[true,true,true,true],attempts:1,feedback:'correct',bestCombo:5};s.selected='спасибо';return s;}
  const today=localDay(new Date(2026,9,17,12));
@@ -236,18 +241,18 @@ try{
   await call('Input.synthesizeScrollGesture',{x:viewport.width/2,y:viewport.height/2,xDistance:-120,yDistance:0,gestureSourceType:'touch'});
   await assertNativeLayout();
   await click('[aria-label="Open your profile and statistics"]');
-  await click('[aria-label="Back to home"]');await click('#native-physical-open');
+  await click('[aria-label="Back to home"]');await openPhysicalSettings();
   await assertNativeLayout();
   console.log(`PASS ${viewport.width}×${viewport.height}: Plus activate/cancel/reload/zero-heart recovery via lesson and Profile, restored heart consumption, freeze lifecycle→finish, replay reward separation, refill/freeze prices; native panes cannot scroll sideways, all exercises/header controls fit, vertical scroll retained.`);
  }
 
  // Explicit native UI actions go through the real root controller and transport.
  russianAudio=true;
- await open();await click('#native-physical-open');await click('.native-physical-actions .button','Connect');
+ await open();await openPhysicalSettings();await click('.native-physical-actions .button','Connect');
  await click('.native-physical-devices button');
  await until(()=>document.querySelector('.native-physical-status').textContent.includes('Reaction accepted'));
  assert.deepEqual(await evaluate(()=>window.__bleCommands),[9],'Fresh subscription sends CONNECTED once');
- await click('[aria-label="Back to home"]');await startCafe();
+ await physicalBackHome();await startCafe();
  assert.deepEqual(await evaluate(()=>window.__bleCommands),[9,4,6],'Fresh Lesson 1 enters THINKING after CONNECTED/home IDLE');
  const codes=()=>evaluate(()=>window.__bleCommands);
  await evaluate(()=>{window.__bleCommands=[];});
@@ -283,16 +288,16 @@ try{
  assert.deepEqual(await codes(),beforeOverlay,'Returning to already-open profile must remain silent');
  await click('[aria-label="Back to home"]');assert.equal((await codes()).at(-1),4);
  // Disconnect remains effective; audio still works independently of hardware.
- await click('#native-physical-open');await click('.native-physical-disconnect','Disconnect');await click('[aria-label="Back to home"]');await startCafe();
+ await openPhysicalSettings();await click('.native-physical-disconnect','Disconnect');await physicalBackHome();await startCafe();
  const disconnectedCodes=await codes();await click('.round-audio');assert.deepEqual(await codes(),disconnectedCodes);
  console.log('PASS: native pronunciation taps→LISTENING, first hint tap→HINT, Continue/retry→THINKING, profile entry stays silent, fresh subscription→CONNECTED; audio completion restores THINKING only for unanswered questions; stale completion after submission is ignored; settings/voices/overlays do not replay; audio works disconnected. Mock BLE/voice only.');
 
  // Resolve the target lesson before changing selection, including when a
  // different saved lesson was selected at mount. Drive the actual home cards.
  async function connectAtHome(){
-  await click('#native-physical-open');await click('.native-physical-actions .button','Connect');await click('.native-physical-devices button');
+  await openPhysicalSettings();await click('.native-physical-actions .button','Connect');await click('.native-physical-devices button');
   await until(()=>document.querySelector('.native-physical-status').textContent.includes('Reaction accepted'));
-  await click('[aria-label="Back to home"]');await evaluate(()=>{window.__bleCommands=[];});
+  await physicalBackHome();await evaluate(()=>{window.__bleCommands=[];});
  }
  const complete=freshSession();complete.progress={...complete.progress,index:5,results:[true,true,true,true,true],complete:true};
  const paused=meaning();paused.progress={...paused.progress,hearts:0,failed:true,attempts:3,feedback:'incorrect'};
@@ -379,7 +384,7 @@ try{
   await click('.native-quick-actions .button','Finish quick start');await click('.native-quick-actions .button','Start Lesson 1');
   assert.ok(await evaluate(()=>document.querySelector('.lesson-step-count').textContent.includes('STEP 1')));
   assert.equal(await evaluate(()=>!!document.querySelector('#native-cyrillic-recommendation')),false);
-  await click('[aria-label="Return to app home"]');await click('.native-home-footer .native-text-button','Reset saved lesson & preferences');
+  await click('[aria-label="Return to app home"]');await click('#native-settings-open');await click('.native-profile-scroll .native-text-button','Reset saved lesson & preferences');
   assert.equal(await stored(CYRILLIC_KEY),null,'Full reset removes onboarding storage');
 
   for(const [index,value] of [[1,'tea'],[2,'Я'],[4,'спа']]){
@@ -690,6 +695,7 @@ try{
  assert.ok(await evaluate(()=>document.querySelector('.first-scroll').textContent.includes('Nothing was ordered, charged or sent')));
  await click('.first-actions .button','Continue');
  assert.deepEqual(await Promise.all(preservedKeys.map(stored)),preserved,'Replay/companion confirmation preserve all lessons, statistics and Plus');
+ await click('#native-settings-open');
  assert.equal(await evaluate(()=>document.querySelector('.native-physical-home-status')?.textContent.includes('Connected')??document.querySelector('#native-physical-open').textContent.includes('Connected')),true,'Established link survives onboarding replay');
  await evaluate(()=>window.privetResetOnboarding());await until(()=>!!document.querySelector('.native-first-run[data-stage="welcome"]'));
  assert.deepEqual(await Promise.all(preservedKeys.map(stored)),preserved,'Developer reset changes only the onboarding flag');
