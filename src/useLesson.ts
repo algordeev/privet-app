@@ -56,7 +56,7 @@ export function useLesson({persistSession=false,saveResults=true,definition=cafe
  function restart(){
   if(lessonScroll.current)lessonScroll.current.scrollTop=0;
   setLessonSettings(false);dispatch({type:'reset'});setRevealed([]);setSelected('');setTokens([]);setThinkingAt(null);setHintAt(null);setVocabularyWord(null);
-  setNotice('Lesson reset. Ready for a fresh start.');
+  setNotice('');
  }
  function adoptCompletion(value:Progress){if(progress.complete||!value.complete||value.failed||value.index!==lesson.length||value.results.length!==lesson.length)return;speech.stop();setSelected('');setTokens([]);setHintAt(null);reduce({type:'adoptCompletion',progress:{...value,results:[...value.results]}});}
  function revive(){dispatch({type:'revive'});}
