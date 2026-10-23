@@ -1,3 +1,4 @@
+import {useNativeFocus} from './useNativeFocus';
 import {SettingsConfirmation,type SettingsAction} from './SettingsConfirmation';
 import {isOnboardingPreview} from './previewStorage';
 import {Capacitor} from '@capacitor/core';
@@ -70,6 +71,7 @@ export function NativeApp() {
  const root=useRef<HTMLElement>(null);
  const previousView=useRef(view);
  useNativeViewport(root);
+ useNativeFocus(root);
  useEffect(()=>{
   // Recovery follows the selected lesson and entitlement, not the upgrade route.
   if(subscription.plus&&controller.progress.failed)controller.revive();

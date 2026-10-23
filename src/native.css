@@ -466,3 +466,8 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-settings-confirmation-actions { display:grid;gap:10px;padding:4px 0; }.native-app .native-settings-confirmation-actions .button { width:100%;white-space:normal; }
 .native-app .native-confirmation-cancel { border:1px solid #aac09d;background:#fffdf7;color:#285b48; }
 .native-app .native-confirmation-danger { background:#874b3b;color:#fffdf7; }.native-app .native-confirmation-danger:hover:not(:disabled) {background:#703d30}
+
+/* Pointer-restored focus stays accessible without a lingering keyboard ring. */
+.native-app button:focus-visible,.native-app a:focus-visible,.native-app input:focus-visible { outline:3px solid #246653;outline-offset:3px; }
+.native-app[data-input-modality=pointer] button:focus-visible,
+.native-app[data-input-modality=pointer] a:focus-visible { outline:none; }
