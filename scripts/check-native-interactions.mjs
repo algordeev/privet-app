@@ -120,6 +120,9 @@ try{
   await pause(80);await assertNativeLayout();
  }
  const startCafe=()=>click('#native-card-cafe ~ .button');
+ const storageSnapshot=()=>evaluate(()=>Object.fromEntries(Object.keys(localStorage).sort().map(key=>[key,localStorage.getItem(key)])));
+ async function confirmReplay(){const before=await storageSnapshot();await click('#native-replay-onboarding');assert.ok(await evaluate(()=>document.querySelector('#settings-confirmation[open]')?.textContent.includes('Restart onboarding?')));assert.deepEqual(await storageSnapshot(),before,'Opening replay confirmation does not restart or alter saved data');await click('.native-confirmation-cancel');assert.deepEqual(await storageSnapshot(),before,'Cancel keeps all data and the tour position');assert.equal(await evaluate(()=>document.activeElement?.id),'native-replay-onboarding');await click('#native-replay-onboarding');await click('.native-confirmation-confirm','Restart onboarding');}
+
  async function openPhysicalSettings(){await click('#native-settings-open');
   assert.ok(await evaluate(()=>{const root=document.querySelector('.native-settings-screen'),family=getComputedStyle(root).fontFamily;return !root.textContent.includes('Revisit the introduction')&&Array.from(root.querySelectorAll('.native-settings-card h2')).every(h=>{const s=getComputedStyle(h);return s.fontFamily===family&&parseFloat(s.fontSize)<=22&&parseFloat(s.letterSpacing)>-1;})&&Array.from(root.querySelectorAll('.native-settings-card button')).every(b=>{const s=getComputedStyle(b);return s.fontFamily===family&&s.textDecorationLine==='none'&&b.getBoundingClientRect().height>=44;});}),'Settings has consistent headings and full touch-target buttons, without the removed replay description');
   await assertNativeLayout();await click('#native-physical-open');}
@@ -385,6 +388,9 @@ try{
   assert.ok(await evaluate(()=>document.querySelector('.lesson-step-count').textContent.includes('STEP 1')));
   assert.equal(await evaluate(()=>!!document.querySelector('#native-cyrillic-recommendation')),false);
   await click('[aria-label="Return to app home"]');await click('#native-settings-open');await click('.native-profile-scroll .native-text-button','Reset saved lesson & preferences');
+  const beforeReset=await storageSnapshot();assert.equal((await stored(CYRILLIC_KEY)).status,'completed','Opening reset confirmation preserves progress');await click('.native-confirmation-cancel');assert.deepEqual(await storageSnapshot(),beforeReset,'Cancel reset removes nothing');
+  await click('.native-settings-reset');await click('[aria-label="Close Reset saved data?"]');assert.deepEqual(await storageSnapshot(),beforeReset,'Close resets nothing');
+  await click('.native-settings-reset');await click('.native-confirmation-confirm','Reset saved data');
   assert.equal(await stored(CYRILLIC_KEY),null,'Full reset removes onboarding storage');
 
   for(const [index,value] of [[1,'tea'],[2,'Я'],[4,'спа']]){
@@ -611,6 +617,18 @@ try{
  russianAudio=false;await open();await connectAtHome();await click('#native-quick-open');
  assert.equal(await evaluate(()=>document.querySelectorAll('.native-letter-audio,.native-letter-sound').length),0);assert.deepEqual(await codes(),[],'Unavailable speech never emits LISTENING');
  console.log('PASS: connected quick-start letter and reading audio sends LISTENING→IDLE, with replacement/page/close cancellation, no unavailable-audio reaction and no stale cleanup overriding lesson entry.');
+ // Reset requires explicit confirmation and keeps Plus and the established BLE link.
+ const resetDay=localDay(new Date(initialTime));
+ const resetStats={...emptyStats(),days:{[resetDay]:2},xp:{[resetDay]:36},gems:{...emptyStats().gems,balance:60,freezes:1},frozen:[]};
+ await open({[NATIVE_STATS_KEY]:resetStats,[NATIVE_SESSION_KEY]:meaning(),[sessionKey(nativeLessons[1])]:meaning(),[CYRILLIC_KEY]:{version:1,status:'completed',page:3},[SUBSCRIPTION_KEY]:{version:1,plan:'monthly',since:resetDay}});await connectAtHome();await click('#native-settings-open');
+ const keptPlus=await stored(SUBSCRIPTION_KEY),beforeConnectedReset=await storageSnapshot();
+ await click('.native-settings-reset');await call('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await call('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await until(()=>!document.querySelector('#settings-confirmation'));assert.deepEqual(await storageSnapshot(),beforeConnectedReset,'Escape cancels reset');
+ await click('.native-settings-reset');await click('.native-confirmation-confirm','Reset saved data');
+ assert.equal((await stored(NATIVE_STATS_KEY)).gems.balance,0);assert.equal((await stored(NATIVE_STATS_KEY)).gems.freezes,0);assert.deepEqual((await stored(NATIVE_STATS_KEY)).days,{});assert.deepEqual((await stored(NATIVE_STATS_KEY)).xp,{});
+ for(const key of [NATIVE_SESSION_KEY,sessionKey(nativeLessons[1])])assert.equal((await stored(key))?.progress.index??0,0);
+ assert.equal(await stored(CYRILLIC_KEY),null);assert.deepEqual(await stored(SUBSCRIPTION_KEY),keptPlus);assert.ok(await evaluate(()=>document.querySelector('.native-physical-home-status').textContent.includes('Connected')));
+ console.log('PASS: reset/replay confirmation, Cancel/Close/Escape, focus restoration, confirmed reset of learning data, preserved Plus and connected BLE.');
+
  // First-time vertical slice: real lesson engine, isolated onboarding storage,
  // existing subscription/stats hooks and the same root BLE controller.
  async function finishWelcomeLesson(makeMistake=false){
@@ -683,7 +701,7 @@ try{
  // or paid entitlement is erased or awarded again by the classroom demonstration.
  firstTime=false;await connectAtHome();
  const preservedKeys=[NATIVE_STATS_KEY,NATIVE_SESSION_KEY,sessionKey(nativeLessons[1]),SUBSCRIPTION_KEY];const preserved=await Promise.all(preservedKeys.map(stored));
- await click('#native-settings-open');await click('#native-replay-onboarding');await evaluate(()=>{window.__bleCommands=[];});
+ await click('#native-settings-open');await confirmReplay();await evaluate(()=>{window.__bleCommands=[];});
  await click('.first-actions .button','Get started');for(let story=0;story<3;story++)await click('.first-actions .button','Continue');
  assert.ok(await evaluate(()=>document.querySelector('.first-scroll').textContent.includes('Your companion is ready.')));
  await click('.first-actions .button','Continue');assert.deepEqual(await codes(),[1],'Connected setup greets without reconnecting');
@@ -735,7 +753,7 @@ try{
  await click('.first-actions .button','Continue with virtual companion');await click('.first-options button[aria-label="Travel"]');await click('.first-actions .button','Continue');await click('.first-options button[aria-label="I know some Russian"]');await click('.first-actions .button','Continue');await click('.first-actions .button','Start lesson');await finishWelcomeLesson();await click('.native-next-lesson','Choose how to continue');await click('.first-offer-free .button','Continue with Free');
  for(const [key,value] of Object.entries(originalBrowserData))assert.deepEqual(await stored(key),value,'Browser onboarding must not overwrite ordinary progress or Plus');
  const previewFirstRunKey='privet-demo-v1-onboarding-preview:'+FIRST_RUN_KEY;assert.equal((await stored(previewFirstRunKey)).completed,true);
- firstTime=false;await open({},undefined,true);await click('#native-settings-open');await click('#native-replay-onboarding');await until(()=>!!document.querySelector('.native-first-run[data-stage=welcome]'));
+ firstTime=false;await open({},undefined,true);await click('#native-settings-open');await confirmReplay();await until(()=>!!document.querySelector('.native-first-run[data-stage=welcome]'));
  for(const [key,value] of Object.entries(originalBrowserData))assert.deepEqual(await stored(key),value,'Replay must remain isolated');
  console.log('PASS: browser onboarding URL, unavailable Bluetooth fallback, no-audio full lesson/offers/home, isolated rewards/subscription, reload and Settings replay.');
  assert.deepEqual(browserErrors,[],'No uncaught browser exceptions');

@@ -459,3 +459,10 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-settings-card .native-physical-home { display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:5px;border:1px solid #aac09d;background:#eef3e7;color:#285b48;text-align:left; }
 .native-app .native-settings-card .native-physical-home-status { font-size:12px;font-weight:400;line-height:1.4;color:#61705b; }
 .native-app .native-settings-card .native-settings-reset { display:block;border:1px solid #d5b6a9;background:#fcf1e9;color:#874b3b;text-align:center; }
+
+.native-app .native-settings-confirmation p,.native-app .native-settings-confirmation li { color:#53664f;font-size:15px;line-height:1.65; }
+.native-app .native-settings-confirmation p { margin:0 0 16px; }.native-app .native-settings-confirmation ul { margin:0 0 20px;padding-left:22px; }.native-app .native-settings-confirmation li+li {margin-top:8px}
+.native-app .native-settings-confirmation strong { color:#25372d;font-weight:600; }
+.native-app .native-settings-confirmation-actions { display:grid;gap:10px;padding:4px 0; }.native-app .native-settings-confirmation-actions .button { width:100%;white-space:normal; }
+.native-app .native-confirmation-cancel { border:1px solid #aac09d;background:#fffdf7;color:#285b48; }
+.native-app .native-confirmation-danger { background:#874b3b;color:#fffdf7; }.native-app .native-confirmation-danger:hover:not(:disabled) {background:#703d30}
