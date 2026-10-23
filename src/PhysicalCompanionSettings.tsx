@@ -2,11 +2,11 @@ import type {PhysicalCompanionController} from './usePhysicalCompanion';
 import type {BleState} from './bleTransport';
 import {BLE_NAME} from './bleProtocol';
 const phases={suspended:'Reactions paused',reconciling:'Checking connection',disconnected:'Disconnected',scanning:'Scanning',connecting:'Connecting',connected:'Connected',unavailable:'Bluetooth unavailable','permission-denied':'Permission denied',error:'Connection error'} as const;
-export function PhysicalCompanionSettings({controller,onClose}:{controller:PhysicalCompanionController;onClose:()=>void}){
+export function PhysicalCompanionSettings({controller,onClose,backLabel='Back to home'}:{controller:PhysicalCompanionController;onClose:()=>void;backLabel?:string}){
  const {state,scan,connect,disconnect,testHappy}=controller;
  const inSession=state.phase==='scanning'||state.phase==='connecting'||state.phase==='connected'||state.phase==='suspended'||state.phase==='reconciling';
  return <div className="native-physical-scroll">
-  <header className="native-profile-navigation"><button className="app-icon-button" onClick={onClose} aria-label="Back to home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><h1 id="native-physical-title" tabIndex={-1}>Physical companion</h1><span aria-hidden="true"/></header>
+  <header className="native-profile-navigation"><button className="app-icon-button" onClick={onClose} aria-label={backLabel}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><h1 id="native-physical-title" tabIndex={-1}>Physical companion</h1><span aria-hidden="true"/></header>
   <section className="native-physical-intro"><span className="native-kicker">YOUR DESK COMPANION</span><h2>A little hello, over Bluetooth.</h2><p>Connect your {BLE_NAME} for little reactions as you learn. You can keep learning with or without it.</p></section>
   <section className="native-physical-card" aria-label="Physical companion settings">
    <div className="native-physical-status" role="status" aria-live="polite" aria-atomic="true"><strong>{phases[state.phase]}</strong>{state.device&&<span>{state.device.name||BLE_NAME}</span>}<p>{state.message}</p>{state.notice&&<p className="native-physical-update">{state.notice}</p>}{state.busy&&!inSession&&<p>Finishing the previous connection. If this takes too long, reopen Privet.</p>}</div>
