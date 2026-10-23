@@ -756,6 +756,18 @@ try{
  firstTime=false;await open({},undefined,true);await click('#native-settings-open');await confirmReplay();await until(()=>!!document.querySelector('.native-first-run[data-stage=welcome]'));
  for(const [key,value] of Object.entries(originalBrowserData))assert.deepEqual(await stored(key),value,'Replay must remain isolated');
  console.log('PASS: browser onboarding URL, unavailable Bluetooth fallback, no-audio full lesson/offers/home, isolated rewards/subscription, reload and Settings replay.');
+ // Touch-restored focus is retained without a ring; keyboard navigation is visible.
+ browserPreview=false;firstTime=false;await open({[NATIVE_SESSION_KEY]:meaning()});
+ await evaluate(()=>document.querySelector('#native-settings-open').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch'})));
+ await click('#native-settings-open');await click('#native-replay-onboarding');await click('.native-confirmation-cancel');
+ assert.ok(await evaluate(()=>{const b=document.querySelector('#native-replay-onboarding');return document.activeElement===b&&getComputedStyle(b).outlineStyle==='none';}),'Touch cancellation restores focus without an outline');
+ await call('Input.dispatchKeyEvent',{type:'keyDown',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});await call('Input.dispatchKeyEvent',{type:'keyUp',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
+ assert.ok(await evaluate(()=>{const b=document.activeElement,s=getComputedStyle(b);return b.matches('button:focus-visible')&&s.outlineStyle==='solid'&&s.outlineColor==='rgb(36, 102, 83)';}),'Keyboard Tab has a visible brand-green focus ring');
+ await click('[aria-label="Back to home"]');await startCafe();
+ await evaluate(()=>document.querySelector('.native-alphabet-trigger').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch'})));
+ await click('.native-alphabet-trigger');await click('[aria-label="Close Cyrillic guide"]');
+ assert.ok(await evaluate(()=>{const b=document.querySelector('.native-alphabet-trigger');return document.activeElement===b&&getComputedStyle(b).outlineStyle==='none';}),'Closing АБВ after touch retains focus without a lingering ring');
+ console.log('PASS: pointer-restored Settings/АБВ focus has no ring; real keyboard Tab retains a visible green indicator.');
  assert.deepEqual(browserErrors,[],'No uncaught browser exceptions');
  console.log('PASS: interaction checks use isolated Chromium shims; no real iPhone, ESP32, speech or payment verification.');
 }finally{
