@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {CYRILLIC,QUICK_LETTERS,READING_WORDS,contextualLetters,referenceExample,targetLetterParts,letterAudioText} from './cyrillic.ts';
-import {cafeLesson,introductionsLesson} from './lessons.ts';
+import {cafeLesson,introductionsLesson,nativeLessons} from './lessons.ts';
 
 test('all 33 Russian letters have unique correct forms, rough sounds and matching examples',()=>{
  assert.equal(CYRILLIC.map(item=>item.upper).join(''),'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ');
@@ -14,7 +14,7 @@ test('context letters use visible material, deduplicate and follow alphabet orde
  assert.equal(contextualLetters(cafeLesson,cafeLesson.exercises[1]).map(item=>item.upper).join(''),'ЕКОФ');
  assert.equal(contextualLetters(cafeLesson,cafeLesson.exercises[2]).map(item=>item.upper).join(''),'АЙОУХЧЯ');
  assert.equal(contextualLetters(introductionsLesson,introductionsLesson.exercises[4]).map(item=>item.upper).join(''),'АКОП');
- for(const definition of [cafeLesson,introductionsLesson])for(const exercise of definition.exercises){
+ for(const definition of nativeLessons)for(const exercise of definition.exercises){
   const items=contextualLetters(definition,exercise);assert.ok(items.length>0);assert.equal(new Set(items).size,items.length);
   assert.deepEqual(items,CYRILLIC.filter(item=>items.includes(item)));
  }
@@ -29,7 +29,7 @@ test('quick start stays focused and reference examples avoid printing assessed t
 
 test('every exercise resolves every contextual and full-reference letter without exposing a Russian assessed answer',()=>{
  const normalize=(text:string)=>text.normalize('NFD').replace(/\u0301/g,'').normalize('NFC').toLowerCase().replace(/[^а-яё]/g,'');
- for(const definition of [cafeLesson,introductionsLesson])for(const exercise of definition.exercises){
+ for(const definition of nativeLessons)for(const exercise of definition.exercises){
   const contextual=contextualLetters(definition,exercise);
   for(const item of [...contextual,...CYRILLIC]){
    const resolved=referenceExample(item,definition,exercise);

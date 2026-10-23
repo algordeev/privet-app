@@ -9,7 +9,7 @@ import {createPhysicalLessonEvents} from './physicalLessonEvents.ts';
 import {homeGreeting} from './nativeCompanion.ts';
 
 test('both lessons have complete, consistent content and separate canonical display aids',()=>{
- for(const definition of nativeLessons){
+ for(const definition of [cafeLesson,introductionsLesson]){
   assert.equal(definition.exercises.length,5);assert.equal(definition.words.length,5);
   for(const w of definition.words)assert.equal(normalizeAnswer(w.text),normalizeAnswer(w.stressed));
   for(const exercise of definition.exercises){
@@ -73,7 +73,7 @@ test('finishing both lessons counts each once; results identify the lesson and o
  const saved:NativeStats[]=[];const tracker=createStatsTracker(emptyStats(),s=>saved.push(s),()=>new Date(2026,9,18,12));
  const before={...initialProgress(),index:4,attempts:1,results:[true,true,true,true],feedback:'correct' as const};
  const after=progressReducer(before,{type:'continue'});
- for(const definition of nativeLessons){
+ for(const definition of [cafeLesson,introductionsLesson]){
   tracker.transition(before,after,{type:'continue'},definition.id);
   tracker.transition(before,after,{type:'continue'},definition.id);
  }
