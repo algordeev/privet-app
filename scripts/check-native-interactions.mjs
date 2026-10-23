@@ -384,7 +384,8 @@ try{
   assert.equal((await stored(CYRILLIC_KEY)).status,'completed');
   assert.deepEqual(await rewardSnapshot(),before,'Quick start must not change lesson progress, stats, hearts, XP, gems or streaks');
   assert.ok(await evaluate(()=>document.querySelector('.native-quick-scroll').textContent.includes('You don’t need to memorize everything.')));
-  await click('.native-quick-actions .native-secondary','Back to home');assert.ok(await evaluate(()=>!!document.querySelector('.native-quick-card.is-collapsed')),'Completed quick start keeps its compact card');await capture(`completed-card-${viewport.width}`);await click('#native-quick-open','Review');
+  assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.native-quick-actions button')].map(button=>({label:button.textContent.replace('→','').trim(),primary:button.classList.contains('teal')}))),[{label:'Start Lesson 1',primary:true},{label:'Go back home',primary:false}]);
+  await click('.native-quick-actions .native-text-button','Go back home');assert.ok(await evaluate(()=>!!document.querySelector('.native-quick-card.is-collapsed')),'Completed quick start keeps its compact card');await capture(`completed-card-${viewport.width}`);await click('#native-quick-open','Review');
   assert.ok(await evaluate(()=>document.querySelector('.native-quick-progress').textContent.includes('Page 1')));
   await click('[aria-label="Back to home"]');assert.equal((await stored(CYRILLIC_KEY)).status,'completed');
   await click('#native-quick-open');for(let n=0;n<3;n++)await click('.native-quick-actions .button','Continue');
