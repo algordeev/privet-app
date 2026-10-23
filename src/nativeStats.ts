@@ -1,3 +1,4 @@
+import {validFirstLessonResult} from './firstRun.ts';
 import {lessonById} from './lessons.ts';
 import {PRODUCT} from './config.ts';
 import {lessonXp,type Action,type Progress} from './engine.ts';
@@ -6,7 +7,7 @@ import type {Saved} from './session.ts';
 export const NATIVE_STATS_KEY=`${PRODUCT.storageKey}-native-stats`;
 export const GEM_RULES={finish:5,perfect:5,streakWeek:10,refill:20,freeze:30,maxFreezes:2} as const;
 export type GemBreakdown={finish:number;perfect:number;streakWeek:number};
-export type NativeStats={version:3;days:Record<string,number>;xp:Record<string,number>;earlierFinishes:number;latest:{day:string|null;firstTry:number;lessonId?:string;gemAward?:GemBreakdown}|null;gems:{balance:number;freezes:number;awarded:Record<string,string[]>;milestones:string[];awards:Record<string,Record<string,GemBreakdown>>};frozen:string[]};
+export type NativeStats={version:3;onboardingAwarded?:true;days:Record<string,number>;xp:Record<string,number>;earlierFinishes:number;latest:{day:string|null;firstTry:number;lessonId?:string;gemAward?:GemBreakdown}|null;gems:{balance:number;freezes:number;awarded:Record<string,string[]>;milestones:string[];awards:Record<string,Record<string,GemBreakdown>>};frozen:string[]};
 const emptyGems=()=>({balance:0,freezes:0,awarded:{},milestones:[],awards:{}});
 export const emptyStats=():NativeStats=>({version:3,days:{},xp:{},earlierFinishes:0,latest:null,gems:emptyGems(),frozen:[]});
 export function localDay(date:Date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;}
@@ -19,7 +20,7 @@ function validGems(g:any){return !!g&&Number.isSafeInteger(g.balance)&&g.balance
 export function restoreStats(raw:string|null,legacy?:Saved['completion']):NativeStats{
  if(raw!==null){try{const s=JSON.parse(raw);const validLatest=(s:any)=>s.latest===null||(s.latest&&Number.isInteger(s.latest.firstTry)&&s.latest.firstTry>=0&&s.latest.firstTry<=5&&(s.latest.lessonId===undefined||lessonIds.includes(s.latest.lessonId))&&(s.latest.gemAward===undefined||validGemBreakdown(s.latest.gemAward))&&(s.latest.day===null?s.earlierFinishes===1:typeof s.latest.day==='string'&&validDay(s.latest.day)&&Object.hasOwn(s.days,s.latest.day)));const validBase=(s:any)=>validCounts(s.days)&&[0,1].includes(s.earlierFinishes)&&validLatest(s);
   if((s?.version===1||s?.version===2)&&validBase(s)&&(s.version===1||validCounts(s.xp)))return {...s,version:3,xp:s.version===1?{}:s.xp,gems:emptyGems(),frozen:[]};
-  if(s?.version===3&&validBase(s)&&validCounts(s.xp)&&validGems(s.gems)&&Array.isArray(s.frozen)&&s.frozen.every((day:any)=>validDay(day))&&new Set(s.frozen).size===s.frozen.length)return s;
+  if(s?.version===3&&(s.onboardingAwarded===undefined||s.onboardingAwarded===true)&&validBase(s)&&validCounts(s.xp)&&validGems(s.gems)&&Array.isArray(s.frozen)&&s.frozen.every((day:any)=>validDay(day))&&new Set(s.frozen).size===s.frozen.length)return s;
  }catch{/* Ignore malformed local storage. */}}
  const stats=emptyStats();if(legacy?.results?.length===5&&legacy.results.every(r=>typeof r==='boolean')){stats.earlierFinishes=1;stats.latest={day:null,firstTry:legacy.results.filter(Boolean).length};}return stats;
 }
@@ -72,4 +73,11 @@ export function createStatsTracker(initial:NativeStats,save:(stats:NativeStats)=
   },
   reset(){recorded.clear();update(()=>emptyStats());},
  };
+}
+
+// The durable receipt and rewards are saved in one statistics snapshot. Replay
+// and a reopened completion cannot mint another onboarding award.
+export function recordOnboardingFinish(stats:NativeStats,progress:Progress,date:Date):NativeStats{
+ if(stats.onboardingAwarded||!validFirstLessonResult(progress))return stats;
+ return {...recordFinish(stats,progress.results,date,'cafe',lessonXp(progress,5)),onboardingAwarded:true};
 }
