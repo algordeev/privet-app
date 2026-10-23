@@ -3,15 +3,16 @@ export const lesson:LessonDefinition={
  "id": "studies",
  "number": "07",
  "title": "Study and work",
- "description": "Meet a classmate and talk about where you study or work.",
+ "description": "Meet Anna’s classmate, ask about study and work, and say where you work.",
  "icon": "▱",
  "motivationTags": [
   "Studies",
   "Conversations"
  ],
  "skills": [
-  "say where you study",
-  "ask about someone’s work"
+  "ask where a peer studies",
+  "ask where a peer works",
+  "say where you work"
  ],
  "prerequisiteIds": [
   "making-plans"
@@ -19,17 +20,17 @@ export const lesson:LessonDefinition={
  "words": [
   {
    "id": "study",
-   "text": "Я учусь.",
-   "stressed": "Я учу́сь.",
-   "pronunciation": "ya u-CHOOS",
-   "meaning": "I study."
+   "text": "Я учусь в университете.",
+   "stressed": "Я учу́сь в университе́те.",
+   "pronunciation": "ya u-CHOOS v u-nee-ver-see-TYE-te",
+   "meaning": "I study at university."
   },
   {
    "id": "university",
-   "text": "в университете",
-   "stressed": "в университе́те",
-   "pronunciation": "v u-nee-ver-see-TYE-te",
-   "meaning": "at university"
+   "text": "Где ты учишься?",
+   "stressed": "Где ты у́чишься?",
+   "pronunciation": "gdye ty OO-cheesh-sya",
+   "meaning": "Where do you study? (informal)"
   },
   {
    "id": "work",
@@ -40,110 +41,114 @@ export const lesson:LessonDefinition={
   },
   {
    "id": "home",
-   "text": "дома",
-   "stressed": "до́ма",
-   "pronunciation": "DO-ma",
-   "meaning": "at home"
+   "text": "Я работаю дома.",
+   "stressed": "Я рабо́таю до́ма.",
+   "pronunciation": "ya ra-BO-ta-yu DO-ma",
+   "meaning": "I work at home."
   },
   {
    "id": "you",
-   "text": "А ты?",
-   "stressed": "А ты?",
-   "pronunciation": "a ty",
-   "meaning": "And you? (informal)"
+   "text": "А я работаю.",
+   "stressed": "А я рабо́таю.",
+   "pronunciation": "a ya ra-BO-ta-yu",
+   "meaning": "And I work."
   }
  ],
  "exercises": [
   {
    "id": "discover",
    "kind": "vocabulary",
-   "title": "A new classmate.",
-   "instruction": "Meet a classmate and talk about where you study or work. Explore these five expressions before you try them.",
-   "prompt": "Я учусь.",
+   "title": "Anna introduces Alex.",
+   "instruction": "You’re visiting Anna on campus and meeting her classmate Alex. You work at home. Explore phrases for exchanging that information.",
+   "prompt": "Я учусь в университете.",
    "answer": "ready",
-   "review": "Study and work expressions",
-   "success": "You have the expressions for this visit. Let’s put them to use."
-  },
-  {
-   "id": "meaning",
-   "kind": "choice",
-   "wordId": "home",
-   "title": "Where do you work?",
-   "instruction": "Choose the meaning of дома",
-   "prompt": "дома",
-   "choices": [
-    "at home",
-    "at university",
-    "in the morning"
-   ],
-   "answer": "at home",
-   "review": "дома → at home",
-   "success": "Yes—дома means “at home”.",
-   "retryFeedback": "Think of the place where you live, rather than a school or a time of day.",
-   "hint": "Look at the word in the first step and connect it to this situation."
-  },
-  {
-   "id": "sentence",
-   "kind": "sentence",
-   "title": "Your university.",
-   "instruction": "Build “I study at university.”",
-   "prompt": "Я учусь в университете",
-   "translation": "I study at university.",
-   "tokens": [
-    "университете",
-    "Я",
-    "в",
-    "учусь"
-   ],
-   "answer": "Я учусь в университете",
-   "review": "Я учусь в университете → I study at university.",
-   "success": "That works: Я учусь в университете. I study at university.",
-   "retryFeedback": "The words are right; try a different order for this message.",
-   "hint": "Say who, then the action, then the two-word place phrase.",
-   "pronunciationGuide": "Я · ya / учу́сь · u-CHOOS / в университе́те · v u-nee-ver-see-TYE-te"
-  },
-  {
-   "id": "type",
-   "kind": "typed",
-   "title": "Working from home.",
-   "instruction": "Type “at home” in Russian. The letter buttons are here if you need them.",
-   "prompt": "дома",
-   "translation": "at home",
-   "letters": [
-    "м",
-    "а",
-    "д",
-    "о"
-   ],
-   "answer": "дома",
-   "review": "дома → at home",
-   "success": "Yes: дома means “at home”. A useful word for this story.",
-   "retryFeedback": "This word tells where, not what you do. Try its four letters again.",
-   "hint": "This short place word begins with a d sound."
+   "review": "Study questions, work questions, and working at home",
+   "success": "You can ask about Alex’s studies and work, and explain your own working day."
   },
   {
    "id": "exchange",
    "kind": "choice",
    "title": "Different days, a new connection.",
-   "instruction": "Your classmate studies at university. You work. What do you say?",
+   "instruction": "Alex is a student. You work. Give a short contrasting reply about yourself.",
    "prompt": "Я учусь в университете. А ты?",
-   "exchange": {
-    "speaker": "CLASSMATE",
-    "text": "Я учусь в университете. А ты?",
-    "meaning": "I study at university. And you?"
-   },
    "choices": [
     "А я работаю.",
     "До завтра!",
-    "Хлеб, пожалуйста."
+    "Где ты работаешь?"
    ],
    "answer": "А я работаю.",
    "review": "А я работаю. → And I work.",
-   "success": "А я работаю. — “And I work.” Here, А introduces a contrast with your classmate.",
-   "retryFeedback": "Your classmate asks about you. Choose the reply that describes what you do.",
-   "hint": "Use the work expression from My day. The short word А introduces a contrast."
+   "success": "You told Alex what you do. А makes a natural contrast with being a student.",
+   "retryFeedback": "Alex has asked about you. Answer before asking another question.",
+   "hint": "Reuse the work statement from My day, with the short contrast word at the start.",
+   "exchange": {
+    "speaker": "ALEX",
+    "text": "Я учусь в университете. А ты?",
+    "meaning": "I study at university. And you?"
+   }
+  },
+  {
+   "id": "sentence",
+   "kind": "sentence",
+   "title": "Ask about studies.",
+   "instruction": "Practise a question for a peer. Put “where” first, then “you”, then the study verb.",
+   "prompt": "Где ты учишься?",
+   "translation": "Where do you study?",
+   "answer": "Где ты учишься?",
+   "tokens": [
+    "учишься?",
+    "Где",
+    "ты"
+   ],
+   "review": "Где ты учишься? → Where do you study?",
+   "success": "You can ask a peer where they study, not just introduce yourself.",
+   "retryFeedback": "Use the requested question model: place, person, then activity.",
+   "hint": "Start with the same “where” word you used to ask about the metro.",
+   "pronunciationGuide": "Где · gdye / ты · ty / у́чишься · OO-cheesh-sya"
+  },
+  {
+   "id": "meaning",
+   "kind": "sentence",
+   "title": "A similar question about work.",
+   "instruction": "Now ask where someone works, using the same three-part model.",
+   "prompt": "Где ты работаешь?",
+   "translation": "Where do you work?",
+   "answer": "Где ты работаешь?",
+   "tokens": [
+    "ты",
+    "работаешь?",
+    "Где"
+   ],
+   "review": "Где ты работаешь? → Where do you work?",
+   "success": "You changed the activity while keeping a useful question pattern.",
+   "retryFeedback": "Keep the question word first. This time, choose the order for asking about work.",
+   "hint": "The “where” and “you” words stay in place; the last word is about work.",
+   "pronunciationGuide": "Где · gdye / ты · ty / рабо́таешь · ra-BO-ta-yesh"
+  },
+  {
+   "id": "work-place",
+   "kind": "choice",
+   "title": "Your turn to answer.",
+   "instruction": "Alex asks where you work. Tell him you work at home.",
+   "prompt": "Где ты работаешь?",
+   "choices": [
+    "А я работаю.",
+    "Я учусь в университете.",
+    "Я работаю дома."
+   ],
+   "answer": "Я работаю дома.",
+   "review": "Я работаю дома. → I work at home.",
+   "success": "Alex now knows both what you do and where. You’ve asked questions and answered one, too.",
+   "retryFeedback": "The question asks where. Choose a work reply that includes a place.",
+   "hint": "Look for the work statement with the home word from the discovery step.",
+   "exchange": {
+    "speaker": "ALEX",
+    "text": "Где ты работаешь?",
+    "meaning": "Where do you work?"
+   }
   }
  ],
- "summary": "You said you study at university, recognized at home, and asked a peer where they work.",
- "completionTip": "Где ты работаешь? is informal; use it with a peer, not a stranger you address formally."
+ "summary": "You contrasted work with studying, built questions about study and work, and said you work at home.",
+ "completionTip": "With a peer, try Где ты учишься? or Где ты работаешь? These use informal ты.",
+ "contentRevision": 2
 };

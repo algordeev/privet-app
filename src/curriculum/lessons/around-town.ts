@@ -3,7 +3,7 @@ export const lesson:LessonDefinition={
  "id": "around-town",
  "number": "03",
  "title": "Around town",
- "description": "Find the metro with help from a passer-by.",
+ "description": "Ask a local about the metro, follow a direction, and thank them.",
  "icon": "⌖",
  "motivationTags": [
   "Travel"
@@ -56,78 +56,79 @@ export const lesson:LessonDefinition={
   {
    "id": "discover",
    "kind": "vocabulary",
-   "title": "A station around the corner.",
-   "instruction": "Find the metro with help from a passer-by. Explore these five expressions before you try them.",
+   "title": "One question at a street corner.",
+   "instruction": "You need the metro. A local can help with a short answer. Explore the question and three directions; Спасибо is a familiar thank-you.",
    "prompt": "Где метро?",
    "answer": "ready",
-   "review": "Around town expressions",
-   "success": "You have the expressions for this visit. Let’s put them to use."
-  },
-  {
-   "id": "meaning",
-   "kind": "choice",
-   "wordId": "right",
-   "title": "Right or left?",
-   "instruction": "Choose the meaning of Направо.",
-   "prompt": "Направо.",
-   "choices": [
-    "To the left.",
-    "To the right.",
-    "Straight ahead."
-   ],
-   "answer": "To the right.",
-   "review": "Направо. → To the right.",
-   "success": "Yes—Направо. means “To the right.”.",
-   "retryFeedback": "Picture the turn: one direction goes right and the other goes left.",
-   "hint": "Look at the word in the first step and connect it to this situation."
+   "review": "Asking about the metro and recognizing directions",
+   "success": "You have a question to ask and directions to listen for. Time to find your way."
   },
   {
    "id": "sentence",
    "kind": "sentence",
-   "title": "Ask for the metro.",
-   "instruction": "Build “Where is the metro?”",
-   "prompt": "Где метро",
+   "title": "Ask before you turn.",
+   "instruction": "Ask the local where the metro is. Start with the question word.",
+   "prompt": "Где метро?",
    "translation": "Where is the metro?",
+   "answer": "Где метро?",
    "tokens": [
-    "метро",
+    "метро?",
     "Где"
    ],
-   "answer": "Где метро",
-   "review": "Где метро → Where is the metro?",
-   "success": "That works: Где метро. Where is the metro?",
-   "retryFeedback": "The words are right; try a different order for this message.",
-   "hint": "Ask where first, then name the place.",
+   "review": "Где метро? → Where is the metro?",
+   "success": "You’ve asked for the place you need. A short question is enough here.",
+   "retryFeedback": "For this model, put the question word first and the place second.",
+   "hint": "Begin with the word meaning “where”, then name the place.",
    "pronunciationGuide": "Где · gdye / метро́ · meet-RO"
+  },
+  {
+   "id": "meaning",
+   "kind": "choice",
+   "title": "The local points right.",
+   "instruction": "The local answers Направо. What should you do?",
+   "prompt": "Направо.",
+   "choices": [
+    "Turn left.",
+    "Turn right.",
+    "Keep going straight."
+   ],
+   "answer": "Turn right.",
+   "review": "Направо. → To the right.",
+   "success": "You understood the turn the local meant. Налево would send you left instead.",
+   "retryFeedback": "Keep the three directions separate: a turn right, a turn left, or no turn.",
+   "hint": "This is a turn, not straight ahead. Its beginning is на-пра…",
+   "wordId": "right"
   },
   {
    "id": "exchange",
    "kind": "choice",
-   "title": "A helpful passer-by.",
-   "instruction": "Your directions are clear—thank the person who helped.",
-   "prompt": "Метро? Прямо.",
-   "exchange": {
-    "speaker": "PASSER-BY",
-    "text": "Метро? Прямо.",
-    "meaning": "The metro? Straight ahead."
-   },
+   "title": "A little thanks, then off you go.",
+   "instruction": "The local has answered your question. Thank them before you leave.",
+   "prompt": "Направо.",
    "choices": [
     "Спасибо!",
-    "Пока!",
-    "Меня зовут Анна."
+    "А тебя?",
+    "Сколько стоит?"
    ],
    "answer": "Спасибо!",
-   "review": "Метро? Прямо. → Спасибо!",
-   "success": "Your directions are clear—thank the person who helped. Спасибо!",
-   "retryFeedback": "A thank-you fits after someone gives you directions.",
-   "hint": "Choose a reply that fits the invitation or question, rather than starting a new topic."
+   "review": "Thanking someone for directions: Спасибо!",
+   "success": "You acknowledged the help. Now you can head towards the metro.",
+   "retryFeedback": "You already have the direction; you don’t need a name or a price.",
+   "hint": "Think of the expression you used when the barista handed over your drink.",
+   "exchange": {
+    "speaker": "LOCAL",
+    "text": "Направо.",
+    "meaning": "To the right."
+   }
   },
   {
    "id": "type",
    "kind": "typed",
-   "title": "Keep going straight.",
-   "instruction": "Type “Straight ahead!” in Russian. The letter buttons are here if you need them.",
+   "title": "Another useful direction.",
+   "instruction": "Write the short Russian word. Use the letter buttons or your keyboard.",
+   "translation": "straight ahead",
    "prompt": "прямо",
-   "translation": "Straight ahead!",
+   "answer": "прямо",
    "letters": [
     "м",
     "о",
@@ -135,13 +136,13 @@ export const lesson:LessonDefinition={
     "я",
     "р"
    ],
-   "answer": "прямо",
-   "review": "прямо → Straight ahead!",
-   "success": "Yes: прямо means “Straight ahead!”. A useful word for this story.",
-   "retryFeedback": "The direction is one word. Listen again or check its letters.",
-   "hint": "Remember the direction that takes you ahead, without turning."
+   "review": "Прямо. → Straight ahead.",
+   "success": "You remembered the direction for continuing without a turn.",
+   "retryFeedback": "Check the five letters. The direction starts with a p sound.",
+   "hint": "This direction means no left or right turn. Its first two letters are пр."
   }
  ],
- "summary": "You asked where the metro is, recognized three directions, and thanked a passer-by.",
- "completionTip": "Try Где…? with a place you need to find."
+ "summary": "You asked where the metro is, interpreted a right turn, thanked a local, and recalled straight ahead.",
+ "completionTip": "Try Где метро? when you need the metro. The short question is ordinary conversational Russian.",
+ "contentRevision": 2
 };

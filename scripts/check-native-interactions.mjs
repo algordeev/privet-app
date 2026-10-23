@@ -50,6 +50,7 @@ try{
  const {emptyStats,NATIVE_STATS_KEY,localDay}=await server.ssrLoadModule('/src/nativeStats.ts');
  const {SUBSCRIPTION_KEY,PLUS_MONTHLY_PRICE}=await server.ssrLoadModule('/src/subscription.ts');
  const {CYRILLIC_KEY}=await server.ssrLoadModule('/src/cyrillicProgress.ts');
+ const {legacyLesson}=await server.ssrLoadModule('/src/curriculum/compatibility.ts');
  const {CYRILLIC,contextualLetters}=await server.ssrLoadModule('/src/cyrillic.ts');
  profile=await mkdtemp(join(tmpdir(),'privet-native-checks-'));
  chrome=spawn(executable,['--headless=new','--no-first-run','--no-default-browser-check','--remote-debugging-port=0',`--user-data-dir=${profile}`,'about:blank'],{stdio:'ignore'});
@@ -235,7 +236,7 @@ try{
   assert.equal(await evaluate(()=>document.querySelector('.native-app').scrollWidth<=innerWidth),true,'native shell fits viewport');
   // Cover every exercise layout, not just the meaning/paused screens above.
   for(const definition of nativeLessons){for(let index=0;index<definition.exercises.length;index++){
-   const snapshot=freshSession();snapshot.progress.index=index;snapshot.progress.results=Array(index).fill(true);
+   const snapshot={...freshSession(),...(definition.contentRevision?{contentRevision:definition.contentRevision}:{})};snapshot.progress.index=index;snapshot.progress.results=Array(index).fill(true);
    await open({[sessionKey(definition)]:snapshot});await click(`#native-card-${definition.id} ~ .button`);
   }}
   await open();
@@ -331,6 +332,36 @@ try{
   await open();await connectAtHome();await click(`#native-card-${definition.id} ~ .button`);assert.deepEqual(await codes(),[6]);
   await click('[aria-label="Return to app home"]');assert.equal((await codes()).at(-1),4);
  }
+ // Editorial revision: complete each actual revised episode through the shared UI.
+ for(const definition of nativeLessons.slice(2)){
+  await open();await connectAtHome();await click(`#native-card-${definition.id} ~ .button`);
+  for(const exercise of definition.exercises){
+   assert.equal(await evaluate(()=>document.querySelector('.lesson-scroll h3').textContent),exercise.title);
+   if(exercise.kind==='vocabulary')for(let i=1;i<=definition.words.length;i++)await click(`.vocab-card:nth-child(${i}) .vocab-reveal`);
+   else if(exercise.kind==='choice')await click(`.choices .choice:nth-child(${exercise.choices.indexOf(exercise.answer)+1})`);
+   else if(exercise.kind==='sentence')for(const token of exercise.answer.split(' '))await click('.word-bank button',token);
+   else for(const letter of exercise.answer)await click('.letter-bank button',letter);
+   await click('.lesson-bottom .button','Check answer');assert.ok(await evaluate(()=>!!document.querySelector('.feedback.correct')));
+   await click('.lesson-bottom .button','Continue');
+  }
+  assert.deepEqual(await codes(),[6,1,6,1,6,1,6,1,6,1,3],`${definition.id}: semantic events only, final celebration once`);
+  const snapshot=await stored(sessionKey(definition));assert.equal(snapshot.contentRevision,2);assert.ok(snapshot.progress.complete);
+  assert.equal((await stored(savedKey(definition))).completion.contentRevision,2);
+ }
+ // An old saved answer keeps its exact question/input; Replay opts into v2 without losing Passed/best/rewards.
+ for(const definition of nativeLessons.slice(2)){
+  const legacy=legacyLesson(definition),index=legacy.exercises.findIndex(e=>e.kind==='sentence');
+  const old={...freshSession(),progress:{...freshSession().progress,index,results:Array(index).fill(true)},tokens:[legacy.exercises[index].tokens[0]]};
+  await open({[sessionKey(definition)]:old});await click(`#native-card-${definition.id} ~ .button`);
+  assert.equal(await evaluate(()=>document.querySelector('.lesson-scroll h3').textContent),legacy.exercises[index].title);
+  assert.deepEqual((await stored(sessionKey(definition))).tokens,old.tokens);assert.equal((await stored(sessionKey(definition))).contentRevision,1);
+  await open({},initialTime,true);await click(`#native-card-${definition.id} ~ .button`);assert.deepEqual((await stored(sessionKey(definition))).tokens,old.tokens);
+  await open({[sessionKey(definition)]:complete});await connectAtHome();await click(`#native-card-${definition.id} ~ .button`);
+  await click('.completion button','Replay the lesson');assert.equal(await evaluate(()=>document.querySelector('.lesson-scroll h3').textContent),definition.exercises[0].title);
+  assert.equal((await stored(sessionKey(definition))).contentRevision,2);assert.deepEqual(await codes(),[4,6]);
+  await click('[aria-label="Return to app home"]');assert.ok(await evaluate(id=>document.querySelector(`#native-card-${id}`).closest('.native-lesson-card').querySelector('.native-path-state').textContent==='Passed',definition.id));
+ }
+ console.log('PASS: six revised episodes complete via choice/typed/punctuated sentence UI, v1 resume/reload preserves input, replay selects v2, semantic BLE events and completion receipts remain intact.');
  // Latest finished practice can be lower without reducing the Home high score.
  const lowerResult={...complete,progress:{...complete.progress,results:[true,true,false,false,false]}};
  await open({[NATIVE_SESSION_KEY]:lowerResult,[savedKey(nativeLessons[0])]:{preferences:{stress:false,pronunciation:true},bestFirstTry:5,completion:{results:Array(5).fill(true),date:'2026-10-23'}}});

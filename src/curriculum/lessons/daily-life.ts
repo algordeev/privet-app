@@ -3,7 +3,7 @@ export const lesson:LessonDefinition={
  "id": "daily-life",
  "number": "05",
  "title": "My day",
- "description": "Tell Anna about a quiet morning and a busy evening.",
+ "description": "Tell Anna about morning coffee, work, and a relaxing evening.",
  "icon": "☀",
  "motivationTags": [
   "Conversations"
@@ -56,94 +56,94 @@ export const lesson:LessonDefinition={
   {
    "id": "discover",
    "kind": "vocabulary",
-   "title": "Morning to evening.",
-   "instruction": "Tell Anna about a quiet morning and a busy evening. Explore these five expressions before you try them.",
+   "title": "Coffee first. Then the day.",
+   "instruction": "Anna is asking about your routine. Explore two times of day and three everyday actions.",
    "prompt": "утром",
    "answer": "ready",
-   "review": "My day expressions",
-   "success": "You have the expressions for this visit. Let’s put them to use."
-  },
-  {
-   "id": "sentence",
-   "kind": "sentence",
-   "title": "Coffee before work.",
-   "instruction": "Build “In the morning I drink coffee.”",
-   "prompt": "Утром я пью кофе",
-   "translation": "In the morning I drink coffee.",
-   "tokens": [
-    "кофе",
-    "пью",
-    "Утром",
-    "я"
-   ],
-   "answer": "Утром я пью кофе",
-   "review": "Утром я пью кофе → In the morning I drink coffee.",
-   "success": "That works: Утром я пью кофе. In the morning I drink coffee.",
-   "retryFeedback": "The words are right; try a different order for this message.",
-   "hint": "Start with when, then who, then the action and drink.",
-   "pronunciationGuide": "У́тром · OO-tram / я · ya / пью · pyoo / ко́фе · KO-fyeh"
+   "review": "Morning and evening routines",
+   "success": "You can talk about morning, work, and a calmer evening. Anna has a question."
   },
   {
    "id": "meaning",
    "kind": "choice",
-   "wordId": "evening",
-   "title": "When do you unwind?",
-   "instruction": "Choose the meaning of вечером",
-   "prompt": "вечером",
+   "title": "Anna’s working day.",
+   "instruction": "Anna says Я работаю. What is she describing?",
+   "prompt": "Я работаю.",
    "choices": [
-    "in the morning",
-    "in the evening",
-    "tomorrow"
+    "Working.",
+    "Having coffee.",
+    "Relaxing."
    ],
-   "answer": "in the evening",
-   "review": "вечером → in the evening",
-   "success": "Yes—вечером means “in the evening”.",
-   "retryFeedback": "Think of the part of the day after work and before bedtime.",
-   "hint": "Look at the word in the first step and connect it to this situation."
+   "answer": "Working.",
+   "review": "Я работаю. → I work.",
+   "success": "You recognized Anna’s work statement. The same expression can describe your day.",
+   "retryFeedback": "Separate the action from a drink or a rest.",
+   "hint": "This is the activity many people do as their job.",
+   "wordId": "work"
   },
   {
-   "id": "type",
-   "kind": "typed",
-   "title": "An early start.",
-   "instruction": "Type “in the morning” in Russian. The letter buttons are here if you need them.",
-   "prompt": "утром",
-   "translation": "in the morning",
-   "letters": [
-    "р",
-    "м",
-    "у",
-    "о",
-    "т"
+   "id": "sentence",
+   "kind": "sentence",
+   "title": "Your morning coffee.",
+   "instruction": "Tell Anna your morning habit. Use the model that starts with Утром.",
+   "prompt": "Утром я пью кофе.",
+   "translation": "In the morning I drink coffee.",
+   "answer": "Утром я пью кофе.",
+   "tokens": [
+    "кофе.",
+    "пью",
+    "Утром",
+    "я"
    ],
-   "answer": "утром",
-   "review": "утром → in the morning",
-   "success": "Yes: утром means “in the morning”. A useful word for this story.",
-   "retryFeedback": "Think about the morning word from the first step. Check its ending.",
-   "hint": "Think of the time of day when your first coffee usually happens."
+   "review": "Утром я пью кофе. → In the morning I drink coffee.",
+   "success": "Anna knows how your morning starts. Coffee before the busy part of the day.",
+   "retryFeedback": "Other word orders can work in Russian; this model starts with the time of day.",
+   "hint": "Start with when, then who, then the action and the drink.",
+   "pronunciationGuide": "У́тром · OO-tram / я · ya / пью · pyoo / ко́фе · KO-fyeh"
   },
   {
    "id": "exchange",
    "kind": "choice",
-   "title": "Anna asks about later.",
-   "instruction": "Anna asks about your evening. Tell her you relax.",
+   "title": "And after work?",
+   "instruction": "Your evenings are for relaxing. Answer Anna about that part of your day.",
    "prompt": "А вечером?",
+   "choices": [
+    "Я работаю.",
+    "Я отдыхаю.",
+    "Я пью кофе."
+   ],
+   "answer": "Я отдыхаю.",
+   "review": "А вечером? — Я отдыхаю. → And in the evening? — I relax.",
+   "success": "Anna understands that your evening is time to unwind.",
+   "retryFeedback": "All three are activities, but you want the one for taking a rest.",
+   "hint": "Look for the expression about relaxing rather than working or drinking.",
    "exchange": {
     "speaker": "ANNA",
     "text": "А вечером?",
     "meaning": "And in the evening?"
-   },
-   "choices": [
-    "Я отдыхаю.",
-    "Спасибо!",
-    "Где метро?"
+   }
+  },
+  {
+   "id": "evening",
+   "kind": "sentence",
+   "title": "Put the evening into words.",
+   "instruction": "Make a full evening statement. Start with Вечером.",
+   "prompt": "Вечером я отдыхаю.",
+   "translation": "In the evening I relax.",
+   "answer": "Вечером я отдыхаю.",
+   "tokens": [
+    "отдыхаю.",
+    "Вечером",
+    "я"
    ],
-   "answer": "Я отдыхаю.",
-   "review": "А вечером? → Я отдыхаю.",
-   "success": "Anna asks about your evening. Tell her you relax. Я отдыхаю.",
-   "retryFeedback": "Anna asks about your evening activity, not your name or location.",
-   "hint": "Choose a reply that fits the invitation or question, rather than starting a new topic."
+   "review": "Вечером я отдыхаю. → In the evening I relax.",
+   "success": "You’ve described two parts of your day, from a morning coffee to an evening rest.",
+   "retryFeedback": "For this model, the time comes first, then the person and the activity.",
+   "hint": "Reuse the evening time word and the relaxing expression you just chose.",
+   "pronunciationGuide": "Ве́чером · VYE-che-ram / я · ya / отдыха́ю · at-dy-KHA-yu"
   }
  ],
- "summary": "You described a morning coffee, work, and relaxing in the evening.",
- "completionTip": "Try Утром я… to describe one thing you do each morning."
+ "summary": "You recognized a work statement and described morning coffee and evening relaxation.",
+ "completionTip": "Try Утром я… for a morning habit and Вечером я… for an evening one.",
+ "contentRevision": 2
 };

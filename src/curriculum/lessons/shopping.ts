@@ -3,7 +3,7 @@ export const lesson:LessonDefinition={
  "id": "shopping",
  "number": "04",
  "title": "At the shop",
- "description": "Buy bread at a small neighbourhood shop.",
+ "description": "Ask for bread, confirm your choice, and enquire about its price.",
  "icon": "▤",
  "motivationTags": [
   "Travel"
@@ -56,91 +56,91 @@ export const lesson:LessonDefinition={
   {
    "id": "discover",
    "kind": "vocabulary",
-   "title": "A loaf for lunch.",
-   "instruction": "Buy bread at a small neighbourhood shop. Explore these five expressions before you try them.",
-   "prompt": "Сколько стоит?",
+   "title": "A stop for bread.",
+   "instruction": "You’re at a small shop counter. Explore bread and the price question, with familiar words for being polite.",
+   "prompt": "хлеб",
    "answer": "ready",
-   "review": "At the shop expressions",
-   "success": "You have the expressions for this visit. Let’s put them to use."
+   "review": "Bread, a price question, and polite counter expressions",
+   "success": "You can name the bread and ask its cost. Let’s try the counter conversation."
+  },
+  {
+   "id": "sentence",
+   "kind": "sentence",
+   "title": "Start with the item.",
+   "instruction": "Ask for bread politely. Put the item first and the polite word second.",
+   "prompt": "Хлеб, пожалуйста.",
+   "translation": "Bread, please.",
+   "answer": "Хлеб, пожалуйста.",
+   "tokens": [
+    "пожалуйста.",
+    "Хлеб,"
+   ],
+   "review": "Хлеб, пожалуйста. → Bread, please.",
+   "success": "You made a polite request without needing a long sentence.",
+   "retryFeedback": "For this short request, name the item first. The comma stays with that word.",
+   "hint": "You already know the polite word from the café. Place it after the item.",
+   "pronunciationGuide": "Хлеб · khlyep / пожа́луйста · pa-ZHA-lu-sta"
+  },
+  {
+   "id": "exchange",
+   "kind": "choice",
+   "title": "The assistant checks your choice.",
+   "instruction": "The assistant points to a loaf. Confirm that this is what you want.",
+   "prompt": "Хлеб?",
+   "choices": [
+    "Да, спасибо.",
+    "Сколько стоит?",
+    "Вот, пожалуйста."
+   ],
+   "answer": "Да, спасибо.",
+   "review": "Confirming the bread: Да, спасибо.",
+   "success": "The assistant knows they have the right item. Your reply is polite, too.",
+   "retryFeedback": "First confirm the choice; asking the cost is a different step.",
+   "hint": "Begin with the short Russian word for “yes”, then add thanks.",
+   "exchange": {
+    "speaker": "SHOP ASSISTANT",
+    "text": "Хлеб?",
+    "meaning": "Bread?"
+   }
   },
   {
    "id": "meaning",
    "kind": "choice",
-   "wordId": "price",
-   "title": "Ask before you buy.",
-   "instruction": "Choose the meaning of Сколько стоит?",
-   "prompt": "Сколько стоит?",
+   "title": "One question before you buy.",
+   "instruction": "You’re pointing at the bread. Which question asks its price?",
+   "prompt": "хлеб",
    "choices": [
-    "Where is it?",
-    "How much does it cost?",
-    "What is your name?"
+    "Сколько стоит?",
+    "Где метро?",
+    "Как тебя зовут?"
    ],
-   "answer": "How much does it cost?",
+   "answer": "Сколько стоит?",
    "review": "Сколько стоит? → How much does it cost?",
-   "success": "Yes—Сколько стоит? means “How much does it cost?”.",
-   "retryFeedback": "This expression asks about money, not a location or a name.",
-   "hint": "Look at the word in the first step and connect it to this situation."
+   "success": "You asked about the cost of the bread. Understanding a number is a skill for another lesson.",
+   "retryFeedback": "Think about cost, rather than a location or a person’s name.",
+   "hint": "Choose the question about “how much”, not “where” or “what is your name”."
   },
   {
    "id": "type",
    "kind": "typed",
-   "title": "Bread on the list.",
-   "instruction": "Type “bread” in Russian. The letter buttons are here if you need them.",
-   "prompt": "хлеб",
+   "title": "Remember what you came for.",
+   "instruction": "Write the short Russian word. Use the letter buttons or your keyboard.",
    "translation": "bread",
+   "prompt": "хлеб",
+   "answer": "хлеб",
    "letters": [
     "е",
     "б",
     "х",
     "л"
    ],
-   "answer": "хлеб",
    "review": "хлеб → bread",
-   "success": "Yes: хлеб means “bread”. A useful word for this story.",
-   "retryFeedback": "This is the short word for bread. Check the breathy first letter.",
-   "hint": "Four letters: the first sound is the breathy kh."
-  },
-  {
-   "id": "exchange",
-   "kind": "choice",
-   "title": "The assistant checks.",
-   "instruction": "The assistant checks your choice. Confirm politely.",
-   "prompt": "Хлеб?",
-   "exchange": {
-    "speaker": "SHOP ASSISTANT",
-    "text": "Хлеб?",
-    "meaning": "Bread?"
-   },
-   "choices": [
-    "Да, спасибо.",
-    "Где метро?",
-    "Пока!"
-   ],
-   "answer": "Да, спасибо.",
-   "review": "Хлеб? → Да, спасибо.",
-   "success": "The assistant checks your choice. Confirm politely. Да, спасибо.",
-   "retryFeedback": "The assistant wants to know whether bread is what you want.",
-   "hint": "Choose a reply that fits the invitation or question, rather than starting a new topic."
-  },
-  {
-   "id": "sentence",
-   "kind": "sentence",
-   "title": "A small, polite order.",
-   "instruction": "Build “Bread, please.”",
-   "prompt": "Хлеб пожалуйста",
-   "translation": "Bread, please.",
-   "tokens": [
-    "пожалуйста",
-    "Хлеб"
-   ],
-   "answer": "Хлеб пожалуйста",
-   "review": "Хлеб пожалуйста → Bread, please.",
-   "success": "That works: Хлеб пожалуйста. Bread, please.",
-   "retryFeedback": "The words are right; try a different order for this message.",
-   "hint": "Name what you want, then add the polite word.",
-   "pronunciationGuide": "Хлеб · khlyep / пожа́луйста · pa-ZHA-lu-sta"
+   "success": "You can now recognize and write the item you asked for.",
+   "retryFeedback": "Check the four letters, especially the first: it is the breathy kh sound.",
+   "hint": "This word begins with х and ends with б."
   }
  ],
- "summary": "You asked a price, requested bread, and confirmed your purchase politely.",
- "completionTip": "At a counter, name an item and add пожалуйста."
+ "summary": "You requested bread politely, confirmed the item, and asked how much it costs.",
+ "completionTip": "At a counter, Хлеб, пожалуйста. makes a polite short request. Pointing at an item gives Сколько стоит? its context.",
+ "contentRevision": 2
 };

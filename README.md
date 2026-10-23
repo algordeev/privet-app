@@ -20,15 +20,19 @@ The native app and native browser preview use one canonical course. The public w
 | 01 · Café essentials | Greet, order tea, and say thank you. |
 | 02 · Nice to meet you | Introduce yourself, ask a name, and say goodbye. |
 | 03 · Around town | Ask where the metro is and understand simple directions. |
-| 04 · At the shop | Ask a price and buy bread politely. |
-| 05 · My day | Describe morning coffee, work, and an evening rest. |
+| 04 · At the shop | Request bread, confirm the item, and ask its price. |
+| 05 · My day | Describe morning coffee and evening rest; recognize a work statement. |
 | 06 · Making plans | Invite a friend for a walk and agree on tomorrow. |
-| 07 · Study and work | Say where you study and ask a peer where they work. |
-| 08 · A Russian weekend | Combine greetings and plans in a museum-and-tea conversation. |
+| 07 · Study and work | Ask about a peer’s studies/work and say where you work. |
+| 08 · A Russian weekend | Suggest a museum visit, show interest, and accept tea afterwards. |
 
 Each lesson has five exercises, its own saved session and completion summary. Later/completed cards are compact; no lesson is locked. Existing café/introduction IDs and storage keys are unchanged. A completed lesson stays Passed during unfinished replays; Continue practice resumes the current attempt without undoing the saved completion. Home shows the best first-submission score; results and Profile show the latest completed attempt. Older saved results initialize the best score, since overwritten history cannot be recovered.
 
 To add a lesson, create a declarative file in `src/curriculum/lessons/` using `LessonDefinition` from `types.ts`, then register it in `catalog.ts`. Give it a stable unique ID/number, vocabulary, five or six exercises, motivation tags, skills and valid earlier prerequisites. Home, next-lesson navigation, per-lesson persistence and statistics use the catalogue; no engine or screen edit is needed. Run the content, answer-safety and interaction checks before shipping.
+
+Lessons 03–08 use five-step episodes with different tasks: asking/interpreting directions; a counter request and price enquiry; two daily-routine statements; arranging and closing a walk invitation; reciprocal study/work questions; and a museum-and-tea conversation. All use the existing discovery, choice, sentence-building and typing components. Device pronunciation remains optional; these are not audio-only assessments.
+
+These lessons now carry `contentRevision: 2`. Unversioned saved attempts/results belong to revision 1 and finish/review against their original content. `compatibility.ts` applies only the frozen differences in `legacyPatches.ts`; six parallel lesson files are not maintained. This is necessary because saved attempts and review results are positional, and several revised tasks changed type or order. Replay/restart opts into revision 2, preserving Passed status, best scores and existing reward receipts. Session keys and café/introduction data are unchanged. Future content reordering must preserve the same revision guarantees; do not reinterpret old inputs as new questions.
 
 `curriculumForMotivation()` is a deterministic, prerequisite-respecting ranking extension point. The current prerequisite chain preserves the canonical order for every motivation. Future optional branches could be ranked by Travel, Conversations, Studies or Culture while retaining stable IDs/progress. Motivation currently neither personalizes the visible order nor hides or locks lessons.
 
@@ -130,6 +134,7 @@ Statistics use `privet-demo-v1-native-stats`; resumable sessions have separate k
 | `src/NativeApp.tsx`, `src/native.css`, `src/useNativeViewport.ts` | Native home/navigation, root ownership, safe areas and keyboard layout |
 | `src/curriculum/types.ts`, `catalog.ts`, `motivation.ts`, `lessons/*.ts` | Reusable content types, canonical catalogue, future recommendation ranking, and individual lesson data |
 | `src/lesson.ts`, `src/lessons.ts`, `src/engine.ts` | Compatibility exports and unchanged answer normalization/checking and reducer transitions |
+| `src/curriculum/compatibility.ts`, `legacyPatches.ts`, `display.ts` | Positional saved-content compatibility and native stress-mark presentation |
 | `src/CurriculumControllers.tsx` | One stable controller component per catalogue entry, shared speech and preferences |
 | `src/LessonPanel.tsx`, `src/useLesson.ts`, `src/session.ts` | Shared exercises, hints/feedback and native session persistence |
 | `src/NativeLessonSettings.tsx` | Immediate native learning-aid settings |
@@ -155,7 +160,7 @@ Answer normalization ignores case, stress accents, surrounding/repeated spaces a
 
 ## Verification
 
-Latest local app validation: **175 Node tests**, shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover lessons, replay, first-time welcome/lesson/offers/replay, Cyrillic reference, letter highlighting and answer concealment, audio-completion safeguards, rewards/Plus and mock BLE navigation. Mouse/touch/keyboard checks also cover repeated sentence words and saved-session restoration. The browser café content is unchanged; current shell checks retain the website layout and demo. An unsigned iOS Simulator build also passed (compile only). These are local automated checks with fake BLE/speech, not real-device, real-audio or GitHub CI verification.
+Latest local app validation: **182 Node tests**, shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover lessons, replay, first-time welcome/lesson/offers/replay, Cyrillic reference, letter highlighting and answer concealment, audio-completion safeguards, rewards/Plus and mock BLE navigation. Mouse/touch/keyboard checks also cover repeated sentence words and saved-session restoration. The browser café content is unchanged; current shell checks retain the website layout and demo. An unsigned iOS Simulator build also passed (compile only). These are local automated checks with fake BLE/speech, not real-device, real-audio or GitHub CI verification.
 
 The project owner reports real-iPhone discovery/connection/ACKs, disconnect/reconnect, navigation continuity, commands 1–4, lock/background retention and servo movement. New states and the latest thinking/hint/audio/replay changes still need hardware validation. No exact device/software versions, timing, range or endurance results were supplied. Earlier milestone checks are historical; the current [protocol checklist](docs/companion-ble.md#verification) distinguishes remaining tests.
 
