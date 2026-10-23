@@ -26,7 +26,7 @@ The native app and native browser preview use one canonical course. The public w
 | 07 · Study and work | Say where you study and ask a peer where they work. |
 | 08 · A Russian weekend | Combine greetings and plans in a museum-and-tea conversation. |
 
-Each lesson has five exercises, its own saved session and completion summary. Later/completed cards are compact; no lesson is locked. Existing café/introduction IDs and storage keys are unchanged.
+Each lesson has five exercises, its own saved session and completion summary. Later/completed cards are compact; no lesson is locked. Existing café/introduction IDs and storage keys are unchanged. A completed lesson stays Passed during unfinished replays; Continue practice resumes the current attempt without undoing the saved completion. Home shows the best first-submission score; results and Profile show the latest completed attempt. Older saved results initialize the best score, since overwritten history cannot be recovered.
 
 To add a lesson, create a declarative file in `src/curriculum/lessons/` using `LessonDefinition` from `types.ts`, then register it in `catalog.ts`. Give it a stable unique ID/number, vocabulary, five or six exercises, motivation tags, skills and valid earlier prerequisites. Home, next-lesson navigation, per-lesson persistence and statistics use the catalogue; no engine or screen edit is needed. Run the content, answer-safety and interaction checks before shipping.
 
@@ -155,7 +155,7 @@ Answer normalization ignores case, stress accents, surrounding/repeated spaces a
 
 ## Verification
 
-Latest local app validation: **173 Node tests**, shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover lessons, replay, first-time welcome/lesson/offers/replay, Cyrillic reference, letter highlighting and answer concealment, audio-completion safeguards, rewards/Plus and mock BLE navigation. Mouse/touch/keyboard checks also cover repeated sentence words and saved-session restoration. The browser café content is unchanged; current shell checks retain the website layout and demo. An unsigned iOS Simulator build also passed (compile only). These are local automated checks with fake BLE/speech, not real-device, real-audio or GitHub CI verification.
+Latest local app validation: **175 Node tests**, shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover lessons, replay, first-time welcome/lesson/offers/replay, Cyrillic reference, letter highlighting and answer concealment, audio-completion safeguards, rewards/Plus and mock BLE navigation. Mouse/touch/keyboard checks also cover repeated sentence words and saved-session restoration. The browser café content is unchanged; current shell checks retain the website layout and demo. An unsigned iOS Simulator build also passed (compile only). These are local automated checks with fake BLE/speech, not real-device, real-audio or GitHub CI verification.
 
 The project owner reports real-iPhone discovery/connection/ACKs, disconnect/reconnect, navigation continuity, commands 1–4, lock/background retention and servo movement. New states and the latest thinking/hint/audio/replay changes still need hardware validation. No exact device/software versions, timing, range or endurance results were supplied. Earlier milestone checks are historical; the current [protocol checklist](docs/companion-ble.md#verification) distinguishes remaining tests.
 

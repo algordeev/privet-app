@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {nativeLessons,nextLesson,lessonById} from './curriculum/catalog.ts';
 import {curriculumForMotivation} from './curriculum/motivation.ts';
 import {normalizeAnswer,checkAnswer,initialProgress,progressReducer} from './engine.ts';
-import {freshSession,restoreSession,sessionKey,savedKey} from './session.ts';
+import {freshSession,restoreSession,sessionKey,savedKey,lessonPassed,readSaved,recordLessonCompletion} from './session.ts';
 import {emptyStats,recordFinish,restoreStats} from './nativeStats.ts';
 import {createPhysicalLessonEvents} from './physicalLessonEvents.ts';
 
@@ -66,4 +66,32 @@ test('new lessons retain accepted physical events, retry, final celebration and 
   assert.deepEqual(sent,Array.from({length:5},(_,i)=>[2,6,1,i===4?3:6]).flat());
   emit(p,p,{type:'continue'},l.id);assert.equal(sent.filter(c=>c===3).length,1);
  }
+});
+
+test('passed status survives unfinished and failed replays in every lesson, until local reset',()=>{
+ for(const definition of nativeLessons){
+  const saved={preferences:{stress:false,pronunciation:true},completion:{results:Array(definition.exercises.length).fill(true),date:'2026-10-23'}};
+  const completed={...initialProgress(),index:definition.exercises.length,results:saved.completion.results,complete:true};
+  assert.equal(lessonPassed(completed,saved),true);
+  const restarted=progressReducer(completed,{type:'reset'},definition.exercises);
+  assert.equal(restarted.complete,false);assert.equal(lessonPassed(restarted,saved),true);
+  const restored=restoreSession(JSON.stringify({...freshSession(),progress:restarted}),definition);
+  assert.deepEqual(restored.progress,restarted);assert.equal(lessonPassed(restored.progress,saved),true);
+  assert.equal(lessonPassed({...restarted,failed:true,hearts:0},saved),true);
+  assert.equal(lessonPassed(restarted,{preferences:saved.preferences}),false,'Explicit local reset clears completion');
+ }
+});
+
+test('best and latest scores stay separate across better/worse replays and old-save migration',()=>{
+ const descriptor=Object.getOwnPropertyDescriptor(globalThis,'localStorage');const storage=new Map<string,string>();
+ Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:(key:string)=>storage.get(key)??null}});
+ try{for(const definition of nativeLessons){
+  const completion=(score:number)=>({results:Array.from({length:definition.exercises.length},(_,i)=>i<score),date:'2026-10-23'});
+  storage.set(savedKey(definition),JSON.stringify({preferences:{stress:false,pronunciation:true},completion:completion(3)}));
+  let saved=readSaved(definition);assert.equal(saved.bestFirstTry,3,'Old latest score initializes best');
+  saved=recordLessonCompletion(saved,completion(5));assert.equal(saved.bestFirstTry,5);
+  saved=recordLessonCompletion(saved,completion(2));assert.equal(saved.bestFirstTry,5);assert.equal(saved.completion!.results.filter(Boolean).length,2);
+  storage.set(savedKey(definition),JSON.stringify(saved));assert.deepEqual(readSaved(definition),saved);
+  for(const invalid of [-1,99,'5',null]){storage.set(savedKey(definition),JSON.stringify({...saved,bestFirstTry:invalid}));const restored=readSaved(definition);assert.equal(restored.bestFirstTry,2);assert.deepEqual(restored.completion,saved.completion);}
+ }}finally{if(descriptor)Object.defineProperty(globalThis,'localStorage',descriptor);else Reflect.deleteProperty(globalThis,'localStorage');}
 });

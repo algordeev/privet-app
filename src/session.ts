@@ -5,7 +5,14 @@ import {cafeLesson,type LessonDefinition} from './lessons.ts';
 import {PRODUCT} from './config.ts';
 
 export type Preferences={stress:boolean;pronunciation:boolean};
-export type Saved={preferences:Preferences;completion?:{results:boolean[];date:string;hearts?:number;bestCombo?:number}};
+export type Saved={preferences:Preferences;bestFirstTry?:number;completion?:{results:boolean[];date:string;hearts?:number;bestCombo?:number}};
+// completion is the latest finished attempt; bestFirstTry is a separate high score.
+export function recordLessonCompletion(saved:Saved,completion:NonNullable<Saved['completion']>):Saved{
+ const previous=saved.completion?.results.filter(Boolean).length??0;
+ return {...saved,completion,bestFirstTry:Math.max(saved.bestFirstTry??0,previous,completion.results.filter(Boolean).length)};
+}
+// A practice attempt can restart without undoing a previously earned completion.
+export function lessonPassed(progress:Pick<Progress,'complete'>,saved:Saved){return progress.complete||!!saved.completion;}
 export const NATIVE_SESSION_KEY=`${PRODUCT.storageKey}-native-session`;
 export const sessionKey=(definition:LessonDefinition=cafeLesson)=>definition.id===cafeLesson.id?NATIVE_SESSION_KEY:`${NATIVE_SESSION_KEY}-${definition.id}`;
 export const savedKey=(definition:LessonDefinition=cafeLesson)=>definition.id===cafeLesson.id?PRODUCT.storageKey:`${PRODUCT.storageKey}-${definition.id}`;
@@ -59,6 +66,6 @@ export function readSaved(definition:LessonDefinition=cafeLesson):Saved {
   const validCompletion=Array.isArray(completion?.results)&&completion.results.length===definition.exercises.length&&completion.results.every((v:unknown)=>typeof v==='boolean')&&typeof completion.date==='string'&&
    (completion.hearts===undefined||Number.isInteger(completion.hearts)&&completion.hearts>=0&&completion.hearts<=MAX_HEARTS)&&
    (completion.bestCombo===undefined||Number.isInteger(completion.bestCombo)&&completion.bestCombo>=0&&completion.bestCombo<=definition.exercises.length);
-  return {preferences:{stress:data.preferences?.stress===true,pronunciation:data.preferences?.pronunciation!==false},completion:validCompletion?completion:undefined};
+  return {preferences:{stress:data.preferences?.stress===true,pronunciation:data.preferences?.pronunciation!==false},completion:validCompletion?completion:undefined,...(validCompletion?{bestFirstTry:Math.max(completion.results.filter(Boolean).length,Number.isInteger(data.bestFirstTry)&&data.bestFirstTry>=0&&data.bestFirstTry<=definition.exercises.length?data.bestFirstTry:0)}:{})};
  }catch{return {preferences:{stress:false,pronunciation:true}};}
 }

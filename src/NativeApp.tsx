@@ -36,14 +36,14 @@ export function NativeHome({controller,controllers,companion,activity,plus,onSta
   <section className="native-companion-greeting" aria-label="Your virtual companion"><div className="native-greeting-row"><NativeRobot companion={companion} size="greeting"/><PhysicalCompanionChip state={physicalState} onOpen={onPhysical} greeting={greeting}/></div></section>
   <CyrillicQuickCard onboarding={onboarding} onStart={onQuickStart}/>
   <div className="native-lesson-list">{controllers.map((item,index)=>{
-   const {progress,definition}=item;const started=lessonStarted(item);const total=definition.exercises.length;
-   const pathState=progress.complete?'Passed':controllers.slice(0,index).every(candidate=>candidate.progress.complete)?'Up next':'Available';
+   const {progress,definition,passed,saved}=item;const started=lessonStarted(item);const total=definition.exercises.length;
+   const pathState=passed?'Passed':controllers.slice(0,index).every(candidate=>candidate.passed)?'Up next':'Available';
    return <section className={`native-lesson-card ${pathState!=='Up next'?'native-lesson-compact':''}`} aria-labelledby={`native-card-${definition.id}`} key={definition.id}>
-    <div className="native-card-top"><span className="native-cup" aria-hidden="true">{definition.icon}</span><span className="native-lesson-meta">LESSON {definition.number} · ABOUT 3 MIN</span><span className={`native-path-state ${progress.complete?'passed':pathState==='Up next'?'up-next':''}`}>{pathState}</span></div>
+    <div className="native-card-top"><span className="native-cup" aria-hidden="true">{definition.icon}</span><span className="native-lesson-meta">LESSON {definition.number} · ABOUT 3 MIN</span><span className={`native-path-state ${passed?'passed':pathState==='Up next'?'up-next':''}`}>{pathState}</span></div>
     <h2 id={`native-card-${definition.id}`}>{definition.title}</h2><p>{definition.description}</p>
-    <div className="native-card-progress"><span>{progress.complete?'Lesson complete':started?`Step ${progress.index+1} of ${total}`:`${total} small steps`}</span>{started&&<span>{progress.complete?`${progress.results.filter(Boolean).length} / ${total} first try`:'Progress saved'}</span>}</div>
-    <progress max={total} value={progress.index} aria-label={`${definition.title} lesson progress`}/>
-    <button className="button teal" onClick={()=>onStart(definition.id)}>{progress.complete?'See your results':started?'Continue lesson':'Start lesson'}<span aria-hidden="true">→</span></button>
+    <div className="native-card-progress"><span>{passed?(progress.complete?'Lesson complete':`Practice · Step ${progress.index+1} of ${total}`):started?`Step ${progress.index+1} of ${total}`:`${total} small steps`}</span>{(started||passed)&&<span>{passed?`Best: ${Math.max(saved.bestFirstTry??saved.completion?.results.filter(Boolean).length??0,progress.complete?progress.results.filter(Boolean).length:0)}/${total}`:'Progress saved'}</span>}</div>
+    <progress max={total} value={passed?total:progress.index} aria-label={`${definition.title} lesson progress`}/>
+    <button className="button teal" onClick={()=>onStart(definition.id)}>{progress.complete?'See your results':passed?'Continue practice':started?'Continue lesson':'Start lesson'}<span aria-hidden="true">→</span></button>
    </section>;
   })}</div>
   <div className="native-home-footer"><p>Your progress stays on this iPhone.</p>{onSettings&&<button className="native-text-button" id="native-settings-open" onClick={onSettings}>Settings</button>}</div>
