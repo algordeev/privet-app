@@ -3,7 +3,7 @@ export const lesson:LessonDefinition={
  "id": "culture",
  "number": "08",
  "title": "A Russian weekend",
- "description": "Meet Anna at a museum, then plan tea after your visit.",
+ "description": "Plan a museum outing with Anna, enjoy the visit, and agree to tea afterwards.",
  "icon": "✦",
  "motivationTags": [
   "Culture",
@@ -58,94 +58,91 @@ export const lesson:LessonDefinition={
   {
    "id": "discover",
    "kind": "vocabulary",
-   "title": "A weekend with Anna.",
-   "instruction": "Meet Anna at a museum, then plan tea after your visit. Explore these five expressions before you try them.",
+   "title": "A small weekend plan.",
+   "instruction": "You and Anna want an outing, with time for a cup afterwards. Explore the museum words alongside familiar invitation and tea language.",
    "prompt": "музей",
    "answer": "ready",
-   "review": "A Russian weekend expressions",
-   "success": "You have the expressions for this visit. Let’s put them to use."
-  },
-  {
-   "id": "type",
-   "kind": "typed",
-   "title": "A place worth visiting.",
-   "instruction": "Type “museum” in Russian. The letter buttons are here if you need them.",
-   "prompt": "музей",
-   "translation": "museum",
-   "letters": [
-    "й",
-    "з",
-    "м",
-    "е",
-    "у"
-   ],
-   "answer": "музей",
-   "review": "музей → museum",
-   "success": "Yes: музей means “museum”. A useful word for this story.",
-   "retryFeedback": "This cultural place ends in the short y letter. Check the middle letters too.",
-   "hint": "A cultural place with five letters; the last is the short y letter."
+   "review": "A museum outing, interest, and tea afterwards",
+   "success": "You can suggest a place, show interest there, and make a small plan for afterwards."
   },
   {
    "id": "meaning",
    "kind": "choice",
-   "wordId": "interesting",
-   "title": "Something catches your eye.",
-   "instruction": "Choose the meaning of Интересно!",
-   "prompt": "Интересно!",
+   "title": "Suggest the outing.",
+   "instruction": "You want to suggest a museum visit to Anna. Which phrase proposes that activity?",
+   "prompt": "музей",
    "choices": [
-    "Interesting!",
-    "See you tomorrow!",
-    "How much is it?"
+    "Давай в музей!",
+    "Потом чай?",
+    "До завтра!"
    ],
-   "answer": "Interesting!",
-   "review": "Интересно! → Interesting!",
-   "success": "Yes—Интересно! means “Interesting!”.",
-   "retryFeedback": "This reaction shows curiosity about what you see, rather than saying goodbye.",
-   "hint": "Look at the word in the first step and connect it to this situation."
+   "answer": "Давай в музей!",
+   "review": "Давай в музей! → Let’s go to the museum!",
+   "success": "You proposed a place to visit together, using the invitation language from your walk with Alex.",
+   "retryFeedback": "One option suggests tea later, and another says goodbye. Choose the museum proposal.",
+   "hint": "Look for the invitation word followed by the place you want to visit."
   },
   {
    "id": "sentence",
    "kind": "sentence",
-   "title": "Tomorrow at the museum.",
-   "instruction": "Build “Let’s go to the museum tomorrow!”",
-   "prompt": "Давай в музей завтра",
+   "title": "Set it for tomorrow.",
+   "instruction": "Build the short informal proposal. Start with Давай, put the day next, and finish with в музей.",
+   "prompt": "Давай завтра в музей!",
    "translation": "Let’s go to the museum tomorrow!",
+   "answer": "Давай завтра в музей!",
    "tokens": [
+    "музей!",
     "завтра",
-    "музей",
     "Давай",
     "в"
    ],
-   "answer": "Давай в музей завтра",
-   "review": "Давай в музей завтра → Let’s go to the museum tomorrow!",
-   "success": "That works: Давай в музей завтра. Let’s go to the museum tomorrow!",
-   "retryFeedback": "The words are right; try a different order for this message.",
-   "hint": "Begin with the invitation; keep в directly before the place.",
-   "pronunciationGuide": "Дава́й · da-VAI / в музе́й · v mu-ZYEY / за́втра · ZAF-tra"
+   "review": "Давай завтра в музей! → Let’s go to the museum tomorrow!",
+   "success": "You reused tomorrow’s planning language for a new outing.",
+   "retryFeedback": "Other orders can be natural, but this model puts the day immediately after Давай.",
+   "hint": "Keep the short place phrase together at the end, after the day.",
+   "pronunciationGuide": "Дава́й · da-VAI / за́втра · ZAF-tra / в музе́й · v mu-ZYEY"
+  },
+  {
+   "id": "interest",
+   "kind": "choice",
+   "title": "Something catches your eye.",
+   "instruction": "During the visit, an exhibit catches your attention. Choose a short reaction showing interest.",
+   "prompt": "музей",
+   "choices": [
+    "Сколько стоит?",
+    "До завтра!",
+    "Интересно!"
+   ],
+   "answer": "Интересно!",
+   "review": "Интересно! → Interesting!",
+   "success": "You shared your interest with Anna. This is a reaction you can use beyond a museum, too.",
+   "retryFeedback": "You’re looking at an exhibit, not buying it or ending the visit.",
+   "hint": "Choose the reaction about finding something interesting."
   },
   {
    "id": "exchange",
    "kind": "choice",
-   "title": "A visit, then a cup.",
-   "instruction": "You accept both parts of Anna’s plan: a museum visit and tea.",
-   "prompt": "Привет! Давай в музей! Потом чай?",
-   "exchange": {
-    "speaker": "ANNA",
-    "text": "Привет! Давай в музей! Потом чай?",
-    "meaning": "Hi! Let’s go to the museum! Tea afterwards?"
-   },
+   "title": "The visit ends. The tea can begin.",
+   "instruction": "After the museum, Anna suggests tea. You’d like a cup too; accept her idea.",
+   "prompt": "Потом чай?",
    "choices": [
+    "Нет, спасибо.",
     "Да, давай!",
-    "Где ты работаешь?",
-    "Меня зовут Анна."
+    "До завтра!"
    ],
    "answer": "Да, давай!",
-   "review": "Привет! Давай в музей! Потом чай? → Да, давай!",
-   "success": "You accept both parts of Anna’s plan: a museum visit and tea. Да, давай!",
-   "retryFeedback": "Anna has offered a friendly plan. Choose a reply that accepts it.",
-   "hint": "Choose a reply that fits the invitation or question, rather than starting a new topic."
+   "review": "Потом чай? — Да, давай! → Tea afterwards? — Yes, let’s!",
+   "success": "You followed the outing through to a friendly plan for tea. Familiar café language has a new setting.",
+   "retryFeedback": "You want tea, so choose an acceptance rather than a refusal or goodbye.",
+   "hint": "Combine a yes with the informal acceptance you used with Alex.",
+   "exchange": {
+    "speaker": "ANNA",
+    "text": "Потом чай?",
+    "meaning": "Tea afterwards?"
+   }
   }
  ],
- "summary": "You understood a museum-and-tea invitation and combined earlier greetings, plans, and tomorrow in a conversation.",
- "completionTip": "Try planning a small outing with Давай… and finish with До завтра!"
+ "summary": "You suggested a museum outing, planned it for tomorrow, showed interest during the visit, and accepted tea afterwards.",
+ "completionTip": "For an informal outing, try Давай завтра в музей! Afterwards, Потом чай? is a friendly tea suggestion.",
+ "contentRevision": 2
 };

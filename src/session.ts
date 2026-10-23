@@ -5,7 +5,7 @@ import {cafeLesson,type LessonDefinition} from './lessons.ts';
 import {PRODUCT} from './config.ts';
 
 export type Preferences={stress:boolean;pronunciation:boolean};
-export type Saved={preferences:Preferences;bestFirstTry?:number;completion?:{results:boolean[];date:string;hearts?:number;bestCombo?:number}};
+export type Saved={preferences:Preferences;bestFirstTry?:number;completion?:{results:boolean[];date:string;contentRevision?:1|2;hearts?:number;bestCombo?:number}};
 // completion is the latest finished attempt; bestFirstTry is a separate high score.
 export function recordLessonCompletion(saved:Saved,completion:NonNullable<Saved['completion']>):Saved{
  const previous=saved.completion?.results.filter(Boolean).length??0;

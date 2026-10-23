@@ -3,7 +3,7 @@ export const lesson:LessonDefinition={
  "id": "making-plans",
  "number": "06",
  "title": "Making plans",
- "description": "Invite Alex for a walk and agree to meet tomorrow.",
+ "description": "Arrange a walk tomorrow with Alex and close the chat.",
  "icon": "↗",
  "motivationTags": [
   "Conversations",
@@ -33,9 +33,9 @@ export const lesson:LessonDefinition={
   },
   {
    "id": "walk",
-   "text": "Давай гулять!",
-   "stressed": "Дава́й гуля́ть!",
-   "pronunciation": "da-VAI gu-LYAT",
+   "text": "Давай погуляем!",
+   "stressed": "Дава́й погуля́ем!",
+   "pronunciation": "da-VAI pa-gu-LYA-yem",
    "meaning": "Let’s go for a walk! (informal)"
   },
   {
@@ -43,7 +43,7 @@ export const lesson:LessonDefinition={
    "text": "Давай!",
    "stressed": "Дава́й!",
    "pronunciation": "da-VAI",
-   "meaning": "Let’s! / Sure! (informal)"
+   "meaning": "Sure! / Let’s! (informal)"
   },
   {
    "id": "meet",
@@ -57,79 +57,62 @@ export const lesson:LessonDefinition={
   {
    "id": "discover",
    "kind": "vocabulary",
-   "title": "A walk with Alex.",
-   "instruction": "Invite Alex for a walk and agree to meet tomorrow. Explore these five expressions before you try them.",
-   "prompt": "сегодня",
+   "title": "A message from Alex.",
+   "instruction": "You and Alex are choosing something to do together. Explore a walk invitation, two days, and a friendly closing.",
+   "prompt": "Давай погуляем!",
    "answer": "ready",
-   "review": "Making plans expressions",
-   "success": "You have the expressions for this visit. Let’s put them to use."
-  },
-  {
-   "id": "meaning",
-   "kind": "choice",
-   "wordId": "today",
-   "title": "Today or tomorrow?",
-   "instruction": "Choose the meaning of сегодня",
-   "prompt": "сегодня",
-   "choices": [
-    "today",
-    "in the evening",
-    "tomorrow"
-   ],
-   "answer": "today",
-   "review": "сегодня → today",
-   "success": "Yes—сегодня means “today”.",
-   "retryFeedback": "This is the day you are living right now, not the next one.",
-   "hint": "Look at the word in the first step and connect it to this situation."
+   "review": "An informal walk invitation and tomorrow’s plan",
+   "success": "You have the pieces for a plan and a way to end the chat until tomorrow."
   },
   {
    "id": "exchange",
    "kind": "choice",
-   "title": "Alex has an idea.",
-   "instruction": "A short Давай! warmly accepts Alex’s informal invitation.",
-   "prompt": "Давай гулять завтра!",
-   "exchange": {
-    "speaker": "ALEX",
-    "text": "Давай гулять завтра!",
-    "meaning": "Let’s go for a walk tomorrow!"
-   },
+   "title": "Say yes to a walk.",
+   "instruction": "You like Alex’s idea. Accept the invitation without changing the day or ending the chat yet.",
+   "prompt": "Давай завтра погуляем!",
    "choices": [
+    "А сегодня?",
     "Давай!",
-    "Сколько стоит?",
-    "Меня зовут Анна."
+    "До завтра!"
    ],
    "answer": "Давай!",
-   "review": "Давай гулять завтра! → Давай!",
-   "success": "A short Давай! warmly accepts Alex’s informal invitation. Давай!",
-   "retryFeedback": "Alex suggests something you can do together. A brief acceptance is enough.",
-   "hint": "Choose a reply that fits the invitation or question, rather than starting a new topic."
+   "review": "Accepting an informal invitation: Давай!",
+   "success": "Alex knows you’re happy with the idea. That short reply is enough between friends.",
+   "retryFeedback": "One reply asks about today, and another closes the conversation. You want to accept first.",
+   "hint": "Choose the short acceptance, without an extra day or a goodbye.",
+   "exchange": {
+    "speaker": "ALEX",
+    "text": "Давай завтра погуляем!",
+    "meaning": "Let’s go for a walk tomorrow!"
+   }
   },
   {
    "id": "sentence",
    "kind": "sentence",
-   "title": "Agree on tomorrow.",
-   "instruction": "Build “Let’s go for a walk tomorrow!”",
-   "prompt": "Давай гулять завтра",
+   "title": "Suggest tomorrow’s walk.",
+   "instruction": "Make the invitation yourself. Use the order: Давай, then the day, then the activity.",
+   "prompt": "Давай завтра погуляем!",
    "translation": "Let’s go for a walk tomorrow!",
+   "answer": "Давай завтра погуляем!",
    "tokens": [
-    "завтра",
+    "погуляем!",
     "Давай",
-    "гулять"
+    "завтра"
    ],
-   "answer": "Давай гулять завтра",
-   "review": "Давай гулять завтра → Let’s go for a walk tomorrow!",
-   "success": "That works: Давай гулять завтра. Let’s go for a walk tomorrow!",
-   "retryFeedback": "The words are right; try a different order for this message.",
-   "hint": "Start with the invitation, add the activity, then the day.",
-   "pronunciationGuide": "Дава́й · da-VAI / гуля́ть · gu-LYAT / за́втра · ZAF-tra"
+   "review": "Давай завтра погуляем! → Let’s go for a walk tomorrow!",
+   "success": "You’ve suggested both the walk and the day. No grammar terms needed to use the phrase.",
+   "retryFeedback": "For this model, place the day between the invitation word and the activity.",
+   "hint": "The middle word is the day after today.",
+   "pronunciationGuide": "Дава́й · da-VAI / за́втра · ZAF-tra / погуля́ем · pa-gu-LYA-yem"
   },
   {
    "id": "type",
    "kind": "typed",
-   "title": "Keep the date.",
-   "instruction": "Type “tomorrow” in Russian. The letter buttons are here if you need them.",
-   "prompt": "завтра",
+   "title": "Keep the day in mind.",
+   "instruction": "Write the short Russian word. Use the letter buttons or your keyboard.",
    "translation": "tomorrow",
+   "prompt": "завтра",
+   "answer": "завтра",
    "letters": [
     "т",
     "а",
@@ -137,13 +120,35 @@ export const lesson:LessonDefinition={
     "р",
     "з"
    ],
-   "answer": "завтра",
    "review": "завтра → tomorrow",
-   "success": "Yes: завтра means “tomorrow”. A useful word for this story.",
-   "retryFeedback": "Remember the next-day word from the invitation. Check each letter.",
-   "hint": "Not today: the next day. It starts with a z sound."
+   "success": "You remembered the day of your walk with Alex.",
+   "retryFeedback": "Check the six letters. The word for tomorrow starts with з.",
+   "hint": "Not today: the next day. The first sound is z."
+  },
+  {
+   "id": "closing",
+   "kind": "choice",
+   "title": "Until tomorrow, then.",
+   "instruction": "The walk is agreed for tomorrow. Close the chat until then.",
+   "prompt": "Давай!",
+   "choices": [
+    "До завтра!",
+    "А сегодня?",
+    "Давай!"
+   ],
+   "answer": "До завтра!",
+   "review": "До завтра! → See you tomorrow!",
+   "success": "You finished the arrangement with a goodbye that matches your plan.",
+   "retryFeedback": "You’ve already accepted. Now choose a closing, rather than accepting again or changing the day.",
+   "hint": "Look for the expression meaning you’ll see Alex on the agreed day.",
+   "exchange": {
+    "speaker": "ALEX",
+    "text": "Давай!",
+    "meaning": "Sounds good!"
+   }
   }
  ],
- "summary": "You invited a friend for a walk, accepted a plan, and said see you tomorrow.",
- "completionTip": "Use Давай… with a friend or peer; it is informal."
+ "summary": "You accepted an invitation, suggested a walk tomorrow, recalled the day, and said see you tomorrow.",
+ "completionTip": "Давай завтра погуляем! is a useful invitation to one friend. Learn it as a whole phrase; Давай is informal.",
+ "contentRevision": 2
 };

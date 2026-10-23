@@ -179,7 +179,7 @@ try {
  for(const definition of (await server.ssrLoadModule('/src/curriculum/catalog.ts')).nativeLessons){
   function CurriculumLesson(){const controller=useLesson({persistSession:true,definition});return createElement(LessonPanel,{controller,native:true});}
   for(const [index,exercise] of definition.exercises.entries()){
-   storage.set(sessionKey(definition),JSON.stringify({...freshSession(),progress:{...freshSession().progress,index,results:Array(index).fill(true)}}));
+   storage.set(sessionKey(definition),JSON.stringify({...freshSession(),...(definition.contentRevision?{contentRevision:definition.contentRevision}:{}),progress:{...freshSession().progress,index,results:Array(index).fill(true)}}));
    const html=renderToStaticMarkup(createElement(CurriculumLesson));assert.ok(html.includes(exercise.title));assert.ok(html.includes(definition.title));assert.ok(html.includes('Open Cyrillic guide'));
   }
   storage.set(NATIVE_STATS_KEY,JSON.stringify({version:1,days:{'2020-01-01':1},earlierFinishes:0,latest:{day:'2020-01-01',firstTry:5,lessonId:definition.id}}));

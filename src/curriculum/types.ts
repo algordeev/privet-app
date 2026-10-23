@@ -8,6 +8,7 @@ export type Exercise = {
 };
 export type Motivation='Travel'|'Conversations'|'Studies'|'Culture';
 export type LessonDefinition={
+ contentRevision?:1|2;
  id:string;number:string;title:string;description:string;icon:string;
  motivationTags:readonly Motivation[];skills:readonly string[];prerequisiteIds:readonly string[];
  words:readonly Word[];exercises:readonly Exercise[];summary:string;completionTip:string;
