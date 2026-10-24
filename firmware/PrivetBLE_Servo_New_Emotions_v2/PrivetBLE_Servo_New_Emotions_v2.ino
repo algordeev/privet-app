@@ -201,6 +201,12 @@ static void updateServo(uint32_t now) {
 
     if (uint32_t(now - servoSettledAt) >= 250) {
       headServo.detach();
+
+      // detach() removes the pin from the GPIO matrix, so a plain
+      // digitalWrite() afterward is a no-op and leaves the signal line
+      // floating (picking up BLE antenna noise and twitching the servo).
+      // Re-claim the pin as a GPIO output before pulling it low.
+      pinMode(SERVO_PIN, OUTPUT);
       digitalWrite(SERVO_PIN, LOW);
       Serial.println(
         "[SERVO] Centered target; PWM released."
