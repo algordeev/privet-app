@@ -489,3 +489,10 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-lesson-compact > p { font-size:14px;line-height:1.5;margin-bottom:12px; }
 .native-app .native-lesson-compact .native-card-progress { margin-top:12px; }
 .native-app .native-lesson-compact > .button { min-height:44px;padding:10px 14px;margin-top:12px;font-size:15px; }
+
+/* Whole-word reading aids use the same native typeface and quiet secondary tone. */
+.native-app .native-example-reading,
+.native-app .native-russian-reading { display: block; font-family: inherit; font-size: 13px; font-weight: 400; line-height: 1.5; color: #586b50; overflow-wrap: anywhere; }
+.native-app .native-choice-copy { flex: 1; min-width: 0; }
+.native-app .native-choice-copy > .native-russian-reading { margin-top: 4px; }
+.native-app .exchange > .native-russian-reading { margin: -4px 0 8px; }

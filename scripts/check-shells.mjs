@@ -177,10 +177,14 @@ try {
  assert.ok(renderToStaticMarkup(createElement(Profile)).includes('<h2 id="native-result-title">Nice to meet you</h2>'));
  console.log('PASS: second lesson renders all five exercises, separate progress/results, matching greeting and profile title.');
  for(const definition of (await server.ssrLoadModule('/src/curriculum/catalog.ts')).nativeLessons){
-  function CurriculumLesson(){const controller=useLesson({persistSession:true,definition});return createElement(LessonPanel,{controller,native:true});}
+  function CurriculumLesson({help=true}={}){const controller=useLesson({persistSession:true,definition});controller.preferences={...controller.preferences,pronunciation:help};return createElement(LessonPanel,{controller,native:true});}
   for(const [index,exercise] of definition.exercises.entries()){
    storage.set(sessionKey(definition),JSON.stringify({...freshSession(),progress:{...freshSession().progress,index,results:Array(index).fill(true)}}));
    const html=renderToStaticMarkup(createElement(CurriculumLesson));assert.ok(html.includes(exercise.title));assert.ok(html.includes(definition.title));assert.ok(html.includes('Open Cyrillic guide'));
+   const readingCount=(exercise.choices??[]).filter(choice=>/[а-яё]/iu.test(choice)).length+(exercise.exchange?1:0);
+   assert.equal((html.match(/class="native-russian-reading"/g)??[]).length,readingCount,`${definition.id}/${exercise.id}: all visible Russian options/dialogue have readings`);
+   const withoutHelp=renderToStaticMarkup(createElement(CurriculumLesson,{help:false}));assert.ok(!withoutHelp.includes('native-russian-reading'));
+
   }
   storage.set(NATIVE_STATS_KEY,JSON.stringify({version:1,days:{'2020-01-01':1},earlierFinishes:0,latest:{day:'2020-01-01',firstTry:5,lessonId:definition.id}}));
   assert.ok(renderToStaticMarkup(createElement(Profile)).includes(`<h2 id="native-result-title">${definition.title}</h2>`));
@@ -224,10 +228,10 @@ try {
  function QuickStart(){const onboarding=useCyrillicProgress();const controller=useLesson();return createElement(NativeCyrillicQuickStart,{onboarding,speech:controller.speech,onClose:noOp,onLesson:noOp});}
  for(const [status,page] of [['started',0],['started',1],['started',2],['started',3],['completed',3]]){
   storage.set(CYRILLIC_KEY,JSON.stringify({version:1,status,page}));
-  const quick=renderToStaticMarkup(createElement(QuickStart));assert.ok(quick.includes('Cyrillic quick start'));assert.ok(!quick.includes('lesson-vitals'));assert.ok(!quick.includes('XP earned'));
+  const quick=renderToStaticMarkup(createElement(QuickStart));assert.ok(quick.includes('Cyrillic quick start'));assert.ok(!quick.includes('lesson-vitals'));assert.ok(!quick.includes('XP earned'));assert.ok(quick.includes('native-example-reading'));assert.ok(quick.includes(page===3&&status!=='completed'?'KO-fyeh':page===1?'vash':page===2?'pree-VYET':'AN-na'));
  }
  function Guide(){const controller=useLesson();return createElement(NativeAlphabetGuide,{definition:controller.definition,exercise:controller.exercise,speech:controller.speech,onListen:noOp,onClose:noOp});}
- const guide=renderToStaticMarkup(createElement(Guide));assert.ok(guide.includes('Cyrillic guide'));assert.ok(guide.includes('Current exercise'));assert.ok(guide.includes('See full alphabet'));assert.ok(guide.includes('Russian audio unavailable'));
+ const guide=renderToStaticMarkup(createElement(Guide));assert.ok(guide.includes('Cyrillic guide'));assert.ok(guide.includes('Current exercise'));assert.ok(guide.includes('See full alphabet'));assert.ok(guide.includes('Russian audio unavailable'));assert.ok(guide.includes('native-example-reading'));assert.ok(!website.includes('native-russian-reading'));assert.ok(!website.includes('native-example-reading'));
  storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));console.log('PASS: native-only optional Cyrillic card/pages and contextual guide render with accessible text/audio fallback; website excludes them.');
 
 
