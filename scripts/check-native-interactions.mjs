@@ -11,7 +11,7 @@ import {createServer} from 'vite';
 const executable=[process.env.PRIVET_CHROME_PATH,'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome','/usr/bin/chromium','/usr/bin/chromium-browser','/usr/bin/google-chrome',...[process.env.PROGRAMFILES,process.env['PROGRAMFILES(X86)'],process.env.LOCALAPPDATA].filter(Boolean).map(dir=>join(dir,'Google','Chrome','Application','chrome.exe'))].find(path=>path&&existsSync(path));
 assert.ok(executable,'Install Chrome/Chromium or set PRIVET_CHROME_PATH to run interaction checks.');
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-let browserPreview=false,russianAudio=false,skipQuickStart=true,repeatedSentence=false,firstTime=false;
+let browserPreview=false,russianAudio=false,skipQuickStart=true,repeatedSentence=false,firstTime=false,learningCards=false;
 let seed={},initialTime=new Date(2026,9,17,12).getTime();
 // Test-only driver substitution: exercise real root hook, scheduler and UI without radio.
 const server=await createServer({plugins:[{name:'privet-test-ble-driver',enforce:'pre',transform(_source,id){
@@ -19,8 +19,22 @@ const server=await createServer({plugins:[{name:'privet-test-ble-driver',enforce
  return `export function createNativeBleDriver(){let notify;return {
  async initialize(){},async isEnabled(){return true;},async connected(){return true;},async watchEnabled(){},
  async scan(_service,found){found({deviceId:'test-companion',name:'Privet-ESP32'});},async stopScan(){},async connect(){},
- async subscribe(_id,callback){notify=callback;},async write(_id,packet){window.__bleCommands.push(packet.getUint8(6));
- const ack=new DataView(packet.buffer.slice(packet.byteOffset,packet.byteOffset+8));ack.setUint8(1,2);notify(ack);},async cleanup(){}
+ async subscribe(_id,callback){notify=callback;},async write(_id,packet){
+ window.__bleFrames.push(Array.from(new Uint8Array(packet.buffer,packet.byteOffset,packet.byteLength)));
+ if(packet.getUint8(0)===2){
+  const type=packet.getUint8(1),id=packet.getUint32(2,true);
+  if(type===0x10)window.__card={id,mode:packet.getUint8(14),primary:packet.getUint8(15),body:[]};
+  if(type===0x11)window.__card.body.push(...new Uint8Array(packet.buffer,packet.byteOffset+8,packet.getUint8(7)));
+  if(type===0x12){const c=window.__card,bytes=new Uint8Array(c.body),decoder=new TextDecoder();window.__cards.push({mode:c.mode,primary:decoder.decode(bytes.slice(0,c.primary)),secondary:decoder.decode(bytes.slice(c.primary))});
+   const ack=new DataView(new ArrayBuffer(8));ack.setUint8(0,2);ack.setUint8(1,0x90);ack.setUint32(2,id,true);ack.setUint8(7,c.mode);notify(ack);}
+  return;
+ }
+ if(packet.getUint8(6)!==10)window.__bleCommands.push(packet.getUint8(6));
+ const ack=new DataView(packet.buffer.slice(packet.byteOffset,packet.byteOffset+8));ack.setUint8(1,2);
+ if(packet.getUint8(6)===10){ack.setUint8(7,window.__learningCards?0:1);
+  if(window.__learningCards){const caps=new DataView(new ArrayBuffer(20));[2,0x80,0,0,0,0,7,20,96,0,64,32,77,0,0,0,0x88,0x13].forEach((v,i)=>caps.setUint8(i,v));caps.setUint32(2,packet.getUint32(2,true),true);notify(caps);}}
+ notify(ack);},async cleanup(){}
+
  };}`;
 }}],mode:'native',appType:'custom',server:{host:'127.0.0.1',port:0,strictPort:false,hmr:false}});
 server.middlewares.use('/__privet_native_checks',(req,res)=>{
@@ -28,7 +42,7 @@ server.middlewares.use('/__privet_native_checks',(req,res)=>{
  const reset=!req.url.includes('resume');
  res.end(`<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body><div id="root"></div><script type="module">
  ${browserPreview?'':`window.CapacitorCustomPlatform={name:'ios'};window.Capacitor={PluginHeaders:[{name:'BluetoothLe',methods:[]}]};`}
- window.__bleCommands=[];window.__speechTaps=[];window.__utterances=[];window.__holdSpeech=false;window.__russianAudio=${russianAudio};window.__voiceListeners=new Set();window.__openCalls=[];window.open=(...args)=>{window.__openCalls.push(args);};
+ window.__learningCards=${learningCards};window.__bleFrames=[];window.__cards=[];window.__bleCommands=[];window.__speechTaps=[];window.__utterances=[];window.__holdSpeech=false;window.__russianAudio=${russianAudio};window.__voiceListeners=new Set();window.__openCalls=[];window.open=(...args)=>{window.__openCalls.push(args);};
  window.__realDate=Date;window.__now=${initialTime};
  window.Date=class extends window.__realDate{constructor(...args){super(...(args.length?args:[window.__now]));}static now(){return window.__now;}};
  ${reset?`localStorage.clear();for(const [key,value] of Object.entries(${JSON.stringify(seed)}))localStorage.setItem(key,JSON.stringify(value));`:''}
@@ -802,6 +816,20 @@ try{
  assert.equal((await codes()).filter(code=>code===9).length,1,'Home chip never creates a second subscription/reconnect');
  await openPhysicalSettings();await click('.native-physical-disconnect','Disconnect');await physicalBackHome();assert.equal(await evaluate(()=>document.querySelector('#native-companion-chip [role=status]').textContent),'Have a physical companion? Let’s connect it.');
  console.log('PASS: Home companion chip placement, real status, direct settings shortcut, return focus, connection continuity and explicit disconnect.');
+ // Capable peripheral: exercise actual native semantic wiring and app-owned
+ // card generation; the rest of the suite above deliberately tests legacy v1.
+ learningCards=true;russianAudio=true;await open();await openPhysicalSettings();await click('.native-physical-actions .button','Connect');await click('.native-physical-devices button');
+ await until(()=>window.__bleFrames.some(p=>p[0]===1&&p[6]===10));await physicalBackHome();await startCafe();
+ await until(()=>window.__cards.length>0);assert.equal(await evaluate(()=>window.__cards.at(-1).primary),'Tap a word');
+ await click('.vocab-reveal');assert.equal(await evaluate(()=>window.__cards.at(-1).primary),'Привет!');assert.equal(await evaluate(()=>window.__cards.at(-1).secondary),'Hi!');
+ await evaluate(()=>document.querySelectorAll('.vocab-reveal').forEach(el=>el.click()));await click('.lesson-bottom .button','Check answer');await click('.lesson-bottom .button','Continue');
+ await until(()=>window.__cards.at(-1)?.primary==='кофе');assert.equal(await evaluate(()=>window.__cards.at(-1).secondary),'Choose on phone');
+ await click('.choice','1tea');await click('.lesson-bottom .button','Check answer');assert.equal(await evaluate(()=>window.__cards.at(-1).secondary),'Choose on phone');
+ await click('.lesson-bottom .button','Try again');await click('.lesson-hint-button');assert.equal(await evaluate(()=>window.__cards.at(-1).primary),'See phone hint');
+ await click('.choice','2coffee');await click('.lesson-bottom .button','Check answer');assert.equal(await evaluate(()=>window.__cards.at(-1).mode),5);assert.equal(await evaluate(()=>window.__cards.at(-1).secondary),'coffee');
+ await click('[aria-label="Return to app home"]');assert.equal((await codes()).filter(code=>code===9).length,1);
+ assert.ok((await evaluate(()=>window.__bleFrames)).every(p=>p.length<=20),'Every native card frame stays within conservative BLE payload');
+ console.log('PASS: capable native companion negotiates after CONNECTED, shows explicitly discovered vocabulary, safe prompts/incorrect feedback, hint cue and correctly graded answer; v1 legacy tests remain independent.');
  assert.deepEqual(browserErrors,[],'No uncaught browser exceptions');
  console.log('PASS: interaction checks use isolated Chromium shims; no real iPhone, ESP32, speech or payment verification.');
 }finally{
