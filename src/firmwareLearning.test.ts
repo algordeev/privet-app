@@ -16,6 +16,7 @@ test('firmware connection callback cannot independently start CONNECTED; callbac
  const callback=source.slice(source.indexOf('class CommandCallbacks'),source.indexOf('\nvoid setup()'));assert.doesNotMatch(callback,/getValue\(|drawFace\(|startServoReaction\(|Wire\.|delay\(/);assert.match(source,/wakeTransition\.awake\(phoneConnected\.load\(\)\)/);
  assert.match(callback,/requestFace\(packet\[6\]\);\s* wakeTransition\.acceptReaction\(\)/);
  assert.match(source,/requested != seenMailbox \|\| waking/);
- assert.match(source,/PrivetMotion::target/);assert.match(source,/updateServo\(millis\(\)\);\s*u8x8_DrawTile/);assert.doesNotMatch(source,/oled\.sendBuffer\(/);
+ const loop=source.slice(source.indexOf('void loop()'));assert.match(loop,/portENTER_CRITICAL\(&cardsMux\);\s*const auto expired=cards\.expire\(millis\(\)\);\s*portEXIT_CRITICAL\(&cardsMux\);\s*if\(expired\.send/);
+ assert.match(source,/PrivetMotion::target/);assert.match(source,/updateServo\(millis\(\)\);\s*u8x8_DrawTile/);assert.doesNotMatch(source,/oled\.sendBuffer\(/);assert.match(source,/displayRefresh\.present\(oled\.getBufferPtr\(\)/);
  assert.match(source,/PrivetFaces::roundedRadius\(w,h,r\)/);assert.match(source,/U8G2_R2/);assert.match(source,/SERVO_MIN_US = 1300/);assert.match(source,/SERVO_MAX_US = 1700/);
 });

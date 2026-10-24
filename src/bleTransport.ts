@@ -28,10 +28,46 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
  let scanTimer:ReturnType<typeof setTimeout>|undefined;
  const cancelWaits=new Set<()=>void>();
  type AckResult=0|1|2|'cancelled';
- type Flight={id:number;generation:number;command:CommandCode;revision:number;resume:boolean;obsolete:boolean;reply?:(packet:DataView|null)=>void;ack:(result:AckResult)=>void};
+ type Flight={id:number;generation:number;command:CommandCode;revision:number;resume:boolean;obsolete:boolean;waitingCapabilities?:boolean;reply?:(packet:DataView|null)=>void;ack:(result:AckResult)=>void};
  type Job={command:CommandCode;card?:LearningCard};
  let flight:Flight|undefined,latest:Job|undefined;
  let capabilities:Capabilities|undefined;
+ type Probe={generation:number;revision:number;attempts:number;phase:'deferred'|'writing'|'waiting'|'ready'|'disabled';reply?:(packet:DataView)=>void;done:Promise<void>;finish:()=>void};
+ let probe:Probe|undefined;
+ function newProbe(attempts=0){let finish!:()=>void;const done=new Promise<void>(resolve=>{finish=resolve;});return {generation,revision:activityRevision,attempts,phase:'deferred' as const,done,finish};}
+ function stopProbe(){if(probe){probe.reply=undefined;probe.finish();}probe=undefined;}
+ // Independent connection control state, using the SAME native write slot.
+ // Reaction replacement never touches this matcher or its bounded ACK wait.
+ function startProbe(){
+  const p=probe;
+  if(!p||p.generation!==generation||p.phase!=='deferred'||submittedWrite||latest||!active||!state.ready||!state.device)return;
+  const g=generation,id=state.device.deviceId;
+  p.phase='writing';p.attempts++;
+  void (async()=>{
+   try{
+    const probeId=nextRequestId();let acked=false,offer:Capabilities|undefined;
+    let finish!:(value:Capabilities|undefined)=>void;
+    const response=new Promise<Capabilities|undefined>(resolve=>{finish=resolve;});
+    p.reply=packet=>{
+     if(probe!==p||!current(g)||p.revision!==activityRevision)return;
+     const ack=decodeControlAck(packet),caps=decodeCapabilities(packet);
+     if(ack?.id===probeId){if(ack.result!==0){finish(undefined);return;}acked=true;}
+     if(caps?.id===probeId)offer={nonce:caps.nonce};
+     if(acked&&offer)finish(offer);
+    };
+    const writing=raw(()=>driver.write(id,encodeControl(probeId,CAPABILITIES),time.write));
+    submittedWrite=writing;
+    void writing.then(()=>{if(submittedWrite===writing)submittedWrite=undefined;pump();startProbe();},()=>{if(submittedWrite===writing)submittedWrite=undefined;});
+    await wait(writing,g,time.write,'Command timed out. Connect again to try later.');
+    if(probe!==p||!current(g)||p.revision!==activityRevision)return;
+    p.phase='waiting';
+    let accepted:Capabilities|undefined;
+    try{accepted=await wait(response,g,CARD_LIMITS.ack,'Capability reply timed out.');}
+    catch(error){if(error instanceof Cancelled)throw error;}
+    if(probe===p&&current(g)&&p.revision===activityRevision){capabilities=accepted;p.phase=accepted?'ready':'disabled';p.reply=undefined;p.finish();}
+   }catch(error){if(p.revision===activityRevision)failure(error,g);}
+  })();
+ }
  const now=()=>timer.now?.()??performance.now();
  let screen:'home'|'profile'|'lesson'|'physical'='home';
  let submittedWrite:Promise<void>|undefined;
@@ -66,7 +102,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
   void driver.cleanup(id).catch(()=>{/* Already disconnected/unavailable. */}).finally(()=>{cleaning--;update();});
  }
  function invalidate(phase:BlePhase,message:string){
-  generation++;clearScanTimer();latest=undefined;capabilities=undefined;
+  generation++;clearScanTimer();latest=undefined;capabilities=undefined;stopProbe();
   if(flight){flight.obsolete=true;flight.ack('cancelled');flight.reply?.(null);}flight=undefined;
   for(const cancel of [...cancelWaits])cancel();
   const id=state.device?.deviceId;
@@ -112,7 +148,9 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
    await wait(connected,g,time.connect,'Connection timed out. Try again.');
    if(!current(g))return;
    const subscribed=raw(()=>driver.subscribe(deviceId,value=>{
-    if(!current(g)||!flight||flight.obsolete||flight.generation!==g)return;
+    if(!current(g))return;
+    probe?.reply?.(value);
+    if(!flight||flight.obsolete||flight.generation!==g)return;
     flight.reply?.(value);
     const ack=decodeAcknowledgement(value);
     if(ack&&ack.requestId===flight.id&&ack.command===flight.command)flight.ack(ack.result);
@@ -120,6 +158,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
    await wait(subscribed,g,time.subscribe,'Companion setup timed out. Try again.');
    if(!current(g))return;
    update({phase:'connected',message:'Connected. Ready for your lesson.',ready:true});
+   probe=newProbe();
    request(COMMAND.CONNECTED); // Fresh subscription only; foreground reconciliation still uses IDLE.
   }catch(error){failure(error,g);}
  }
@@ -134,14 +173,15 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
   // Preserve a pending context change ahead of fleeting same-context reactions.
   // A newer context (including completion) may replace it.
   if(latest!==undefined&&contextCommands.has(latest.command)&&!contextCommands.has(command))return false;
-  if(contextCommands.has(command)){
+  if(contextCommands.has(command)||flight?.waitingCapabilities){
    latest=undefined;
    if(flight){flight.obsolete=true;flight.ack('cancelled');flight.reply?.(null);}
   }
   latest={command,card};update({pending:true});pump();return true;
  }
  function pump(resume=false){
-  if(flight||submittedWrite||latest===undefined||(!state.ready&&!(resume&&state.phase==='reconciling'))||!state.device||!active||!alive)return;
+  if(latest===undefined){startProbe();return;}
+  if(flight||submittedWrite||(!state.ready&&!(resume&&state.phase==='reconciling'))||!state.device||!active||!alive)return;
   const {command,card}=latest;latest=undefined;
   const g=generation,id=state.device.deviceId;
   let requestId:number;
@@ -160,12 +200,14 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
     // This helper retains the actual submitted bridge promise, even after
     // cancellation. A content timeout must never release the native write slot.
     const write=async(packet:DataView,deadline?:number)=>{
+     while(submittedWrite){await wait(submittedWrite,g,time.write,'Command timed out. Connect again to try later.');}
      const writing=raw(()=>{if(job.obsolete)throw new Cancelled();if(deadline!==undefined&&now()>=deadline)throw new TransferExpired();return driver.write(id,packet,time.write);});
      submittedWrite=writing;
-     void writing.finally(()=>{if(submittedWrite===writing)submittedWrite=undefined;}).catch(()=>{});
+     void writing.then(()=>{if(submittedWrite===writing)submittedWrite=undefined;pump();startProbe();},()=>{if(submittedWrite===writing)submittedWrite=undefined;});
      await wait(writing,g,time.write,'Command timed out. Connect again to try later.');
     };
     await write(encodeCommand(requestId,command));
+    startProbe();
     if(!current(g)||job.obsolete)return;
     update({message:'Waiting for companion…'});
     const result=await wait(ackPromise,g,time.ack,'No reply from the companion. Connect again to try later.');
@@ -178,24 +220,10 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
     const notice=result===1?'Companion update needed for all lesson reactions.':state.notice;
     update({notice,message:result===0?'Reaction accepted.':result===1?'Your companion needs an update for this reaction.':'The companion could not accept this reaction.'});
     if(result!==0)return;
-    // Control and card replies share this flight; no second queue or native
-    // writer. Install listeners before writes to retain early notifications.
-    if(command===COMMAND.CONNECTED){
-     const probeId=nextRequestId();let acked=false,caps:Capabilities|undefined;
-     let finish!:(value:Capabilities|undefined)=>void;
-     const response=new Promise<Capabilities|undefined>(resolve=>{finish=resolve;});
-     job.reply=packet=>{
-      if(!packet){finish(undefined);return;}
-      const ack=decodeControlAck(packet),offer=decodeCapabilities(packet);
-      if(ack?.id===probeId){if(ack.result!==0){finish(undefined);return;}acked=true;}
-      if(offer?.id===probeId)caps={nonce:offer.nonce};
-      if(acked&&caps)finish(caps);
-     };
-     await write(encodeControl(probeId,CAPABILITIES));
-     if(job.obsolete)return;
-     try{const offer=await wait(response,g,CARD_LIMITS.ack,'Capability reply timed out.');if(!job.obsolete)capabilities=offer;}
-     catch(error){if(error instanceof Cancelled)throw error;capabilities=undefined;}
-     job.reply=undefined;
+    if(card&&probe&&['deferred','writing','waiting'].includes(probe.phase)){
+     job.waitingCapabilities=true;
+     const cancelled=new Promise<void>(resolve=>{job.reply=packet=>{if(!packet)resolve();};});
+     await Promise.race([probe.done,cancelled]);job.reply=undefined;job.waitingCapabilities=false;
     }
     if(!capabilities||!card||job.obsolete)return;
     const transaction=nextRequestId(),frames=cardFrames(transaction,capabilities.nonce,requestId,card);
@@ -252,6 +280,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
    return;
   }
   clearScanTimer();latest=undefined;
+  if(probe&&['deferred','writing','waiting'].includes(probe.phase)){const attempts=probe.attempts;stopProbe();probe=newProbe(attempts);if(attempts>=2){probe.phase='disabled';probe.finish();}}
   if(flight){flight.obsolete=true;flight.ack('cancelled');flight.reply?.(null);}
   // Drop ACK waits and JS deadlines. The native write promise remains tracked.
   for(const cancel of [...cancelWaits])cancel();
@@ -260,6 +289,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
  async function reconcile(){
   if(!state.device||state.phase!=='suspended')return;
   const g=generation,r=activityRevision,id=state.device.deviceId;
+  if(probe?.phase==='deferred')probe.revision=activityRevision;
   const valid=()=>current(g)&&r===activityRevision;
   update({phase:'reconciling',ready:false,message:'Checking companion…'});
   try{
