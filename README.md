@@ -7,9 +7,9 @@ Privet is a React + TypeScript + Vite learning prototype with a native Capacitor
 | Browser website | Landing page, interactive café lesson inside a decorative phone, simulated robot, and enclosure concept gallery. No real Bluetooth connection. |
 | Native iOS app | Capacitor selects an app home, profile/statistics and eight full-screen lessons using `Capacitor.isNativePlatform()`. Content is bundled locally. |
 | Virtual companion | Coral SVG/CSS robot with predefined greetings and reactions; works independently of physical hardware. |
-| Optional physical companion | ESP32 ESP-32S with SSD1306 128×64 OLED and SG90-targeted servo firmware, receiving predefined emotion commands over native iOS BLE. |
+| Optional physical companion | ESP32 ESP-32S with SSD1306 128×64 OLED and SG90-targeted servo firmware, receiving emotion commands and negotiated, answer-safe learning cards over native iOS BLE. |
 
-The **phone** owns lessons, answer checking, progress/statistics and optional synthesized pronunciation. The **ESP32** displays predefined OLED faces/animations and drives the servo motion associated with them; it does not check answers or play audio. Lessons remain fully usable without hardware.
+The **phone** owns lessons, answer checking, progress/statistics and optional synthesized pronunciation. The **ESP32** renders OLED faces, bounded learning text and associated local servo motion; it does not check answers or play audio. Lessons remain fully usable without hardware.
 
 ## Beginner curriculum
 
@@ -48,11 +48,11 @@ All three offers are concepts, with no checkout, StoreKit or payment. Free prese
 
 Open **Physical companion settings** from native home, tap Connect, choose the advertised companion, and use Test happy reaction. Connect through Privet, rather than manually pairing in iPhone Settings. Bluetooth access is requested only after Connect.
 
-Use the current [new-emotions firmware and setup guide](firmware/PrivetBLE_Servo_New_Emotions/README.md). It supports nine protocol codes; STREAK is retained for compatibility but opening Profile is silent. The older [servo](firmware/PrivetBLE_Servo/README.md) and [OLED-only](firmware/PrivetBLE_Lessons/README.md) sketches support codes 1–4 and remain available as legacy variants.
+Use the current [new-emotions firmware and setup guide](firmware/PrivetBLE_Servo_New_Emotions_v2/README.md). The original [new-emotions sketch](firmware/PrivetBLE_Servo_New_Emotions/README.md) is preserved as the nine-reaction, face-only variant. The separate v2 variant supports nine reaction codes and capability-negotiated learning cards; STREAK is retained for compatibility but opening Profile is silent. The older [servo](firmware/PrivetBLE_Servo/README.md) and [OLED-only](firmware/PrivetBLE_Lessons/README.md) sketches support codes 1–4 and remain available as legacy variants.
 
 Active lesson entry, resume, switching, replay, Continue and retry show THINKING. It persists until replaced. Correct/incorrect answers show HAPPY/ENCOURAGE; final completion sends CELEBRATE once. HINT returns to THINKING after 2.6 seconds unless a newer command replaces it. Pronunciation starts LISTENING; successful audio completion restores THINKING only while the question remains unanswered, with canceled/stale callbacks ignored. LISTENING retains its firmware time limit when no completion event arrives. Results/failed screens, close, home and ordinary reset use IDLE. Fresh subscribed connections send CONNECTED; foreground reconciliation uses ACK-gated IDLE.
 
-Firmware owns animation timing and servo motion; LISTENING/THINKING add no expressive servo movement. The protocol carries predefined states only, not arbitrary text, JSON, OLED drawing, BLE audio or raw servo instructions. An ACK confirms acceptance, not rendering or finished movement. See the [exact protocol, event mapping and lifecycle](docs/companion-ble.md). Updated firmware must be uploaded separately; new-state hardware verification has not been reported.
+Firmware owns animation timing and servo motion; LISTENING/THINKING add no expressive servo movement. Version-1 face commands remain unchanged. Updated firmware can also receive bounded, structured UTF-8 learning cards: discovered vocabulary, safe question prompts, pronunciation, hint cues and correctly graded phrases with short meanings. Incorrect answers never reveal the solution. Old firmware stays face-only; there is no JSON, raw OLED drawing, BLE audio or raw servo control. An ACK confirms acceptance, not rendering or finished movement. See the [exact protocol, event mapping and lifecycle](docs/companion-ble.md). U8g2 provides Cyrillic rendering, and firmware owns text layout/timing as well as faces/servo. Card failure preserves the accepted face without an extra reaction. Updated firmware must be uploaded separately; new-state hardware verification has not been reported.
 
 ### Locking and backgrounding
 
@@ -81,7 +81,7 @@ npm ci
 npm run dev
 ```
 
-Open the address printed by Vite. `npm run build` performs TypeScript checks and creates the website in `dist/`; `npm run preview` serves that build. `npm test` runs the Node test suite without an additional test dependency.
+Open the address printed by Vite. `npm run build` performs TypeScript checks and creates the website in `dist/`; `npm run preview` serves that build. `npm test` runs the Node test suite without an additional npm test dependency. Its portable firmware-receiver regression check also uses a host C++ compiler (`c++`, supplied by Xcode Command Line Tools or GCC).
 
 ## Native iOS app
 
@@ -141,10 +141,11 @@ Statistics use `privet-demo-v1-native-stats`; resumable sessions have separate k
 | `src/speechController.ts`, `src/useSpeech.ts` | Single guarded pronunciation controller and lifecycle cancellation |
 | `src/nativeStats.ts`, `src/useNativeStats.ts`, `src/NativeProfile.tsx`, `src/GemsScreen.tsx` | Authoritative local activity, daily/attempt rewards, freezes, gems and profile |
 | `src/subscription.ts`, `src/useSubscription.ts`, `src/PlusScreen.tsx` | Local Plus demo activation/cancellation; no billing |
-| `src/bleProtocol.ts`, `src/bleTransport.ts` | Binary protocol/IDs, bounded scheduler, connection lifecycle/reconciliation |
+| `src/bleProtocol.ts`, `src/learningProtocol.ts`, `src/bleTransport.ts` | Unchanged v1 reactions, negotiated card frames/limits, bounded serialized jobs and lifecycle |
+| `src/companionDisplay.ts` | Pure app-owned answer safety and compact display metadata, independent of lesson prose |
 | `src/bleDriver.ts`, `src/usePhysicalCompanion.ts` | Installed BLE plugin adapter and app-wide native lifecycle wiring |
 | `src/physicalLessonEvents.ts`, `src/PhysicalCompanionSettings.tsx` | Accepted lesson-to-BLE mapping; connection/test UI and home status |
-| `firmware/PrivetBLE_Servo_New_Emotions/PrivetBLE_Servo_New_Emotions.ino` | Owner-supplied commands-1–9 OLED/servo variant; new animations await hardware verification |
+| `firmware/PrivetBLE_Servo_New_Emotions_v2/PrivetBLE_Servo_New_Emotions_v2.ino` | Commands 1–9, separate capability control, fixed-buffer receiver and U8g2 Cyrillic OLED/servo rendering; cards await hardware verification |
 | `firmware/PrivetBLE_Servo/PrivetBLE_Servo.ino` | Legacy commands-1–4 servo variant: loop-driven pulse gestures, centering and PWM release |
 | `firmware/PrivetBLE_Lessons/PrivetBLE_Lessons.ino` | OLED-only baseline with the same BLE protocol |
 | `src/*.test.ts`, `scripts/check-shells.mjs` | Focused regressions and rendered browser/native shell checks |
@@ -155,17 +156,20 @@ Answer normalization ignores case, stress accents, surrounding/repeated spaces a
 
 ## Verification
 
-Latest local app validation: **175 Node tests**, shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover lessons, replay, first-time welcome/lesson/offers/replay, Cyrillic reference, letter highlighting and answer concealment, audio-completion safeguards, rewards/Plus and mock BLE navigation. Mouse/touch/keyboard checks also cover repeated sentence words and saved-session restoration. The browser café content is unchanged; current shell checks retain the website layout and demo. An unsigned iOS Simulator build also passed (compile only). These are local automated checks with fake BLE/speech, not real-device, real-audio or GitHub CI verification.
+Latest local app validation: **205 Node tests**, shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover lessons, replay, first-time welcome/lesson/offers/replay, Cyrillic reference, letter highlighting and answer concealment, audio-completion safeguards, rewards/Plus and mock BLE navigation. Mouse/touch/keyboard checks also cover repeated sentence words and saved-session restoration. The browser café content is unchanged; current shell checks retain the website layout and demo. An unsigned iOS Simulator build also passed (compile only). A font-accurate local U8g2 check confirms all 224 distinct current learning cards fit without truncation or overlapping/off-screen lines. The suite also covers negotiated learning-card byte/scalar bounds, transfer deadlines, content-only fallback, cancellation/serialization and exhaustive eight-lesson answer safety, and compiles/runs the actual portable C++ firmware receiver. These are local automated checks with fake BLE/speech, not real-device, real-audio or GitHub CI verification.
 
-The project owner reports real-iPhone discovery/connection/ACKs, disconnect/reconnect, navigation continuity, commands 1–4, lock/background retention and servo movement. New states and the latest thinking/hint/audio/replay changes still need hardware validation. No exact device/software versions, timing, range or endurance results were supplied. Earlier milestone checks are historical; the current [protocol checklist](docs/companion-ble.md#verification) distinguishes remaining tests.
+The project owner reports real-iPhone discovery/connection/ACKs, disconnect/reconnect, navigation continuity, commands 1–4, lock/background retention and servo movement. New states and learning cards still need hardware validation. The current firmware compiled locally for ESP32 Dev Module (Arduino-ESP32 3.3.12); no upload was performed. After integrating the separate editorial branch, rerun exhaustive safety tests against the final lesson content. No exact device/software versions, timing, range or endurance results were supplied. Earlier milestone checks are historical; the current [protocol checklist](docs/companion-ble.md#verification) distinguishes remaining tests.
 
 ```sh
 npm test
+npx tsc -b
 npm run test:shells
 npm run test:interactions
 npm run build
 npm run build:pages
 npm run build:native
+npx cap sync ios
+git diff --check
 ```
 
 ## Next steps and limits
@@ -173,7 +177,7 @@ npm run build:native
 1. Run longer lock/background sessions and fault tests: out of range, ESP32 power loss while locked, Bluetooth toggling, delayed notifications and force-quit behavior. These remain unverified; see [the hardware checklist](docs/companion-ble.md#remaining-hardware-tests).
 2. Validate keyboard/safe areas/accessibility on intended iPhones and review Russian content/pronunciation help with an educator; gather learner feedback before further expansion or claiming learning effectiveness.
 3. Develop the enclosure/mount, validate the servo travel and power under the actual screen load, then evaluate buttons and battery design. The current servo sketch uses GPIO25, 1300–1700 µs targets and a 1500 µs center; these are commanded pulses, not measured angles or guarantees of safe mechanical travel.
-4. Design arbitrary text transfer, BLE audio or stronger authenticated ownership/pairing only as future features; none is in the current eight-byte emotion-command protocol; servo movement is chosen locally by firmware, not sent as raw angles/pulses. Automatic fault recovery and process-termination restoration are also unimplemented.
+4. Validate the new learning-card firmware on hardware. Unbounded arbitrary text, BLE audio and stronger authenticated ownership/pairing remain future features; servo movement is chosen locally by firmware, not sent as raw angles/pulses. Automatic fault recovery and process-termination restoration are also unimplemented.
 5. Run a learner pilot. The current app does not collect feedback remotely.
 
 ## GitHub Pages

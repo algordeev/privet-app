@@ -2,7 +2,7 @@
 
 [PrivetBLE_Servo.ino](PrivetBLE_Servo.ino) adds SG90-targeted screen movement to the ESP32/SSD1306 companion. The project owner reports that the servo now moves the screen during emotions. The sketch itself is labelled for initial unloaded SG90 tests; this report does not establish safe travel, torque, loaded calibration or endurance for every screen mount.
 
-This is the legacy **commands-1–4** variant. Use the [current new-emotions firmware](../PrivetBLE_Servo_New_Emotions/README.md) for commands 1–9, persistent THINKING and HINT→THINKING. Profile navigation is silent; the current [app event mapping](../../docs/companion-ble.md#lesson-and-navigation-events) is documented separately. This older sketch reports unsupported for codes 5–9; Privet shows an update notice without retrying or blocking lessons.
+This is the legacy **commands-1–4** variant. Use the [current new-emotions firmware](../PrivetBLE_Servo_New_Emotions_v2/README.md) for commands 1–9, persistent THINKING and HINT→THINKING. Profile navigation is silent; the current [app event mapping](../../docs/companion-ble.md#lesson-and-navigation-events) is documented separately. This older sketch reports unsupported for codes 5–9; Privet shows an update notice without retrying or blocking lessons.
 
 The phone handles lessons, answers, progress and pronunciation. Firmware chooses predefined faces and servo gestures. The unchanged version-1 eight-byte protocol carries no arbitrary text, JSON, OLED drawing, BLE audio or raw servo instructions; ACK means acceptance, not completed rendering/motion. The [OLED-only baseline](../PrivetBLE_Lessons/README.md) remains a separate sketch.
 
@@ -110,3 +110,5 @@ npx cap open ios
 | Screen moves after PWM release | Detach removes active holding; review mechanical support/balance before testing a load again. |
 
 Use the [baseline troubleshooting](../PrivetBLE_Lessons/README.md#basic-troubleshooting) for USB, OLED/I2C and BLE bring-up. No servo calibration, loaded endurance or firmware compilation was performed as part of this documentation change.
+
+This legacy source remains unchanged and face-only. The current [new-emotions variant](../PrivetBLE_Servo_New_Emotions_v2/README.md) uses U8g2 and capability-negotiated learning cards; its dependencies do not replace the Adafruit dependencies of this older sketch.
