@@ -56,13 +56,18 @@ try {
  assert.ok(!home.includes('Physical companion settings'));assert.ok(home.includes('native-settings-open'));assert.ok(!home.includes('Reset saved lesson &amp; preferences'));
  assert.ok(!website.includes('Physical companion settings'));
  const noOp=()=>{};
+ // usePhysicalCompanion() now exposes BLE state through a subscribable store
+ // (useBleState/useSyncExternalStore) rather than a plain `state` field, so
+ // these direct-render checks stub the same minimal shape a real controller
+ // exposes instead of injecting a `state` prop directly.
+ const stub=state=>({getState:()=>state,subscribe:()=>()=>{}});
  function ConnectedGreeting({definition=cafeLesson}){
   const controller=useLesson({persistSession:true,definition});
-  return createElement(PhysicalCompanionChip,{state:{...initialBleState(),phase:'connected',ready:true},onOpen:noOp,greeting:homeGreeting(controller,definition.title)});
+  return createElement(PhysicalCompanionChip,{controller:stub({...initialBleState(),phase:'connected',ready:true}),onOpen:noOp,greeting:homeGreeting(controller,definition.title)});
  }
  const connectedGreeting=(definition=cafeLesson)=>renderToStaticMarkup(createElement(ConnectedGreeting,{definition}));
  assert.ok(connectedGreeting().includes('Привет! Ready for a little Russian?'));
- function physical(state){return renderToStaticMarkup(createElement(PhysicalCompanionSettings,{controller:{state,scan:noOp,connect:noOp,disconnect:noOp,testHappy:noOp},onClose:noOp}));}
+ function physical(state){return renderToStaticMarkup(createElement(PhysicalCompanionSettings,{controller:{...stub(state),scan:noOp,connect:noOp,disconnect:noOp,testHappy:noOp},onClose:noOp}));}
  const disconnectedPhysical=physical(initialBleState());
  assert.ok(disconnectedPhysical.includes('Physical companion'));
  assert.ok(!disconnectedPhysical.includes('STAGE 1'));
@@ -70,16 +75,16 @@ try {
  for(const phase of ['suspended','reconciling']){
   const checking=physical({...initialBleState(),phase,device:{deviceId:'test',name:'Privet-ESP32'}});
   assert.ok(checking.includes('>Disconnect</button>'));
-  const status=renderToStaticMarkup(createElement(PhysicalCompanionHomeStatus,{state:{...initialBleState(),phase},onOpen:noOp}));
+  const status=renderToStaticMarkup(createElement(PhysicalCompanionHomeStatus,{controller:stub({...initialBleState(),phase}),onOpen:noOp}));
   assert.ok(!status.includes('Physical companion: Connected'));
  }
  assert.ok(!disconnectedPhysical.includes('Leaving this screen or backgrounding'));
  assert.ok(!home.includes('Physical companion: Disconnected. Open settings.'));
  for(const phase of ['disconnected','suspended','reconciling','connected']){
-  const chip=renderToStaticMarkup(createElement(PhysicalCompanionChip,{state:{...initialBleState(),phase,ready:phase==='connected'},onOpen:noOp}));
+  const chip=renderToStaticMarkup(createElement(PhysicalCompanionChip,{controller:stub({...initialBleState(),phase,ready:phase==='connected'}),onOpen:noOp}));
   assert.equal(chip.includes('Companion connected'),phase==='connected');assert.ok(chip.includes('role="status"'));
  }
- const connectedHomeStatus=renderToStaticMarkup(createElement(PhysicalCompanionHomeStatus,{state:{...initialBleState(),phase:'connected',ready:true,notice:'Companion update needed for all lesson reactions.'},onOpen:noOp}));
+ const connectedHomeStatus=renderToStaticMarkup(createElement(PhysicalCompanionHomeStatus,{controller:stub({...initialBleState(),phase:'connected',ready:true,notice:'Companion update needed for all lesson reactions.'}),onOpen:noOp}));
  assert.ok(connectedHomeStatus.includes('Connected · Update needed'));
  assert.ok(connectedHomeStatus.includes('role="status"'));
  assert.ok(physical({...initialBleState(),phase:'connected',ready:true,notice:'Companion update needed for all lesson reactions.'}).includes('Companion update needed'));

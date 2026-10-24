@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useRef,useState} from 'react';
+import {useCallback,useEffect,useRef,useSyncExternalStore} from 'react';
 import {App} from '@capacitor/app';
 import {Capacitor} from '@capacitor/core';
 import {companionDisplay} from './companionDisplay';
@@ -7,10 +7,26 @@ import {COMMAND} from './bleProtocol';
 import {createPhysicalLessonEvents} from './physicalLessonEvents';
 import type {Action,Progress} from './engine';
 import {createNativeBleDriver} from './bleDriver';
-import {createBleTransport,initialBleState,type BleTransport} from './bleTransport';
+import {createBleTransport,initialBleState,type BleState,type BleTransport} from './bleTransport';
 
 export function usePhysicalCompanion(){
- const [state,setState]=useState(initialBleState);
+ // BLE state (connection phase, busy/pending flags, card-transfer progress)
+ // changes at high frequency: ~4 times per reaction, ~50 times per learning
+ // card transfer. It lives in a plain external store, not useState, so this
+ // hook's call site (the native app root) never re-renders just because a
+ // write/ACK/card frame settled. Only components that actually display BLE
+ // status subscribe to it, via useBleState() below.
+ const store=useRef<{state:BleState;listeners:Set<()=>void>}|null>(null);
+ if(!store.current)store.current={state:initialBleState(),listeners:new Set()};
+ const getState=useCallback(()=>store.current!.state,[]);
+ const subscribe=useCallback((listener:()=>void)=>{
+  store.current!.listeners.add(listener);
+  return ()=>{store.current!.listeners.delete(listener);};
+ },[]);
+ const setState=useCallback((next:BleState)=>{
+  store.current!.state=next;
+  for(const listener of store.current!.listeners)listener();
+ },[]);
  const transport=useRef<BleTransport|null>(null);
  const context=useRef<{definition:LessonDefinition;progress:Progress}|null>(null);
  const revision=useRef(0);
@@ -63,6 +79,17 @@ export function usePhysicalCompanion(){
  const onReveal=useCallback((word:string)=>{revision.current++;const c=context.current;if(c)transport.current?.request(COMMAND.THINKING,companionDisplay(c.definition,c.progress,{kind:'reveal',word}));},[]);
  const enterLesson=useCallback((hasActiveQuestion:boolean,definition?:LessonDefinition,progress?:Progress)=>{revision.current++;context.current=definition&&progress?{definition,progress}:null;return transport.current?.enterLesson(hasActiveQuestion,definition&&progress&&hasActiveQuestion?companionDisplay(definition,progress):undefined);},[]);
  const onTransition=useCallback((previous:Progress,next:Progress,action:Action,lessonId='cafe')=>{lessonEvents.current?.(previous,next,action,lessonId);},[]);
- return {state,scan,connect,testHappy,disconnect,navigate,enterLesson,greet,onListen,onListenEnd,onQuickStartListenEnd,onHint,onReveal,onTransition};
+ return {getState,subscribe,scan,connect,testHappy,disconnect,navigate,enterLesson,greet,onListen,onListenEnd,onQuickStartListenEnd,onHint,onReveal,onTransition};
 }
 export type PhysicalCompanionController=ReturnType<typeof usePhysicalCompanion>;
+// Fine-grained subscription: only the component calling this (e.g. the
+// connection chip or settings screen) re-renders when BLE state changes.
+// Controllers/screens that only call actions (scan/connect/request/...)
+// never need this and stay untouched by BLE activity.
+export function useBleState(controller:PhysicalCompanionController):BleState{
+ // A third (server-snapshot) argument is required wherever this may be
+ // server-rendered (e.g. the static-markup shell check). The BLE-connecting
+ // effect never runs during SSR, so the store never diverges from its
+ // initial snapshot there; reusing the same getter is correct, not a stub.
+ return useSyncExternalStore(controller.subscribe,controller.getState,controller.getState);
+}
