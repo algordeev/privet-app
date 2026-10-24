@@ -7,6 +7,7 @@
 #include "FacePresentation.h"
 #include "ServoMotion.h"
 #include "LearningLayout.h"
+#include "DisplayRefresh.h"
 using namespace PrivetCards;
 static void put32(uint8_t *p,uint32_t v){for(int i=0;i<4;i++)p[i]=uint8_t(v>>(i*8));}
 struct Transaction {
@@ -21,6 +22,24 @@ struct Transaction {
  Reply finish(Receiver &r,uint32_t time=2){return r.receive(commit,8,time,true);}
 };
 int main(){
+ // Submit a complete initial frame, then only changed spans, including erasure.
+ PrivetDisplay::Refresh refresh;uint8_t pixels[1024]={},panel[1024]={};int calls=0,bytes=0;
+ const auto send=[&](uint8_t x,uint8_t row,uint8_t width,const uint8_t *data){
+  assert(x<16&&row<8&&width>0&&x+width<=16);calls++;bytes+=width*8;
+  memcpy(panel+row*128+x*8,data,width*8);
+ };
+ refresh.present(pixels,send);assert(calls==8&&bytes==1024);
+ calls=bytes=0;refresh.present(pixels,send);assert(calls==0&&bytes==0);
+ pixels[3*128+5*8+2]=255;refresh.present(pixels,send);assert(calls==1&&bytes==8&&!memcmp(panel,pixels,1024));
+ calls=bytes=0;pixels[3*128+5*8+2]=0;refresh.present(pixels,send);assert(calls==1&&bytes==8&&!memcmp(panel,pixels,1024));
+ calls=bytes=0;pixels[0]=1;pixels[127]=2;refresh.present(pixels,send);assert(calls==1&&bytes==128&&!memcmp(panel,pixels,1024));
+ calls=bytes=0;memset(pixels,0xa5,sizeof(pixels));refresh.present(pixels,send);assert(calls==8&&bytes==1024&&!memcmp(panel,pixels,1024));
+ calls=bytes=0;refresh.present(pixels,send);assert(calls==0&&bytes==0);
+
+ for(int index=0;index<1024;index++){
+  calls=bytes=0;pixels[index]^=1;refresh.present(pixels,send);
+  assert(calls==1&&bytes==8&&!memcmp(panel,pixels,1024));
+ }
  // Layout is bounded at word boundaries and preserves Cyrillic scalars.
  const auto six=[](const char *text){int count=0;for(size_t i=0;text[i];i+=PrivetLayout::scalarBytes(text+i))count++;return count*6;};
  const auto walk=PrivetLayout::wrap("Let's go for a walk!",six);assert(walk.complete);assert(!strcmp(walk.text[0],"Let's go for a walk!"));
@@ -79,8 +98,8 @@ int main(){
  Transaction stale(10);assert(r.receive(stale.begin,20,3,true).bytes[6]==8);
  Transaction wrongNonce(13,"чай",78,12);assert(r.receive(wrongNonce.begin,20,3,true).bytes[6]==8);
  Transaction wrongFace(14,"чай",77,9);assert(r.receive(wrongFace.begin,20,3,true).bytes[6]==8);
- Transaction expired(15,"чай",77,12);expired.start(r,100);assert(expired.finish(r,5100).bytes[6]==7);
- Transaction absolute(16,"чай",77,12);absolute.start(r,6000);absolute.body(r,10999);assert(absolute.finish(r,11000).bytes[6]==7);
+ Transaction expired(15,"чай",77,12);expired.start(r,100);assert(r.expire(5100).bytes[6]==7);
+ Transaction absolute(16,"чай",77,12);absolute.start(r,6000);absolute.body(r,10999);assert(r.expire(11000).bytes[6]==7);
  Transaction incomplete(17,"чай",77,12);incomplete.start(r);assert(incomplete.finish(r).bytes[6]==7);
  Transaction corrupt(18,"чай",77,12);corrupt.start(r);corrupt.data[8]='x';assert(r.receive(corrupt.data,corrupt.length+8,1,true).bytes[6]==4);
  Transaction crc(19,"чай",77,12);crc.begin[18]^=1;crc.start(r);crc.body(r);assert(crc.finish(r).bytes[6]==6);
@@ -104,5 +123,19 @@ int main(){
  Transaction invalidMode(32,"чай",78,9);invalidMode.begin[14]=6;assert(r.receive(invalidMode.begin,20,0,true).bytes[6]==2);
  const uint8_t invalids[][4]={{0xc0,0x80},{0xed,0xa0,0x80},{0xf4,0x90,0x80,0x80},{0,0},{0xd0,0}};
  for(const auto &v:invalids)assert(!utf8(v,2));
+ // Expiry emits once, keeps the accepted card, and permits a later transaction.
+ Receiver expiry;expiry.connection(77);expiry.face(9);
+ Transaction accepted(40);accepted.start(expiry);accepted.body(expiry);assert(accepted.finish(expiry).bytes[6]==0);
+ const Card saved=expiry.completed;
+ Transaction partial(41,"нет");partial.start(expiry,100);
+ assert(!expiry.expire(5099).send);
+ assert(!partial.finish(expiry,5100).send); // no late commit publication before loop
+ const auto timeout=expiry.expire(5100);assert(timeout.send&&timeout.bytes[6]==7&&timeout.bytes[7]==2&&u32(timeout.bytes+2)==41);
+ assert(!expiry.expire(5101).send&&!expiry.expire(10000).send);
+ assert(!memcmp(&saved,&expiry.completed,sizeof(Card)));
+ assert(!expiry.receive(partial.data,partial.length+8,5101,true).send);
+ assert(partial.finish(expiry,5102).bytes[6]==7);
+ Transaction after(42,"нет");after.start(expiry,5200);after.body(expiry,5201);assert(after.finish(expiry,5202).bytes[6]==0);
+ assert(!strcmp(expiry.completed.primary,"нет"));
  puts("Fixed-buffer receiver: atomic publish, nonce/face/stale checks, duplicates, UTF-8, CRC, bounds, and absolute expiry passed.");
 }

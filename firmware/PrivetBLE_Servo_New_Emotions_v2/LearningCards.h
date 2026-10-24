@@ -25,11 +25,12 @@ class Receiver {
  void connection(uint32_t value){nonce=value;faceId=highest=transaction=terminal=lastRejected=0;staging=false;clear();}
  void clear(){completed.mode=0;completed.revision++;}
  void face(uint32_t id){faceId=id;staging=false;clear();}
- void expire(uint32_t now){if(staging&&uint32_t(now-started)>=5000)finish(7);}
+ Reply expire(uint32_t now){if(staging&&uint32_t(now-started)>=5000)return finish(7);return {};}
  Reply receive(const uint8_t *p,size_t n,uint32_t now,bool oled){
   if(n<6||p[0]!=2)return {};
   uint32_t id=u32(p+2);if(!id)return {};
-  expire(now);
+  // Leave expiry publication to loop(); late packets cannot complete staging.
+  if(staging&&uint32_t(now-started)>=5000)return {};
   if(id==terminal){if(p[1]==0x12&&n==8&&!p[6]&&!p[7])return ack(id,terminalResult,terminalMode);return {};}
   if(p[1]==0x10){
    if(staging&&id==transaction){if(n==20&&!memcmp(p,begin,20))return {};return finish(3);}

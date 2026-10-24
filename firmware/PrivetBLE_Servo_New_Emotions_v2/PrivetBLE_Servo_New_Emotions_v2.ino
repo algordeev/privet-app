@@ -25,6 +25,7 @@
 #include "FacePresentation.h"
 #include "ServoMotion.h"
 #include "LearningLayout.h"
+#include "DisplayRefresh.h"
 #include <ESP32Servo.h>
 
 // OLED wiring: VCC -> 3V3, GND -> GND, SDA -> GPIO21, SCL -> GPIO22.
@@ -210,16 +211,14 @@ static void updateServo(uint32_t now) {
   }
 }
 
-// Same full framebuffer and tile order as U8g2 sendBuffer(), with servo
-// service between short I2C rows. Callbacks never touch this framebuffer.
+// Only send changed tile spans; static cards no longer rewrite all eight rows.
+// Preserve short servo service intervals without a separate writer or task.
+static PrivetDisplay::Refresh displayRefresh;
 static void presentFrame(){
- const uint8_t width=oled.getBufferTileWidth(),height=oled.getBufferTileHeight();
- const uint8_t *buffer=oled.getBufferPtr();
- for(uint8_t row=0;row<height;row++){
+ displayRefresh.present(oled.getBufferPtr(),[](uint8_t x,uint8_t row,uint8_t width,const uint8_t *data){
   updateServo(millis());
-  u8x8_DrawTile(oled.getU8x8(),0,row,width,const_cast<uint8_t*>(buffer+size_t(row)*width*8));
- }
- u8x8_RefreshDisplay(oled.getU8x8());
+  u8x8_DrawTile(oled.getU8x8(),x,row,width,const_cast<uint8_t*>(data));
+ });
  updateServo(millis());
 }
 
@@ -766,7 +765,7 @@ static void updateOLED() {
   static bool cardVisible=false;
   PrivetCards::Card incoming;
   portENTER_CRITICAL(&cardsMux);
-  cards.expire(millis());incoming=cards.completed;
+  incoming=cards.completed;
   portEXIT_CRITICAL(&cardsMux);
   if(incoming.revision!=shownCard.revision){shownCard=incoming;cardAt=millis();cardVisible=false;}
 
@@ -1050,6 +1049,11 @@ void setup() {
 }
 
 void loop() {
+  portENTER_CRITICAL(&cardsMux);
+  const auto expired=cards.expire(millis());
+  portEXIT_CRITICAL(&cardsMux);
+  if(expired.send&&phoneConnected.load()&&statusCharacteristic){statusCharacteristic->setValue(expired.bytes,8);statusCharacteristic->notify();}
+
   if (restartAdvertising.exchange(false)) {
     BLEDevice::startAdvertising();
 
