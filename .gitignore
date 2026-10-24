@@ -43,3 +43,6 @@ xcuserdata/
 .DS_Store
 *.log
 *.log.*
+
+CLAUDE.md
+.anthropic/
