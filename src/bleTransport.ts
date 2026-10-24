@@ -1,3 +1,4 @@
+import {CAPABILITIES,CARD_LIMITS,encodeControl,decodeControlAck,decodeCapabilities,decodeContentAck,cardFrames,validateCard,type Capabilities,type LearningCard} from './learningProtocol.ts';
 import {BLE_SERVICE,COMMAND,decodeAcknowledgement,encodeCommand,nextRequestId,type CommandCode} from './bleProtocol.ts';
 
 export type PhysicalDevice={deviceId:string;name?:string};
@@ -17,17 +18,21 @@ export type BlePhase='disconnected'|'suspended'|'reconciling'|'scanning'|'connec
 export type BleState={phase:BlePhase;message:string;devices:PhysicalDevice[];device?:PhysicalDevice;ready:boolean;pending:boolean;busy:boolean;notice?:string};
 export const initialBleState=():BleState=>({phase:'disconnected',message:'Not connected. The virtual companion works independently.',devices:[],ready:false,pending:false,busy:false});
 export const BLE_TIMEOUTS={initialize:15000,scan:12000,connect:10000,subscribe:5000,write:4000,ack:5000};
-type Clock={set:(fn:()=>void,ms:number)=>ReturnType<typeof setTimeout>;clear:(id:ReturnType<typeof setTimeout>)=>void};
-const clock:Clock={set:(fn,ms)=>setTimeout(fn,ms),clear:id=>clearTimeout(id)};
+type Clock={now?:()=>number;set:(fn:()=>void,ms:number)=>ReturnType<typeof setTimeout>;clear:(id:ReturnType<typeof setTimeout>)=>void};
+const clock:Clock={now:()=>performance.now(),set:(fn,ms)=>setTimeout(fn,ms),clear:id=>clearTimeout(id)};
 class Cancelled extends Error {}
+class TransferExpired extends Error {}
 export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,options:{supported?:()=>boolean;clock?:Clock;timeouts?:Partial<typeof BLE_TIMEOUTS>}={}){
  const time={...BLE_TIMEOUTS,...options.timeouts},timer=options.clock??clock;
  let state=initialBleState(),generation=0,activityRevision=0,alive=true,active=true,touched=false,rawPending=0,cleaning=0;
  let scanTimer:ReturnType<typeof setTimeout>|undefined;
  const cancelWaits=new Set<()=>void>();
  type AckResult=0|1|2|'cancelled';
- type Flight={id:number;generation:number;command:CommandCode;revision:number;resume:boolean;obsolete:boolean;ack:(result:AckResult)=>void};
- let flight:Flight|undefined,latest:CommandCode|undefined;
+ type Flight={id:number;generation:number;command:CommandCode;revision:number;resume:boolean;obsolete:boolean;reply?:(packet:DataView|null)=>void;ack:(result:AckResult)=>void};
+ type Job={command:CommandCode;card?:LearningCard};
+ let flight:Flight|undefined,latest:Job|undefined;
+ let capabilities:Capabilities|undefined;
+ const now=()=>timer.now?.()??performance.now();
  let screen:'home'|'profile'|'lesson'|'physical'='home';
  let submittedWrite:Promise<void>|undefined;
  const sameConnection=(g:number)=>alive&&generation===g;
@@ -61,8 +66,8 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
   void driver.cleanup(id).catch(()=>{/* Already disconnected/unavailable. */}).finally(()=>{cleaning--;update();});
  }
  function invalidate(phase:BlePhase,message:string){
-  generation++;clearScanTimer();latest=undefined;
-  if(flight){flight.obsolete=true;flight.ack('cancelled');}flight=undefined;
+  generation++;clearScanTimer();latest=undefined;capabilities=undefined;
+  if(flight){flight.obsolete=true;flight.ack('cancelled');flight.reply?.(null);}flight=undefined;
   for(const cancel of [...cancelWaits])cancel();
   const id=state.device?.deviceId;
   update({phase,message,ready:false,pending:false,device:undefined,devices:[]});cleanup(id);
@@ -108,6 +113,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
    if(!current(g))return;
    const subscribed=raw(()=>driver.subscribe(deviceId,value=>{
     if(!current(g)||!flight||flight.obsolete||flight.generation!==g)return;
+    flight.reply?.(value);
     const ack=decodeAcknowledgement(value);
     if(ack&&ack.requestId===flight.id&&ack.command===flight.command)flight.ack(ack.result);
    },time.subscribe));
@@ -121,20 +127,22 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
  // command may run only once that write resolves (or its bounded timeout drops
  // the connection). There is one replaceable slot, never a reaction FIFO.
  const contextCommands:ReadonlySet<CommandCode>=new Set([COMMAND.IDLE,COMMAND.THINKING,COMMAND.STREAK,COMMAND.CONNECTED,COMMAND.CELEBRATE]);
- function request(command:CommandCode){
+ function request(command:CommandCode,card?:LearningCard){
+  if(!Object.values(COMMAND).includes(command))return false;
+  if(card&&!validateCard(card))card=undefined;
   if(!alive||!active||!state.ready||!state.device)return false;
   // Preserve a pending context change ahead of fleeting same-context reactions.
   // A newer context (including completion) may replace it.
-  if(latest!==undefined&&contextCommands.has(latest)&&!contextCommands.has(command))return false;
+  if(latest!==undefined&&contextCommands.has(latest.command)&&!contextCommands.has(command))return false;
   if(contextCommands.has(command)){
    latest=undefined;
-   if(flight){flight.obsolete=true;flight.ack('cancelled');}
+   if(flight){flight.obsolete=true;flight.ack('cancelled');flight.reply?.(null);}
   }
-  latest=command;update({pending:true});pump();return true;
+  latest={command,card};update({pending:true});pump();return true;
  }
  function pump(resume=false){
   if(flight||submittedWrite||latest===undefined||(!state.ready&&!(resume&&state.phase==='reconciling'))||!state.device||!active||!alive)return;
-  const command=latest;latest=undefined;
+  const {command,card}=latest;latest=undefined;
   const g=generation,id=state.device.deviceId;
   let requestId:number;
   try{requestId=nextRequestId();}catch(error){failure(error,g);return;}
@@ -149,13 +157,15 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
   update({pending:true,message:'Sending reaction…'});
   void (async()=>{
    try{
-    // A context change before the bridge call drops an unsent stale command.
-    const writing=raw(()=>{if(job.obsolete)throw new Cancelled();return driver.write(id,encodeCommand(requestId,command),time.write);});
-    submittedWrite=writing;
-    // Retain the actual native promise across a pause. Canceling our wait does
-    // not recall the write, and a resumed IDLE must never overlap it.
-    void writing.finally(()=>{if(submittedWrite===writing)submittedWrite=undefined;}).catch(()=>{});
-    await wait(writing,g,time.write,'Command timed out. Connect again to try later.');
+    // This helper retains the actual submitted bridge promise, even after
+    // cancellation. A content timeout must never release the native write slot.
+    const write=async(packet:DataView,deadline?:number)=>{
+     const writing=raw(()=>{if(job.obsolete)throw new Cancelled();if(deadline!==undefined&&now()>=deadline)throw new TransferExpired();return driver.write(id,packet,time.write);});
+     submittedWrite=writing;
+     void writing.finally(()=>{if(submittedWrite===writing)submittedWrite=undefined;}).catch(()=>{});
+     await wait(writing,g,time.write,'Command timed out. Connect again to try later.');
+    };
+    await write(encodeCommand(requestId,command));
     if(!current(g)||job.obsolete)return;
     update({message:'Waiting for companion…'});
     const result=await wait(ackPromise,g,time.ack,'No reply from the companion. Connect again to try later.');
@@ -167,6 +177,43 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
     }
     const notice=result===1?'Companion update needed for all lesson reactions.':state.notice;
     update({notice,message:result===0?'Reaction accepted.':result===1?'Your companion needs an update for this reaction.':'The companion could not accept this reaction.'});
+    if(result!==0)return;
+    // Control and card replies share this flight; no second queue or native
+    // writer. Install listeners before writes to retain early notifications.
+    if(command===COMMAND.CONNECTED){
+     const probeId=nextRequestId();let acked=false,caps:Capabilities|undefined;
+     let finish!:(value:Capabilities|undefined)=>void;
+     const response=new Promise<Capabilities|undefined>(resolve=>{finish=resolve;});
+     job.reply=packet=>{
+      if(!packet){finish(undefined);return;}
+      const ack=decodeControlAck(packet),offer=decodeCapabilities(packet);
+      if(ack?.id===probeId){if(ack.result!==0){finish(undefined);return;}acked=true;}
+      if(offer?.id===probeId)caps={nonce:offer.nonce};
+      if(acked&&caps)finish(caps);
+     };
+     await write(encodeControl(probeId,CAPABILITIES));
+     if(job.obsolete)return;
+     try{const offer=await wait(response,g,CARD_LIMITS.ack,'Capability reply timed out.');if(!job.obsolete)capabilities=offer;}
+     catch(error){if(error instanceof Cancelled)throw error;capabilities=undefined;}
+     job.reply=undefined;
+    }
+    if(!capabilities||!card||job.obsolete)return;
+    const transaction=nextRequestId(),frames=cardFrames(transaction,capabilities.nonce,requestId,card);
+    let finish!:(result:number)=>void;let rejected=false;
+    const response=new Promise<number>(resolve=>{finish=resolve;});
+    job.reply=packet=>{if(!packet){finish(-1);return;}const ack=decodeContentAck(packet);if(ack?.id===transaction&&(ack.mode===card.mode||ack.result!==0&&ack.mode===0)){if(ack.result!==0)rejected=true;finish(ack.result);}};
+    // Start before BEGIN submission, not after its response. No COMMIT can be
+    // submitted after 3500 ms, irrespective of a slower native write response.
+    const deadline=now()+CARD_LIMITS.transfer;
+    for(const frame of frames){
+     if(job.obsolete)return;
+     if(rejected||now()>=deadline){capabilities=undefined;update({message:'Learning cards paused. Reactions remain available.'});return;}
+     try{await write(frame,deadline);}catch(error){if(!(error instanceof TransferExpired))throw error;capabilities=undefined;update({message:'Learning cards paused. Reactions remain available.'});return;}
+    }
+    if(job.obsolete)return;
+    try{const accepted=await wait(response,g,CARD_LIMITS.ack,'Learning card reply timed out.');if(job.obsolete)return;if(accepted!==0){capabilities=undefined;update({message:'Learning cards paused. Reactions remain available.'});}}
+    catch(error){if(error instanceof Cancelled)throw error;capabilities=undefined;update({message:'Learning cards paused. Reactions remain available.'});}
+
    }catch(error){
     // Obsolescence may cancel an unsent write. Genuine write failures/timeouts
     // still invalidate the link: starting a second native write would be unsafe.
@@ -194,10 +241,10 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
  }
  // Unlike ordinary same-screen navigation, direct lesson switches must replace
  // the old question context even while the lesson view is already open.
- function enterLesson(hasActiveQuestion:boolean){
+ function enterLesson(hasActiveQuestion:boolean,card?:LearningCard){
   if(screen==='physical')leaveSettings();
   screen='lesson';
-  return request(hasActiveQuestion?COMMAND.THINKING:COMMAND.IDLE);
+  return request(hasActiveQuestion?COMMAND.THINKING:COMMAND.IDLE,card);
  }
  function pause(){
   if(!state.device||!['connected','suspended','reconciling'].includes(state.phase)){
@@ -205,7 +252,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
    return;
   }
   clearScanTimer();latest=undefined;
-  if(flight){flight.obsolete=true;flight.ack('cancelled');}
+  if(flight){flight.obsolete=true;flight.ack('cancelled');flight.reply?.(null);}
   // Drop ACK waits and JS deadlines. The native write promise remains tracked.
   for(const cancel of [...cancelWaits])cancel();
   update({phase:'suspended',ready:false,pending:false,message:'Reactions paused. Connection will be checked when you return.'});
@@ -226,12 +273,12 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
    if(!connected){invalidate('disconnected','Companion is no longer connected. Tap Connect to reconnect.');return;}
    // Keep the existing subscription/listener. A fresh IDLE ACK proves the
    // notification path still works before any lesson-generated command resumes.
-   latest=COMMAND.IDLE;update({pending:true,message:'Synchronizing companion…'});pump(true);
+   latest={command:COMMAND.IDLE};update({pending:true,message:'Synchronizing companion…'});pump(true);
   }catch(error){
    if(valid()&&!(error instanceof Cancelled))invalidate('error','Could not confirm the connection. Connect again.');
   }
  }
- return {scan,connect,testHappy,request,leaveSettings,navigate,enterLesson,getState:()=>state,
+ return {scan,connect,testHappy,request,leaveSettings,navigate,enterLesson,getState:()=>state,connectionToken:()=>generation,
   disconnect:()=>invalidate('disconnected','Disconnected. No commands are queued.'),
   setActive(value:boolean){if(!alive||active===value)return;active=value;activityRevision++;if(!value)pause();else void reconcile();},
   dispose(){alive=false;active=false;invalidate('disconnected','Disconnected.');}
