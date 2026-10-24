@@ -336,6 +336,15 @@ test('context cancellation drops remaining fragments and obsolete content ACK, r
  data.resolve();await flush();assert.deepEqual(h.codes(),[6,3]);assert.equal(h.maxWrites,1);assert.ok(!h.writes.some(p=>p.getUint8(1)===0x12));
  h.notify(contentAck(old,6));await h.ackLatest();assert.equal(h.state.ready,true);assert.equal(h.state.notice,undefined);h.actor.dispose();
 });
+test('an instant reaction (non-context) also cuts short an in-progress card transfer instead of queuing behind it',async()=>{
+ const data=deferred();const h=harness({write:(_id,p)=>p.getUint8(0)===2&&p.getUint8(1)===0x11?data.promise:Promise.resolve()},true,0,true);await h.ready();
+ h.actor.request(COMMAND.THINKING,learningCard);await flush();await h.ackLatest();const old=h.writes.at(-1)!;
+ // HAPPY is not a context command; before this fix it would queue behind the
+ // full BEGIN/DATA/COMMIT sequence (up to ~5.5s) instead of preempting it.
+ h.actor.request(COMMAND.HAPPY);await flush();assert.deepEqual(h.codes(),[6]);
+ data.resolve();await flush();assert.deepEqual(h.codes(),[6,1]);assert.equal(h.maxWrites,1);assert.ok(!h.writes.some(p=>p.getUint8(1)===0x12));
+ h.notify(contentAck(old,6));await h.ackLatest();assert.equal(h.state.ready,true);assert.equal(h.state.notice,undefined);h.actor.dispose();
+});
 test('content wait is cancelled by background; resume sends only IDLE and ignores old completion',async()=>{
  const h=harness({},true,0,true);await h.ready();h.actor.request(COMMAND.THINKING,learningCard);await flush();await h.ackLatest();const old=h.writes.at(-1)!;
  h.actor.setActive(false);await flush();assert.equal(h.timers.size,0);assert.equal(h.actor.request(COMMAND.HINT,learningCard),false);

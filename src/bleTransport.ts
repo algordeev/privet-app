@@ -28,7 +28,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
  let scanTimer:ReturnType<typeof setTimeout>|undefined;
  const cancelWaits=new Set<()=>void>();
  type AckResult=0|1|2|'cancelled';
- type Flight={id:number;generation:number;command:CommandCode;revision:number;resume:boolean;obsolete:boolean;waitingCapabilities?:boolean;reply?:(packet:DataView|null)=>void;ack:(result:AckResult)=>void};
+ type Flight={id:number;generation:number;command:CommandCode;revision:number;resume:boolean;obsolete:boolean;waitingCapabilities?:boolean;sendingCard?:boolean;reply?:(packet:DataView|null)=>void;ack:(result:AckResult)=>void};
  type Job={command:CommandCode;card?:LearningCard};
  let flight:Flight|undefined,latest:Job|undefined;
  let capabilities:Capabilities|undefined;
@@ -173,7 +173,13 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
   // Preserve a pending context change ahead of fleeting same-context reactions.
   // A newer context (including completion) may replace it.
   if(latest!==undefined&&contextCommands.has(latest.command)&&!contextCommands.has(command))return false;
-  if(contextCommands.has(command)||flight?.waitingCapabilities){
+  // Any new request — not only a context change — must cut short a card
+  // transfer already under way (or still negotiating capabilities): its
+  // accepted face already landed, so the remaining frames/final ACK wait are
+  // just added latency the firmware will discard anyway once this new
+  // request's own face replaces it. The in-flight native write itself is
+  // never recalled; only unsent frames and JS-side ACK waits are dropped.
+  if(contextCommands.has(command)||flight?.waitingCapabilities||flight?.sendingCard){
    latest=undefined;
    if(flight){flight.obsolete=true;flight.ack('cancelled');flight.reply?.(null);}
   }
@@ -233,6 +239,13 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
     // Start before BEGIN submission, not after its response. No COMMIT can be
     // submitted after 3500 ms, irrespective of a slower native write response.
     const deadline=now()+CARD_LIMITS.transfer;
+    // The face reaction itself already landed; this flag marks only the
+    // optional, slower BEGIN/DATA/COMMIT card transfer that follows it. A new
+    // request (an instant reaction or a context change) arriving during this
+    // window obsoletes it immediately instead of queuing behind up to ~5.5s
+    // of card frames the firmware would discard anyway once a newer face/card
+    // request is accepted.
+    job.sendingCard=true;
     for(const frame of frames){
      if(job.obsolete)return;
      if(rejected||now()>=deadline){capabilities=undefined;update({message:'Learning cards paused. Reactions remain available.'});return;}

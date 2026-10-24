@@ -27,6 +27,8 @@
 #include "LearningLayout.h"
 #include "DisplayRefresh.h"
 #include <ESP32Servo.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 
 // OLED wiring: VCC -> 3V3, GND -> GND, SDA -> GPIO21, SCL -> GPIO22.
 // Small geometry adapter preserves the existing face drawing coordinates.
@@ -889,6 +891,21 @@ static const char *STATUS_UUID =
 static BLECharacteristic *statusCharacteristic =
   nullptr;
 
+// Guards the setValue()+notify() pair on statusCharacteristic. The BLE task
+// (onWrite/sendCapabilities) and the loop() task (card-expiry notifications)
+// both send status updates; without this lock a second setValue() can
+// overwrite the first before its notify() is sent, dropping or corrupting
+// an ACK the app is waiting on.
+static SemaphoreHandle_t bleNotifyMutex = NULL;
+
+static void sendStatus(const uint8_t *data, size_t length) {
+  if (xSemaphoreTake(bleNotifyMutex, portMAX_DELAY) == pdTRUE) {
+    statusCharacteristic->setValue(const_cast<uint8_t *>(data), length);
+    statusCharacteristic->notify();
+    xSemaphoreGive(bleNotifyMutex);
+  }
+}
+
 static std::atomic<bool> restartAdvertising{false};
 
 // Accessed only from BLE callbacks.
@@ -952,7 +969,7 @@ static void sendCapabilities(uint32_t requestId){
  uint8_t p[20]={2,0x80};
  for(int i=0;i<4;i++){p[i+2]=uint8_t(requestId>>(8*i));p[i+12]=uint8_t(connectionNonce>>(8*i));}
  p[6]=oledReady?7:3;p[7]=20;p[8]=96;p[10]=64;p[11]=32;p[16]=0x88;p[17]=0x13;
- statusCharacteristic->setValue(p,20);statusCharacteristic->notify();
+ sendStatus(p,20);
 }
 class CommandCallbacks : public BLECharacteristicCallbacks {
  void onWrite(BLECharacteristic *characteristic) override {
@@ -961,14 +978,14 @@ class CommandCallbacks : public BLECharacteristicCallbacks {
   uint8_t packet[20];memcpy(packet,characteristic->getData(),length>20?20:length);
   if(packet[0]==2){
    portENTER_CRITICAL(&cardsMux);const auto reply=cards.receive(packet,length,millis(),oledReady);portEXIT_CRITICAL(&cardsMux);
-   if(reply.send){statusCharacteristic->setValue(reply.bytes,8);statusCharacteristic->notify();}
+   if(reply.send)sendStatus(reply.bytes,8);
    return;
   }
   if(length!=8||packet[0]!=1||packet[1]!=1)return;
   const uint32_t requestId=PrivetCards::u32(packet+2);if(!requestId)return;
   if(haveLast&&PrivetCards::u32(lastCommand+2)==requestId){
    if(memcmp(packet,lastCommand,8))return;
-   statusCharacteristic->setValue(lastAck,8);statusCharacteristic->notify();
+   sendStatus(lastAck,8);
    if(packet[6]==10&&lastAck[7]==0)sendCapabilities(requestId);
    return;
   }
@@ -981,7 +998,7 @@ class CommandCallbacks : public BLECharacteristicCallbacks {
    wakeTransition.acceptReaction(); // Publish after the face mailbox is ready.
   }
   memcpy(lastCommand,packet,8);memcpy(lastAck,ack,8);haveLast=true;
-  statusCharacteristic->setValue(ack,8);statusCharacteristic->notify();
+  sendStatus(ack,8);
   if(!result&&packet[6]==10)sendCapabilities(requestId);
  }
 };
@@ -993,6 +1010,10 @@ void setup() {
   Serial.println(
     "\nPrivet BLE + OLED + SG90 starting..."
   );
+
+  // Created before BLEDevice::init()/createServer() so sendStatus() is
+  // always safe to call once the characteristic exists.
+  bleNotifyMutex = xSemaphoreCreateMutex();
 
   pinMode(SERVO_PIN, OUTPUT);
   digitalWrite(SERVO_PIN, LOW);
@@ -1058,7 +1079,7 @@ void loop() {
   portENTER_CRITICAL(&cardsMux);
   const auto expired=cards.expire(millis());
   portEXIT_CRITICAL(&cardsMux);
-  if(expired.send&&phoneConnected.load()&&statusCharacteristic){statusCharacteristic->setValue(expired.bytes,8);statusCharacteristic->notify();}
+  if(expired.send&&phoneConnected.load()&&statusCharacteristic)sendStatus(expired.bytes,8);
 
   if (restartAdvertising.exchange(false)) {
     BLEDevice::startAdvertising();
