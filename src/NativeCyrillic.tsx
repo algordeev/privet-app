@@ -6,6 +6,8 @@ import type {LessonController} from './useLesson';
 import type {CyrillicController} from './useCyrillicProgress';
 import {NativeSheet} from './NativeSheet';
 import {SoundIcon} from './Icons';
+import {russianReading} from './pronunciation';
+import type {Word} from './curriculum/types';
 
 type Speech=LessonController['speech'];
 function BackChevron(){return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>;}
@@ -13,9 +15,9 @@ export function CyrillicExample({example,target}:{example:string;target:string})
  const parts=targetLetterParts(example,target);
  return <span className="native-letter-example" lang="ru"><span aria-hidden="true">{parts.before}{parts.target&&<strong className="native-target-letter">{parts.target}</strong>}{parts.after}</span><span className="native-sr-only">{example}</span></span>;
 }
-function LetterCards({letters,speech,onListen}:{letters:readonly CyrillicLetter[];speech:Speech;onListen:(text:string)=>void}){
+function LetterCards({letters,speech,onListen,words}:{letters:readonly CyrillicLetter[];speech:Speech;onListen:(text:string)=>void;words?:readonly Word[]}){
  return <div className="native-letter-list">{letters.map(item=><article className="native-letter-card" key={item.upper}>
-  <div className="native-letter-heading">{speech.available&&letterAudioText(item)?<button className="native-letter-sound" aria-label={`Hear letter ${item.upper} (device speech)`} onClick={()=>onListen(letterAudioText(item)!)}><strong lang="ru">{item.upper} <span>{item.lower}</span></strong></button>:<strong lang="ru">{item.upper} <span>{item.lower}</span></strong>}</div><div className="native-letter-copy"><b>{item.sound}</b><p><CyrillicExample example={item.example} target={item.lower}/><span className="native-example-meaning">{item.meaning}</span></p>{item.note&&<small>{item.note}</small>}</div>
+  <div className="native-letter-heading">{speech.available&&letterAudioText(item)?<button className="native-letter-sound" aria-label={`Hear letter ${item.upper} (device speech)`} onClick={()=>onListen(letterAudioText(item)!)}><strong lang="ru">{item.upper} <span>{item.lower}</span></strong></button>:<strong lang="ru">{item.upper} <span>{item.lower}</span></strong>}</div><div className="native-letter-copy"><b>{item.sound}</b><p><CyrillicExample example={item.example} target={item.lower}/>{russianReading(item.example,words)&&<span className="native-example-reading" lang="en">{russianReading(item.example,words)}</span>}<span className="native-example-meaning">{item.meaning}</span></p>{item.note&&<small>{item.note}</small>}</div>
   {speech.available&&item.example&&<button className="native-letter-audio" aria-label={`Listen to ${item.example}: ${item.meaning}`} onClick={()=>onListen(item.example)}><SoundIcon/></button>}
  </article>)}</div>;
 }
@@ -28,8 +30,8 @@ export function NativeAlphabetGuide({definition,exercise,speech,onListen,onClose
  function switchView(){speech.stop();setFull(value=>!value);if(scroll.current)scroll.current.scrollTop=0;}
  return <NativeSheet id="native-alphabet-guide" size="reference" title="Cyrillic guide" onClose={onClose}>
   <div className="native-guide-tabs"><button aria-pressed={!full} onClick={()=>{if(full)switchView();}}>Current exercise</button><button aria-pressed={full} onClick={()=>{if(!full)switchView();}}>See full alphabet</button></div>
-  <div ref={scroll} className="native-sheet-scroll"><p className="native-alphabet-note">Rough English sound guides, not exact pronunciation. Letters below are in Russian alphabetical order within each group.</p>
-   {full?Object.entries(LETTER_GROUPS).map(([group,title])=><section className={`native-letter-group ${group==='tricky'?'is-tricky':''}`} key={group}><h3>{title}</h3><LetterCards letters={letters.filter(item=>item.group===group)} speech={speech} onListen={onListen}/></section>):<LetterCards letters={letters} speech={speech} onListen={onListen}/>}
+  <div ref={scroll} className="native-sheet-scroll"><p className="native-alphabet-note">Rough English sound guides, not exact pronunciation. CAPITALS mark stress in words. Letters below are in Russian alphabetical order within each group.</p>
+   {full?Object.entries(LETTER_GROUPS).map(([group,title])=><section className={`native-letter-group ${group==='tricky'?'is-tricky':''}`} key={group}><h3>{title}</h3><LetterCards letters={letters.filter(item=>item.group===group)} speech={speech} onListen={onListen} words={definition.words}/></section>):<LetterCards letters={letters} speech={speech} onListen={onListen} words={definition.words}/>}
    <AudioNote speech={speech}/>
   </div>
  </NativeSheet>;
@@ -60,7 +62,7 @@ export function NativeCyrillicQuickStart({onboarding,speech,onClose,onLesson,onL
    <h1 ref={heading} tabIndex={-1}>{finished?'A little more familiar.':titles[page]}</h1>
    {finished?<p>You don’t need to memorize everything. The alphabet guide stays available during lessons.</p>:<>
     <p>{page===0?'Some Russian letters already look and sound familiar.':page===1?'These look familiar to English readers, but their sounds are different. Take your time with them.':page===2?'Meet a few more useful Russian letters. You can look them up any time.':'Try reading each word, then tap to reveal its meaning. No scores, no wrong answers.'}</p>
-    {page<3?<section className={page===1?'native-letter-group is-tricky':'native-letter-group'}><p className="native-alphabet-note">English spellings are rough sound guides, not exact equivalents.</p><LetterCards letters={letters} speech={speech} onListen={listen}/></section>:<div className="native-reading-list">{READING_WORDS.map(word=><article className="native-reading-card" key={word.text}><button className="native-reading-reveal" aria-expanded={revealed.includes(word.text)} onClick={()=>setRevealed(values=>values.includes(word.text)?values:[...values,word.text])}><strong lang="ru">{word.text}</strong><span>{revealed.includes(word.text)?word.meaning:'Reveal meaning +'}</span></button>{speech.available&&<button className="native-letter-audio" aria-label={`Listen to ${word.text}`} onClick={()=>listen(word.text)}><SoundIcon/></button>}</article>)}</div>}
+    {page<3?<section className={page===1?'native-letter-group is-tricky':'native-letter-group'}><p className="native-alphabet-note">English spellings are rough sound guides, not exact equivalents. CAPITALS mark stress in words.</p><LetterCards letters={letters} speech={speech} onListen={listen}/></section>:<div className="native-reading-list">{READING_WORDS.map(word=><article className="native-reading-card" key={word.text}><button className="native-reading-reveal" aria-expanded={revealed.includes(word.text)} onClick={()=>setRevealed(values=>values.includes(word.text)?values:[...values,word.text])}><strong lang="ru">{word.text}</strong><span className="native-example-reading" lang="en">{russianReading(word.text)}</span><span>{revealed.includes(word.text)?word.meaning:'Reveal meaning +'}</span></button>{speech.available&&<button className="native-letter-audio" aria-label={`Listen to ${word.text}`} onClick={()=>listen(word.text)}><SoundIcon/></button>}</article>)}</div>}
     <AudioNote speech={speech}/>
    </>}
   </div>

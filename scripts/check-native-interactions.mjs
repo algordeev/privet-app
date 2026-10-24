@@ -65,6 +65,7 @@ try{
  const {SUBSCRIPTION_KEY,PLUS_MONTHLY_PRICE}=await server.ssrLoadModule('/src/subscription.ts');
  const {CYRILLIC_KEY}=await server.ssrLoadModule('/src/cyrillicProgress.ts');
  const {CYRILLIC,contextualLetters}=await server.ssrLoadModule('/src/cyrillic.ts');
+ const {russianReading}=await server.ssrLoadModule('/src/pronunciation.ts');
  profile=await mkdtemp(join(tmpdir(),'privet-native-checks-'));
  chrome=spawn(executable,['--headless=new','--no-first-run','--no-default-browser-check','--remote-debugging-port=0',`--user-data-dir=${profile}`,'about:blank'],{stdio:'ignore'});
  let port;for(let n=0;n<100;n++){try{port=(await readFile(join(profile,'DevToolsActivePort'),'utf8')).split('\n')[0];break;}catch{await pause(100);}}
@@ -74,7 +75,7 @@ try{
  let nextId=0;const pending=new Map();const browserErrors=[];
  ws.onmessage=event=>{
   const message=JSON.parse(event.data);
-  if(message.method==='Runtime.exceptionThrown')browserErrors.push(message.params.exceptionDetails.text);
+  if(message.method==='Runtime.exceptionThrown')browserErrors.push(message.params.exceptionDetails.exception?.description??message.params.exceptionDetails.text);
   if(message.id){const request=pending.get(message.id);if(!request)return;pending.delete(message.id);clearTimeout(request.timer);message.error?request.reject(Error(JSON.stringify(message.error))):request.resolve(message.result);}
  };
  const call=(method,params={})=>new Promise((resolve,reject)=>{
@@ -85,7 +86,7 @@ try{
   const result=await call('Runtime.evaluate',{expression:`(${fn.toString()})(${JSON.stringify(arg)})`,awaitPromise:true,returnByValue:true});
   assert.ok(!result.exceptionDetails,JSON.stringify(result.exceptionDetails));return result.result.value;
  };
- const until=async(fn,arg)=>{for(let n=0;n<120;n++){if(await evaluate(fn,arg))return;await pause(50);}throw Error(`UI condition timed out: ${fn}`);};
+ const until=async(fn,arg)=>{for(let n=0;n<120;n++){if(await evaluate(fn,arg))return;await pause(50);}throw Error(`UI condition timed out: ${fn}; browser exceptions: ${JSON.stringify(browserErrors)}`);};
  async function assertNativeLayout(){
   const panes=await evaluate(()=>[...document.querySelectorAll('.native-app,.native-home-scroll,.native-profile-scroll,.native-app .lesson-scroll,.native-sheet,.native-sheet-panel,.native-sheet-scroll,.native-quick-scroll,.first-scroll')].map(el=>{
    el.scrollLeft=1000;
@@ -101,18 +102,19 @@ try{
  }
  const click=async(selector,text)=>{
   if(process.env.PRIVET_INTERACTION_DEBUG)console.log(`CLICK ${selector} ${text??''}`);
-  await until(({selector,text})=>[...document.querySelectorAll(selector)].some(el=>!el.disabled&&(!text||el.textContent.trim().replace(/\s*[→↻∞]\s*$/,'').trim()===text)),{selector,text});
-  await evaluate(({selector,text})=>{const el=[...document.querySelectorAll(selector)].find(el=>!el.disabled&&(!text||el.textContent.trim().replace(/\s*[→↻∞]\s*$/,'').trim()===text));el.scrollIntoView({block:'nearest'});el.click();},{selector,text});await pause(60);await assertNativeLayout();
+  await until(({selector,text})=>[...document.querySelectorAll(selector)].some(el=>!el.disabled&&(!text||(el.matches('.choice')?(el.querySelector('.native-choice-copy')?el.querySelector('.choice-number').textContent+el.querySelector('.native-choice-copy > span').textContent:el.textContent):el.textContent).trim().replace(/\s*[→↻∞]\s*$/,'').trim()===text)),{selector,text});
+  await evaluate(({selector,text})=>{const el=[...document.querySelectorAll(selector)].find(el=>!el.disabled&&(!text||(el.matches('.choice')?(el.querySelector('.native-choice-copy')?el.querySelector('.choice-number').textContent+el.querySelector('.native-choice-copy > span').textContent:el.textContent):el.textContent).trim().replace(/\s*[→↻∞]\s*$/,'').trim()===text));el.scrollIntoView({block:'nearest'});el.click();},{selector,text});await pause(60);await assertNativeLayout();
  };
  async function assertLetterExamples(){
   const cards=await evaluate(()=>[...document.querySelectorAll('.native-letter-card')].map(el=>{
    const example=el.querySelector('.native-letter-example'),visual=example.firstElementChild,target=example.querySelector('.native-target-letter'),style=getComputedStyle(target);
-   return {letter:el.querySelector('.native-letter-heading strong').firstChild.textContent.trim(),visual:visual.textContent,word:example.querySelector('.native-sr-only').textContent,target:target.textContent,hidden:visual.getAttribute('aria-hidden'),lang:example.lang,weight:Number(style.fontWeight),decoration:style.textDecorationLine};
+   return {letter:el.querySelector('.native-letter-heading strong').firstChild.textContent.trim(),visual:visual.textContent,word:example.querySelector('.native-sr-only').textContent,reading:el.querySelector('.native-example-reading')?.textContent,readingLang:el.querySelector('.native-example-reading')?.lang,target:target.textContent,hidden:visual.getAttribute('aria-hidden'),lang:example.lang,weight:Number(style.fontWeight),decoration:style.textDecorationLine};
   }));
   assert.ok(cards.length>0);
   const columns=await evaluate(()=>[...document.querySelectorAll('.native-letter-card')].map(card=>{const letter=card.querySelector('.native-letter-heading').getBoundingClientRect(),copy=card.querySelector('.native-letter-copy').getBoundingClientRect(),sound=card.querySelector('.native-letter-copy > b').getBoundingClientRect(),word=card.querySelector('.native-letter-example').getBoundingClientRect();return {letterRight:letter.right,copyLeft:copy.left,soundTop:sound.top,wordTop:word.top};}));
   for(const column of columns){assert.ok(column.copyLeft>=column.letterRight,'Cyrillic letters stay in the left column');assert.ok(column.soundTop<column.wordTop,'Latin sound guide stays above the example in the adjacent column');}
   for(const card of cards){
+   assert.equal(card.reading,russianReading(card.word),'Latin reading belongs to the actual safe example');assert.equal(card.readingLang,'en');
    assert.equal(card.visual,card.word,'Visual emphasis preserves the complete word');assert.equal(card.lang,'ru');assert.equal(card.hidden,'true');
    assert.equal(card.target.toLowerCase(),card.letter.toLowerCase());assert.ok(card.weight>=700&&card.decoration.includes('underline'),'Target emphasis does not rely on color');
    if(!['Ъ','Ы','Ь'].includes(card.letter))assert.ok(card.word.toLowerCase().startsWith(card.target.toLowerCase()),card.letter);
@@ -261,6 +263,25 @@ try{
   await click('[aria-label="Back to home"]');await openPhysicalSettings();
   await assertNativeLayout();
   console.log(`PASS ${viewport.width}×${viewport.height}: Plus activate/cancel/reload/zero-heart recovery via lesson and Profile, restored heart consumption, freeze lifecycle→finish, replay reward separation, refill/freeze prices; native panes cannot scroll sideways, all exercises/header controls fit, vertical scroll retained.`);
+ }
+
+ // Whole-word readings follow the existing switch without altering answers.
+ for(const viewport of [{width:320,height:568},{width:430,height:932}]){
+  await call('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:true});
+  const exchange=freshSession();exchange.progress.index=3;exchange.progress.results=[true,true,true];
+  await open({[NATIVE_SESSION_KEY]:exchange});await startCafe();
+  assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.native-russian-reading')].map(node=>node.textContent)),['vash chai','spa-SEE-ba','pree-VYET','ya kha-CHOO chai']);
+  await capture(`latin-exchange-${viewport.width}`);
+  await click('.choice','1Спасибо!');const before=await stored(NATIVE_SESSION_KEY);
+  await click('[aria-label="Lesson display settings"]');await click('[aria-label="Pronunciation help"]');await click('[aria-label="Lesson display settings"]');
+  assert.equal(await evaluate(()=>document.querySelectorAll('.native-russian-reading').length),0);
+  await click('[aria-label="Open Cyrillic guide"]');await assertLetterExamples();await click('[aria-label="Close Cyrillic guide"]');
+  assert.deepEqual(await stored(NATIVE_SESSION_KEY),before,'Guide and pronunciation toggles preserve selection, progress and rewards');
+  await open({},initialTime,true);await startCafe();assert.equal(await evaluate(()=>document.querySelectorAll('.native-russian-reading').length),0,'Reading preference survives reload');
+  await click('[aria-label="Lesson display settings"]');await click('[aria-label="Pronunciation help"]');await click('[aria-label="Lesson display settings"]');
+  assert.equal(await evaluate(()=>document.querySelectorAll('.native-russian-reading').length),4);
+  assert.equal((await stored(NATIVE_SESSION_KEY)).selected,'Спасибо!','Persist the canonical Russian choice, never its Latin reading');
+  console.log(`PASS ${viewport.width}×${viewport.height}: dialogue/choice Latin readings follow pronunciation settings and reload, preserve answers/session, and alphabet readings stay available with help off.`);
  }
 
  // Explicit native UI actions go through the real root controller and transport.
