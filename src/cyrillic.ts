@@ -68,7 +68,7 @@ export function referenceExample(item:CyrillicLetter,definition?:LessonDefinitio
  if(!definition||!exercise||exercise.kind==='vocabulary')return item;
  // English-only answers are not Russian comparison targets. Also avoid repeating
  // the Russian question word when its assessed answer is an English meaning.
- const forbidden=[exercise.answer,exercise.prompt].filter(text=>/[а-яё]/iu.test(text)).map(canonical);
+ const forbidden=[exercise.answer,...exercise.alsoAccepted??[],exercise.prompt].filter(text=>/[а-яё]/iu.test(text)).map(canonical);
  const safe=(text:string)=>!forbidden.some(word=>word&&canonical(text).includes(word));
  if(safe(item.example))return item;
  const internal=['Ъ','Ы','Ь'].includes(item.upper);

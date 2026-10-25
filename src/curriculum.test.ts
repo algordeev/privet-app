@@ -7,6 +7,7 @@ import {freshSession,restoreSession,sessionKey,savedKey,lessonPassed,readSaved,r
 import {emptyStats,recordFinish,restoreStats} from './nativeStats.ts';
 import {createPhysicalLessonEvents} from './physicalLessonEvents.ts';
 import {stressPairs,stressText} from './stress.ts';
+import {safeBeforeAnswer} from './companionDisplay.ts';
 
 test('eight unique ordered lessons have valid acyclic prerequisites and metadata',()=>{
  assert.equal(nativeLessons.length,8);assert.equal(new Set(nativeLessons.map(l=>l.id)).size,8);
@@ -110,4 +111,16 @@ test('stress marks cover any display string via other lessons and every bare wor
  assert.equal(stressText('Привет! Давай в музей! Потом чай?',culture.words),'Приве́т! Дава́й в музе́й! Пото́м чай?');
  assert.equal(stressText('That works: Давай в музей завтра.',culture.words),'That works: Дава́й в музе́й за́втра.');
  assert.equal(stressText('ПОКА дава́й нечто'),'ПОКА́ дава́й нечто');
+});
+test('alternative word orders reuse the same tiles, grade correct and stay hidden from the companion',()=>{
+ for(const l of nativeLessons)for(const [i,e] of l.exercises.entries())for(const alternative of e.alsoAccepted??[]){
+  assert.equal(e.kind,'sentence');assert.notEqual(normalizeAnswer(alternative),normalizeAnswer(e.answer));
+  assert.deepEqual([...e.tokens!].sort(),alternative.split(' ').sort());
+  assert.ok(checkAnswer(i,alternative,l.exercises));assert.ok(!safeBeforeAnswer(e,alternative));
+ }
+ const culture=lessonById('culture'),index=culture.exercises.findIndex(e=>e.kind==='sentence');
+ for(const value of ['Давай в музей завтра','Давай завтра в музей'])assert.ok(checkAnswer(index,value,culture.exercises));
+ assert.ok(!checkAnswer(index,'в Давай музей завтра',culture.exercises));
+ const plans=lessonById('making-plans');
+ assert.ok(checkAnswer(plans.exercises.findIndex(e=>e.kind==='sentence'),'Давай завтра гулять',plans.exercises));
 });
