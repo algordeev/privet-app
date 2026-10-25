@@ -6,6 +6,7 @@ import {normalizeAnswer,checkAnswer,initialProgress,progressReducer} from './eng
 import {freshSession,restoreSession,sessionKey,savedKey,lessonPassed,readSaved,recordLessonCompletion} from './session.ts';
 import {emptyStats,recordFinish,restoreStats} from './nativeStats.ts';
 import {createPhysicalLessonEvents} from './physicalLessonEvents.ts';
+import {stressPairs,stressText} from './stress.ts';
 
 test('eight unique ordered lessons have valid acyclic prerequisites and metadata',()=>{
  assert.equal(nativeLessons.length,8);assert.equal(new Set(nativeLessons.map(l=>l.id)).size,8);
@@ -94,4 +95,19 @@ test('best and latest scores stay separate across better/worse replays and old-s
   storage.set(savedKey(definition),JSON.stringify(saved));assert.deepEqual(readSaved(definition),saved);
   for(const invalid of [-1,99,'5',null]){storage.set(savedKey(definition),JSON.stringify({...saved,bestFirstTry:invalid}));const restored=readSaved(definition);assert.equal(restored.bestFirstTry,2);assert.deepEqual(restored.completion,saved.completion);}
  }}finally{if(descriptor)Object.defineProperty(globalThis,'localStorage',descriptor);else Reflect.deleteProperty(globalThis,'localStorage');}
+});
+test('stress marks cover any display string via other lessons and every bare word has exactly one stressed form',()=>{
+ const forms=new Map<string,string>();
+ for(const l of nativeLessons)for(const w of l.words){
+  assert.equal(w.text.split(' ').length,w.stressed.split(' ').length,w.text);
+  for(const [token,stressed] of stressPairs([w])){const key=token.toLowerCase(),form=stressed.toLowerCase();
+   assert.equal(forms.get(key)??form,form,`${token} has two stressed forms`);forms.set(key,form);}
+ }
+ const culture=lessonById('culture');
+ assert.ok(!stressPairs(culture.words).some(([token])=>token==='завтра'));
+ assert.equal(stressText('завтра',culture.words),'за́втра');
+ // Mixed English/Russian strings: punctuation, capitals and existing marks are preserved.
+ assert.equal(stressText('Привет! Давай в музей! Потом чай?',culture.words),'Приве́т! Дава́й в музе́й! Пото́м чай?');
+ assert.equal(stressText('That works: Давай в музей завтра.',culture.words),'That works: Дава́й в музе́й за́втра.');
+ assert.equal(stressText('ПОКА дава́й нечто'),'ПОКА́ дава́й нечто');
 });
