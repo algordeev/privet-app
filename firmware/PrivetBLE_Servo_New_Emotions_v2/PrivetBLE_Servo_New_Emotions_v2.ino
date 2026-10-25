@@ -745,19 +745,48 @@ static void setupOLED() {
 
 // Prefer large Russian text; compact both sections when either needs room.
 // Up to two primary and two translation lines, all inside the 128x64 frame.
-static void drawCard(const PrivetCards::Card &card){
- oled.clearBuffer();oled.setDrawColor(1);oled.drawDisc(123,3,1);
+//
+// Wrapping/measurement (PrivetLayout::wrap, getUTF8Width) is the expensive
+// part: per-substring width lookups for every candidate line break. The card
+// itself is static while shown, but updateOLED() re-enters drawCard() every
+// ~50ms via the frame throttle, so without caching this reran on every frame.
+// Card::revision already uniquely (monotonically) identifies "this exact
+// card content", so it is the cache key: layout is recomputed only when a
+// genuinely new card arrives, never on a repeat draw of the same one.
+struct CardLayout {
+ uint32_t revision=0;bool valid=false,compact=false;
+ PrivetLayout::Lines primary,secondary;
+ int primaryX[2]={},secondaryX[2]={};
+};
+static CardLayout cardLayout;
+
+static void layoutCard(const PrivetCards::Card &card){
+ if(cardLayout.valid&&cardLayout.revision==card.revision)return;
  const auto measure=[](const char *text){return oled.getUTF8Width(text);};
  oled.setFont(u8g2_font_6x13_t_cyrillic);
- const auto secondary=PrivetLayout::wrap(card.secondary,measure);
+ cardLayout.secondary=PrivetLayout::wrap(card.secondary,measure);
  oled.setFont(u8g2_font_9x15_t_cyrillic);
- auto primary=PrivetLayout::wrap(card.primary,measure);
- const bool compact=!primary.complete||(primary.count==2&&secondary.count==2);
- if(compact){oled.setFont(u8g2_font_6x13_t_cyrillic);primary=PrivetLayout::wrap(card.primary,measure);}
- const PrivetLayout::Frame frame(primary.count,secondary.count,compact);
- for(uint8_t i=0;i<primary.count;i++)oled.drawUTF8((128-int(oled.getUTF8Width(primary.text[i])))/2,frame.primaryBaseline(i),primary.text[i]);
+ cardLayout.primary=PrivetLayout::wrap(card.primary,measure);
+ cardLayout.compact=!cardLayout.primary.complete||(cardLayout.primary.count==2&&cardLayout.secondary.count==2);
+ if(cardLayout.compact){oled.setFont(u8g2_font_6x13_t_cyrillic);cardLayout.primary=PrivetLayout::wrap(card.primary,measure);}
+ // Precompute each line's centered x offset now, under the same font that
+ // will be active when it is actually drawn, so the draw path below never
+ // calls getUTF8Width() again.
+ oled.setFont(cardLayout.compact?u8g2_font_6x13_t_cyrillic:u8g2_font_9x15_t_cyrillic);
+ for(uint8_t i=0;i<cardLayout.primary.count;i++)cardLayout.primaryX[i]=(128-int(oled.getUTF8Width(cardLayout.primary.text[i])))/2;
  oled.setFont(u8g2_font_6x13_t_cyrillic);
- for(uint8_t i=0;i<secondary.count;i++)oled.drawUTF8((128-int(oled.getUTF8Width(secondary.text[i])))/2,frame.secondaryBaseline(i),secondary.text[i]);
+ for(uint8_t i=0;i<cardLayout.secondary.count;i++)cardLayout.secondaryX[i]=(128-int(oled.getUTF8Width(cardLayout.secondary.text[i])))/2;
+ cardLayout.revision=card.revision;cardLayout.valid=true;
+}
+
+static void drawCard(const PrivetCards::Card &card){
+ layoutCard(card);
+ const PrivetLayout::Frame frame(cardLayout.primary.count,cardLayout.secondary.count,cardLayout.compact);
+ oled.clearBuffer();oled.setDrawColor(1);oled.drawDisc(123,3,1);
+ oled.setFont(cardLayout.compact?u8g2_font_6x13_t_cyrillic:u8g2_font_9x15_t_cyrillic);
+ for(uint8_t i=0;i<cardLayout.primary.count;i++)oled.drawUTF8(cardLayout.primaryX[i],frame.primaryBaseline(i),cardLayout.primary.text[i]);
+ oled.setFont(u8g2_font_6x13_t_cyrillic);
+ for(uint8_t i=0;i<cardLayout.secondary.count;i++)oled.drawUTF8(cardLayout.secondaryX[i],frame.secondaryBaseline(i),cardLayout.secondary.text[i]);
  presentFrame();
 }
 
