@@ -7,7 +7,7 @@ export function companionReaction(event: CompanionEvent): { state:CompanionState
  return { state:states[event.type], text:event.text || labels[event.type] };
 }
 export function normalizeAnswer(value:string) { return value.normalize('NFD').replace(/[\u0300\u0301]/g,'').normalize('NFC').trim().toLocaleLowerCase('ru').replace(/[.!?…]+$/u,'').trim().replace(/\s+/g,' '); }
-export function checkAnswer(index:number, value:string, exercises:readonly Exercise[]=lesson) { return normalizeAnswer(value) === normalizeAnswer(exercises[index].answer); }
+export function checkAnswer(index:number, value:string, exercises:readonly Exercise[]=lesson) { const {answer,alsoAccepted=[]}=exercises[index]; return [answer,...alsoAccepted].some(accepted=>normalizeAnswer(value) === normalizeAnswer(accepted)); }
 export const MAX_HEARTS=3;
 export type Progress = { index:number; attempts:number; results:boolean[]; feedback:'correct'|'incorrect'|null; complete:boolean; hearts:number; combo:number; bestCombo:number; failed:boolean };
 export const initialProgress = (): Progress => ({ index:0, attempts:0, results:[], feedback:null, complete:false,hearts:MAX_HEARTS,combo:0,bestCombo:0,failed:false });

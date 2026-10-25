@@ -8,7 +8,7 @@ const labels:Readonly<Record<string,string>>={cafe:'At the cafe',introductions:'
 const replies:Readonly<Record<string,{russian:string;meaning:string}>>={'studies/exchange':{russian:'А я работаю.',meaning:'And I work.'}};
 export function normalizedDisplay(text:string){return text.normalize('NFD').replace(/[\u0300\u0301]/g,'').normalize('NFC').toLocaleLowerCase('ru').replace(/[^\p{L}\p{N}]+/gu,' ').trim();}
 export function containsAnswer(text:string,answer:string){const a=normalizedDisplay(answer),t=normalizedDisplay(text);return !!a&&(/[а-яё]/iu.test(answer)?t.includes(a):(` ${t} `).includes(` ${a} `));}
-export function safeBeforeAnswer(exercise:Exercise,primary:string,secondary=''){return exercise.kind==='vocabulary'||![primary,secondary,primary+' '+secondary].some(text=>containsAnswer(text,exercise.answer));}
+export function safeBeforeAnswer(exercise:Exercise,primary:string,secondary=''){return exercise.kind==='vocabulary'||![primary,secondary,primary+' '+secondary].some(text=>[exercise.answer,...exercise.alsoAccepted??[]].some(answer=>containsAnswer(text,answer)));}
 // Register/context details remain on the phone; the OLED keeps the meaning.
 export function compactMeaning(text:string){return text.replace(/ \(informal\)/g,'').replace('And you? (your name)','And your name?');}
 function card(mode:LearningCard['mode'],primary:string,secondary=''){const result={mode,primary:fitText(primary,64),secondary:fitText(compactMeaning(secondary),32)};return validateCard(result)?result:undefined;}

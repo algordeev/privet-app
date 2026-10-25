@@ -117,6 +117,9 @@ export const lesson:LessonDefinition={
     "в"
    ],
    "answer": "Давай в музей завтра",
+   "alsoAccepted": [
+    "Давай завтра в музей"
+   ],
    "review": "Давай в музей завтра → Let’s go to the museum tomorrow!",
    "success": "That works: Давай в музей завтра. Let’s go to the museum tomorrow!",
    "retryFeedback": "The words are right; try a different order for this message.",

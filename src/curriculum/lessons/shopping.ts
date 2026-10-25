@@ -127,15 +127,15 @@ export const lesson:LessonDefinition={
    "kind": "sentence",
    "title": "A small, polite order.",
    "instruction": "Build “Bread, please.”",
-   "prompt": "Хлеб пожалуйста",
+   "prompt": "Хлеб, пожалуйста",
    "translation": "Bread, please.",
    "tokens": [
     "пожалуйста",
-    "Хлеб"
+    "Хлеб,"
    ],
-   "answer": "Хлеб пожалуйста",
-   "review": "Хлеб пожалуйста → Bread, please.",
-   "success": "That works: Хлеб пожалуйста. Bread, please.",
+   "answer": "Хлеб, пожалуйста",
+   "review": "Хлеб, пожалуйста → Bread, please.",
+   "success": "That works: Хлеб, пожалуйста. Bread, please.",
    "retryFeedback": "The words are right; try a different order for this message.",
    "hint": "Name what you want, then add the polite word.",
    "pronunciationGuide": "Хлеб · khlyep / пожа́луйста · pa-ZHA-lu-sta"
