@@ -6,10 +6,15 @@ import './iphone.css';
 import './gallery.css';
 import './native.css';
 import {PRODUCT} from './config';
+import {restoreStorageMirror} from './previewStorage';
 if(isNativeLayout()){
  document.documentElement.classList.add('native-platform');
  const viewport=document.querySelector<HTMLMetaElement>('meta[name=viewport]');
  if(viewport&&!viewport.content.includes('viewport-fit'))viewport.content+=', viewport-fit=cover';
 }
 document.title = `${PRODUCT.name} — A little Russian. A little every day.`;
-ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><RuntimeApp/></React.StrictMode>);
+// Resolves immediately in the browser/web preview; on native, a bounded
+// bridge round-trip before every hook's first synchronous storage read.
+void restoreStorageMirror().finally(()=>{
+ ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><RuntimeApp/></React.StrictMode>);
+});
