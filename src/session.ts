@@ -28,6 +28,13 @@ export function restoreSession(serialized:string|null,definition:LessonDefinitio
  try {
   if(!serialized) return freshSession();
   const s=JSON.parse(serialized);
+  // A session saved under a different (or no) content revision belongs to
+  // since-changed lesson content; discard it and start fresh rather than
+  // restoring a position/answer that may no longer correspond to anything.
+  // Lessons without their own contentRevision (café, introductions) never
+  // had this concept and are unaffected. Saved completions/stats are a
+  // separate, untouched path (readSaved/recordLessonCompletion below).
+  if(definition.contentRevision!==undefined&&s.contentRevision!==definition.contentRevision)return freshSession();
   const raw=s.progress;
   const p=raw&&typeof raw==='object'?{...raw,hearts:Object.hasOwn(raw,'hearts')?raw.hearts:MAX_HEARTS,combo:Object.hasOwn(raw,'combo')?raw.combo:0,bestCombo:Object.hasOwn(raw,'bestCombo')?raw.bestCombo:0,failed:Object.hasOwn(raw,'failed')?raw.failed:false}:raw;
   if(!p||!Number.isInteger(p.index)||p.index<0||p.index>lesson.length||

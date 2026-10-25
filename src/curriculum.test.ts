@@ -34,7 +34,11 @@ test('every lesson saves/restores independently and catalog supplies completion 
   keys.add(sessionKey(l));keys.add(savedKey(l));
   const sentenceIndex=l.exercises.findIndex(e=>e.kind==='sentence');
   const snapshot={...freshSession(),progress:{...initialProgress(),index:sentenceIndex,results:Array(sentenceIndex).fill(true)},tokens:[l.exercises[sentenceIndex].tokens![0]],revealed:[l.words[0].id]};
-  assert.deepEqual(restoreSession(JSON.stringify(snapshot),l),snapshot);
+  // useLesson.ts always tags a saved session with the lesson's own
+  // contentRevision when it has one; restoreSession now discards a session
+  // whose revision doesn't match, so the fixture must match real writes.
+  const stored=l.contentRevision?{...snapshot,contentRevision:l.contentRevision}:snapshot;
+  assert.deepEqual(restoreSession(JSON.stringify(stored),l),snapshot);
   assert.equal(nextLesson(l.id),nativeLessons[i+1]);assert.equal(lessonById(l.id),l);
  }
  assert.equal(keys.size,16);assert.equal(nextLesson('not-a-lesson'),undefined);

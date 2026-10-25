@@ -1,49 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createHash} from 'node:crypto';
 import {nativeLessons,cafeLesson,introductionsLesson} from './curriculum/catalog.ts';
-import {definitionForSaved,legacyLesson} from './curriculum/compatibility.ts';
 import {stressedToken} from './curriculum/display.ts';
-import {initialProgress,checkAnswer,normalizeAnswer,progressReducer} from './engine.ts';
-import {freshSession,restoreSession,recordLessonCompletion,lessonPassed} from './session.ts';
+import {initialProgress,checkAnswer,normalizeAnswer} from './engine.ts';
+import {freshSession,restoreSession,lessonPassed} from './session.ts';
 import {CYRILLIC,contextualLetters,referenceExample} from './cyrillic.ts';
 const revised=nativeLessons.slice(2);
-// Hashes of the shipped v1 words/exercises, not copies of six legacy lessons.
-const originalHashes:Record<string,string>={"around-town": "c73e24bd9b0dfd387ccc8f452bf8bc522755a3aa9d3a6b47ae838f500d61e95e", "shopping": "fab4bfa3df78d1c997fedc3a88918f81e66d12bfa3333f927aace880ba4e05a7", "daily-life": "65fb50730714948b06e38a7bfd6fa1215cf6b0cb20f097a7b980b9f6efebe78d", "making-plans": "1a14d8d4d38b446e35281b00404efc89703881377da968efc1c191aa68e9429f", "studies": "370056fe42b64bcf4acdfeee080dae3f3b4cf0ec9d30914554689c7349ef5fea", "culture": "3b9ede4a4c67658ab3af27fdcba294a80c4034d416f6183a3f1313740a1d45aa"};
 
-test('legacy differences reconstruct every original assessment and word without six duplicated definitions',()=>{
- for(const definition of revised){const legacy=legacyLesson(definition);
-  assert.equal(legacy.contentRevision,1);assert.equal(legacy.id,definition.id);
-  const canonical=(value:unknown):unknown=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>[key,canonical(item)])):value;
-  assert.equal(createHash('sha256').update(JSON.stringify(canonical({words:legacy.words,exercises:legacy.exercises}))).digest('hex'),originalHashes[definition.id]);
+test('a saved session from a different content revision is discarded; a saved completion still counts as passed',()=>{
+ const definition=revised[0];
+ const progress={...initialProgress(),index:2,results:[true,false],attempts:1,feedback:'correct' as const,hearts:2};
+ const inProgress={...freshSession(),progress};
+ // Missing or stale contentRevision: the saved session belongs to
+ // since-changed content and is discarded in favor of a fresh start.
+ for(const contentRevision of [undefined,1] as const){
+  const raw=JSON.stringify({...inProgress,...(contentRevision!==undefined?{contentRevision}:{})});
+  assert.deepEqual(restoreSession(raw,definition),freshSession(),`contentRevision ${String(contentRevision)}`);
  }
-});
-test('legacy sessions at every position retain input, hints, feedback, hearts and first-try results',()=>{
- for(const definition of revised){const legacy=legacyLesson(definition);
-  for(const [index,exercise] of legacy.exercises.entries())for(const feedback of [null,'correct','incorrect'] as const){
-   const s={...freshSession(),progress:{...initialProgress(),index,results:Array.from({length:index},(_,i)=>i%2===0),attempts:feedback?1:0,feedback,hearts:feedback==='incorrect'?2:3},revealed:legacy.words.map(w=>w.id),vocabularyWord:legacy.words[0].text,hintAt:index,
-    selected:exercise.kind==='choice'?exercise.choices![0]:exercise.kind==='typed'?exercise.answer.slice(0,2):'',tokens:exercise.kind==='sentence'?[exercise.tokens![0]]:[]};
-   for(const marker of [undefined,1]){
-    const raw=JSON.stringify({...s,...(marker?{contentRevision:marker}:{})});const target=definitionForSaved(definition,raw,null);
-    assert.equal(target.contentRevision,1);assert.deepEqual(restoreSession(raw,target),s);
-   }
-  }
-  const completed={...freshSession(),progress:{...initialProgress(),index:5,results:[true,false,true,false,true],complete:true}};
-  const completion={results:completed.progress.results,date:'2026-10-23',contentRevision:1 as const};
-  assert.equal(definitionForSaved(definition,JSON.stringify(completed),null).contentRevision,1);
-  assert.equal(definitionForSaved(definition,null,JSON.stringify({completion})).contentRevision,1);
-  assert.deepEqual(restoreSession(JSON.stringify(completed),legacy).progress,completed.progress);
-  const saved={preferences:{stress:false,pronunciation:true},bestFirstTry:5,completion};
-  assert.ok(lessonPassed(initialProgress(),saved));
-  const latest=recordLessonCompletion(saved,{results:[true,true,false,false,false],date:'2026-10-24',contentRevision:2});
-  assert.equal(latest.bestFirstTry,5);assert.equal(latest.completion!.contentRevision,2);
- }
-});
-test('fresh and revision-2 attempts use current content, while café/introduction definitions are unchanged',()=>{
- for(const definition of revised){assert.equal(definitionForSaved(definition,null,null),definition);assert.equal(definitionForSaved(definition,JSON.stringify({...freshSession(),contentRevision:2}),null),definition);assert.equal(definitionForSaved(definition,'not json',null),definition);
-  for(const [index,e] of definition.exercises.entries())assert.ok(checkAnswer(index,e.answer,definition.exercises));
- }
- for(const definition of [cafeLesson,introductionsLesson]){assert.equal(legacyLesson(definition),definition);assert.equal(definitionForSaved(definition,JSON.stringify(freshSession()),null),definition);}
+ // The matching current revision restores normally.
+ assert.deepEqual(restoreSession(JSON.stringify({...inProgress,contentRevision:2}),definition),inProgress);
+ // A saved completion is a separate, untouched path: still counts as
+ // passed even though an in-progress session for the same lesson would be
+ // discarded above.
+ const saved={preferences:{stress:false,pronunciation:true},completion:{results:[true,false,true,false,true],date:'2026-10-23'}};
+ assert.ok(lessonPassed(initialProgress(),saved));
 });
 test('revised episodes have intentional sequences and specific communication goals',()=>{
  assert.deepEqual(revised.map(l=>l.exercises.map(e=>e.kind)),[
@@ -71,9 +51,9 @@ test('revised wording avoids generated punctuation, answer-bearing instructions 
   }
  }
 });
-test('both legacy and revised alphabet references conceal assessed Russian answers',()=>{
- const norm=(text:string)=>text.normalize('NFD').replace(/\u0301/g,'').normalize('NFC').toLowerCase().replace(/[^а-яё]/g,'');
- for(const current of revised)for(const l of [current,legacyLesson(current)])for(const e of l.exercises){
+test('revised alphabet references conceal assessed Russian answers',()=>{
+ const norm=(text:string)=>text.normalize('NFD').replace(/́/g,'').normalize('NFC').toLowerCase().replace(/[^а-яё]/g,'');
+ for(const l of revised)for(const e of l.exercises){
   const letters=contextualLetters(l,e);assert.ok(letters.length);assert.equal(new Set(letters.map(i=>i.upper)).size,letters.length);
   for(const item of CYRILLIC){const result=referenceExample(item,l,e);assert.ok(result.example&&norm(result.example).includes(item.lower),`${l.id}/${e.id}/${item.upper}`);if(/[а-яё]/iu.test(e.answer))assert.ok(!norm(result.example).includes(norm(e.answer)));}
  }
@@ -87,5 +67,43 @@ test('native stress presentation preserves token punctuation, capitalization and
  for(const l of revised)for(const e of l.exercises.filter(e=>e.kind==='sentence')){
   const rendered=e.answer.split(' ').map(t=>stressedToken(t,l.words)).join(' ');
   assert.equal(normalizeAnswer(rendered),normalizeAnswer(e.answer));assert.ok(checkAnswer(l.exercises.indexOf(e),rendered,l.exercises));
+ }
+ // normalizeAnswer strips stress marks, so the round-trip check above alone
+ // cannot catch a token silently rendered unstressed (e.g. завтра: taught as
+ // its own Word only in making-plans, reused in culture's sentence exercise
+ // without being re-taught there). Separately confirm every token carries a
+ // stress mark whenever that bare token has one anywhere in the curriculum
+ // -- the exact scope stressedToken's lesson-then-global-fallback search
+ // covers -- across all six revised lessons, not only the three above.
+ const bare=(text:string)=>text.normalize('NFD').replace(/́/g,'').normalize('NFC').replace(/[.,!?…]+$/u,'').toLowerCase();
+ const hasStress=(text:string)=>/́/.test(text.normalize('NFD'));
+ const stressedTokens=new Set<string>();
+ for(const l of [...revised,cafeLesson,introductionsLesson])for(const w of l.words){
+  const canonical=w.text.split(' '),stressed=w.stressed.split(' ');
+  canonical.forEach((token,i)=>{if(hasStress(stressed[i]))stressedTokens.add(bare(token));});
+ }
+ for(const l of revised)for(const e of l.exercises.filter(e=>e.kind==='sentence'))for(const token of e.answer.split(' ')){
+  if(!stressedTokens.has(bare(token)))continue;
+  assert.ok(hasStress(stressedToken(token,l.words)),`${l.id}/${e.id}: "${token}" has no stress mark`);
+ }
+});
+test('one bare Russian token never maps to two different stressed forms anywhere in the curriculum',()=>{
+ // Guards stressedToken's global fallback: if the same bare token were
+ // taught with two different stress placements in different lessons, which
+ // one wins would depend on lesson iteration order -- silently inconsistent.
+ const bare=(text:string)=>text.normalize('NFD').replace(/́/g,'').normalize('NFC').replace(/[.,!?…]+$/u,'').toLowerCase();
+ const seen=new Map<string,string>();
+ for(const l of nativeLessons)for(const w of l.words){
+  const canonical=w.text.split(' '),stressed=w.stressed.split(' ');
+  canonical.forEach((token,i)=>{
+   // stressedToken only reuses the stress placement, then reapplies the
+   // input token's own case -- so two entries differing only by case (e.g.
+   // sentence-initial "Спасибо!" vs mid-sentence "спасибо") are not a real
+   // conflict; compare case-insensitively too.
+   const key=bare(token),value=stressed[i].replace(/[.,!?…]+$/u,'').toLowerCase();
+   const existing=seen.get(key);
+   assert.ok(!existing||existing===value,`"${key}" stressed both "${existing}" and "${value}" (${l.id})`);
+   seen.set(key,value);
+  });
  }
 });

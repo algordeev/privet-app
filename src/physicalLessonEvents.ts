@@ -15,7 +15,7 @@ export function physicalLessonCommand(previous:Progress,next:Progress,action:Act
  if(action.type==='retry'&&previous.feedback==='incorrect'&&!next.feedback)return COMMAND.THINKING;
  return null;
 }
-export function createPhysicalLessonEvents(send:(command:CommandCode)=>unknown){
+export function createPhysicalLessonEvents(send:(command:CommandCode,next:Progress,lessonId:string)=>unknown){
  let lastTransition='';
  return (previous:Progress,next:Progress,action:Action,lessonId='cafe')=>{
   const command=physicalLessonCommand(previous,next,action);if(command===null)return;
@@ -23,6 +23,6 @@ export function createPhysicalLessonEvents(send:(command:CommandCode)=>unknown){
   // accepts only the first check, even when the second value differs.
   const key=JSON.stringify([lessonId,previous,action.type]);
   if(action.type!=='reset'&&key===lastTransition)return;
-  lastTransition=key;send(command);
+  lastTransition=key;send(command,next,lessonId);
  };
 }

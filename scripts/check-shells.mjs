@@ -56,13 +56,18 @@ try {
  assert.ok(!home.includes('Physical companion settings'));assert.ok(home.includes('native-settings-open'));assert.ok(!home.includes('Reset saved lesson &amp; preferences'));
  assert.ok(!website.includes('Physical companion settings'));
  const noOp=()=>{};
+ // usePhysicalCompanion() now exposes BLE state through a subscribable store
+ // (useBleState/useSyncExternalStore) rather than a plain `state` field, so
+ // these direct-render checks stub the same minimal shape a real controller
+ // exposes instead of injecting a `state` prop directly.
+ const stub=state=>({getState:()=>state,subscribe:()=>()=>{}});
  function ConnectedGreeting({definition=cafeLesson}){
   const controller=useLesson({persistSession:true,definition});
-  return createElement(PhysicalCompanionChip,{state:{...initialBleState(),phase:'connected',ready:true},onOpen:noOp,greeting:homeGreeting(controller,definition.title)});
+  return createElement(PhysicalCompanionChip,{controller:stub({...initialBleState(),phase:'connected',ready:true}),onOpen:noOp,greeting:homeGreeting(controller,definition.title)});
  }
  const connectedGreeting=(definition=cafeLesson)=>renderToStaticMarkup(createElement(ConnectedGreeting,{definition}));
  assert.ok(connectedGreeting().includes('Привет! Ready for a little Russian?'));
- function physical(state){return renderToStaticMarkup(createElement(PhysicalCompanionSettings,{controller:{state,scan:noOp,connect:noOp,disconnect:noOp,testHappy:noOp},onClose:noOp}));}
+ function physical(state){return renderToStaticMarkup(createElement(PhysicalCompanionSettings,{controller:{...stub(state),scan:noOp,connect:noOp,disconnect:noOp,testHappy:noOp},onClose:noOp}));}
  const disconnectedPhysical=physical(initialBleState());
  assert.ok(disconnectedPhysical.includes('Physical companion'));
  assert.ok(!disconnectedPhysical.includes('STAGE 1'));
@@ -70,16 +75,16 @@ try {
  for(const phase of ['suspended','reconciling']){
   const checking=physical({...initialBleState(),phase,device:{deviceId:'test',name:'Privet-ESP32'}});
   assert.ok(checking.includes('>Disconnect</button>'));
-  const status=renderToStaticMarkup(createElement(PhysicalCompanionHomeStatus,{state:{...initialBleState(),phase},onOpen:noOp}));
+  const status=renderToStaticMarkup(createElement(PhysicalCompanionHomeStatus,{controller:stub({...initialBleState(),phase}),onOpen:noOp}));
   assert.ok(!status.includes('Physical companion: Connected'));
  }
  assert.ok(!disconnectedPhysical.includes('Leaving this screen or backgrounding'));
  assert.ok(!home.includes('Physical companion: Disconnected. Open settings.'));
  for(const phase of ['disconnected','suspended','reconciling','connected']){
-  const chip=renderToStaticMarkup(createElement(PhysicalCompanionChip,{state:{...initialBleState(),phase,ready:phase==='connected'},onOpen:noOp}));
+  const chip=renderToStaticMarkup(createElement(PhysicalCompanionChip,{controller:stub({...initialBleState(),phase,ready:phase==='connected'}),onOpen:noOp}));
   assert.equal(chip.includes('Companion connected'),phase==='connected');assert.ok(chip.includes('role="status"'));
  }
- const connectedHomeStatus=renderToStaticMarkup(createElement(PhysicalCompanionHomeStatus,{state:{...initialBleState(),phase:'connected',ready:true,notice:'Companion update needed for all lesson reactions.'},onOpen:noOp}));
+ const connectedHomeStatus=renderToStaticMarkup(createElement(PhysicalCompanionHomeStatus,{controller:stub({...initialBleState(),phase:'connected',ready:true,notice:'Companion update needed for all lesson reactions.'}),onOpen:noOp}));
  assert.ok(connectedHomeStatus.includes('Connected · Update needed'));
  assert.ok(connectedHomeStatus.includes('role="status"'));
  assert.ok(physical({...initialBleState(),phase:'connected',ready:true,notice:'Companion update needed for all lesson reactions.'}).includes('Companion update needed'));
@@ -177,10 +182,14 @@ try {
  assert.ok(renderToStaticMarkup(createElement(Profile)).includes('<h2 id="native-result-title">Nice to meet you</h2>'));
  console.log('PASS: second lesson renders all five exercises, separate progress/results, matching greeting and profile title.');
  for(const definition of (await server.ssrLoadModule('/src/curriculum/catalog.ts')).nativeLessons){
-  function CurriculumLesson(){const controller=useLesson({persistSession:true,definition});return createElement(LessonPanel,{controller,native:true});}
+  function CurriculumLesson({help=true}={}){const controller=useLesson({persistSession:true,definition});controller.preferences={...controller.preferences,pronunciation:help};return createElement(LessonPanel,{controller,native:true});}
   for(const [index,exercise] of definition.exercises.entries()){
    storage.set(sessionKey(definition),JSON.stringify({...freshSession(),...(definition.contentRevision?{contentRevision:definition.contentRevision}:{}),progress:{...freshSession().progress,index,results:Array(index).fill(true)}}));
    const html=renderToStaticMarkup(createElement(CurriculumLesson));assert.ok(html.includes(exercise.title));assert.ok(html.includes(definition.title));assert.ok(html.includes('Open Cyrillic guide'));
+   const readingCount=(exercise.choices??[]).filter(choice=>/[а-яё]/iu.test(choice)).length+(exercise.exchange?1:0);
+   assert.equal((html.match(/class="native-russian-reading"/g)??[]).length,readingCount,`${definition.id}/${exercise.id}: all visible Russian options/dialogue have readings`);
+   const withoutHelp=renderToStaticMarkup(createElement(CurriculumLesson,{help:false}));assert.ok(!withoutHelp.includes('native-russian-reading'));
+
   }
   storage.set(NATIVE_STATS_KEY,JSON.stringify({version:1,days:{'2020-01-01':1},earlierFinishes:0,latest:{day:'2020-01-01',firstTry:5,lessonId:definition.id}}));
   assert.ok(renderToStaticMarkup(createElement(Profile)).includes(`<h2 id="native-result-title">${definition.title}</h2>`));
@@ -224,10 +233,10 @@ try {
  function QuickStart(){const onboarding=useCyrillicProgress();const controller=useLesson();return createElement(NativeCyrillicQuickStart,{onboarding,speech:controller.speech,onClose:noOp,onLesson:noOp});}
  for(const [status,page] of [['started',0],['started',1],['started',2],['started',3],['completed',3]]){
   storage.set(CYRILLIC_KEY,JSON.stringify({version:1,status,page}));
-  const quick=renderToStaticMarkup(createElement(QuickStart));assert.ok(quick.includes('Cyrillic quick start'));assert.ok(!quick.includes('lesson-vitals'));assert.ok(!quick.includes('XP earned'));
+  const quick=renderToStaticMarkup(createElement(QuickStart));assert.ok(quick.includes('Cyrillic quick start'));assert.ok(!quick.includes('lesson-vitals'));assert.ok(!quick.includes('XP earned'));assert.ok(quick.includes('native-example-reading'));assert.ok(quick.includes(page===3&&status!=='completed'?'KO-fyeh':page===1?'vash':page===2?'pree-VYET':'AN-na'));
  }
  function Guide(){const controller=useLesson();return createElement(NativeAlphabetGuide,{definition:controller.definition,exercise:controller.exercise,speech:controller.speech,onListen:noOp,onClose:noOp});}
- const guide=renderToStaticMarkup(createElement(Guide));assert.ok(guide.includes('Cyrillic guide'));assert.ok(guide.includes('Current exercise'));assert.ok(guide.includes('See full alphabet'));assert.ok(guide.includes('Russian audio unavailable'));
+ const guide=renderToStaticMarkup(createElement(Guide));assert.ok(guide.includes('Cyrillic guide'));assert.ok(guide.includes('Current exercise'));assert.ok(guide.includes('See full alphabet'));assert.ok(guide.includes('Russian audio unavailable'));assert.ok(guide.includes('native-example-reading'));assert.ok(!website.includes('native-russian-reading'));assert.ok(!website.includes('native-example-reading'));
  storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));console.log('PASS: native-only optional Cyrillic card/pages and contextual guide render with accessible text/audio fallback; website excludes them.');
 
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {emptyStats,localDay,validDay,shiftDay,restoreStats,recordFinish,statsSummary,createStatsTracker,spendGems,buyFreeze,applyStreakFreezes,GEM_RULES,type NativeStats} from './nativeStats.ts';
+import {emptyStats,localDay,validDay,shiftDay,resolveToday,restoreStats,recordFinish,statsSummary,createStatsTracker,spendGems,buyFreeze,applyStreakFreezes,GEM_RULES,type NativeStats} from './nativeStats.ts';
 import {initialProgress,progressReducer} from './engine.ts';
 const date=(day:number)=>new Date(2026,9,day,12);
 const results=[true,false,true,true,true];
@@ -27,6 +27,35 @@ test('uses local completion dates and calendar arithmetic across month/leap/DST 
  assert.equal(localDay(new Date(2026,9,17,23,59)),'2026-10-17');
  assert.equal(shiftDay('2024-02-28',1),'2024-02-29');assert.equal(shiftDay('2024-02-29',1),'2024-03-01');assert.equal(shiftDay('2026-03-29',1),'2026-03-30');assert.equal(shiftDay('2026-01-01',-1),'2025-12-31');
  assert.equal(validDay('2026-02-30'),false);assert.equal(validDay('invalid'),false);assert.equal(validDay('2024-02-29'),true);
+});
+test('a timezone change cannot read "today" earlier than the latest day already recorded',()=>{
+ // Stands in for a device timezone change (travel, or crossing the date
+ // line): the real clock has only moved forward since lastSeenAt, but the
+ // device's local calendar now reads a day the tracker already has
+ // recorded. Without the clamp this would double count 2026-10-17 under a
+ // second, earlier key instead of folding into the existing day.
+ const stats={...emptyStats(),days:{'2026-10-17':1},lastSeenAt:date(17).getTime()};
+ assert.equal(resolveToday(stats,date(18)),'2026-10-18'); // ordinary forward day: unaffected.
+ assert.equal(resolveToday({...stats,days:{'2026-10-18':1}},date(17)),'2026-10-18'); // clamped forward, not double-counted.
+});
+test('a timezone change cannot read "today" further ahead than real elapsed time justifies',()=>{
+ // Stands in for the opposite direction: local calendar jumps forward by
+ // several days in an instant (a timezone swing), while the real clock
+ // (lastSeenAt, epoch ms) shows almost no time actually passed. Without the
+ // cap this would skip the days in between as though they were missed.
+ const stats={...emptyStats(),days:{'2026-10-10':1},lastSeenAt:date(16).getTime()-1000};
+ assert.equal(resolveToday(stats,date(16)),'2026-10-11'); // capped to one day past the last known day.
+ assert.equal(resolveToday({...stats,lastSeenAt:date(9).getTime()},date(16)),'2026-10-16'); // six real days did pass: trusted.
+});
+test('a backdated or replayed finish never moves the real-time anchor backward',()=>{
+ // recordFinish always records lastSeenAt, but an out-of-order call (a
+ // replay, or a loop filling in earlier history) must never regress it --
+ // otherwise a later call could be wrongly clamped against a stale "latest"
+ // day, as if the earlier call were the most recent one.
+ let s=recordFinish(emptyStats(),results,date(17));
+ s=recordFinish(s,results,date(10));
+ assert.equal(s.lastSeenAt,date(17).getTime());
+ assert.equal(resolveToday(s,date(12)),'2026-10-12'); // not wrongly clamped to 2026-10-17.
 });
 test('legacy result is preserved without inventing dated activity or a streak',()=>{
  const s=restoreStats(null,{results,date:date(17).toISOString()});assert.equal(s.earlierFinishes,1);assert.equal(s.latest?.day,null);assert.equal(s.latest?.firstTry,4);

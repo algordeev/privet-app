@@ -4,9 +4,9 @@ Native iOS BLE central using `@capacitor-community/bluetooth-le` 8.3.0 with Capa
 
 ## Implementation and setup
 
-Current firmware: [PrivetBLE_Servo_New_Emotions](../firmware/PrivetBLE_Servo_New_Emotions/README.md), for ESP32 ESP-32S, SSD1306 128×64 I2C OLED and SG90 on GPIO25. It supports codes 1–9. The older [servo](../firmware/PrivetBLE_Servo/README.md) and [OLED-only](../firmware/PrivetBLE_Lessons/README.md) variants support only 1–4; unsupported commands show an update notice without retrying or blocking lessons.
+Current firmware: [PrivetBLE_Servo_New_Emotions_v2](../firmware/PrivetBLE_Servo_New_Emotions_v2/README.md), for ESP32 ESP-32S, SSD1306 128×64 I2C OLED and SG90 on GPIO25. It supports reaction codes 1–9 plus negotiated learning cards. The original [new-emotions variant](../firmware/PrivetBLE_Servo_New_Emotions/README.md) remains unchanged and face-only. The older [servo](../firmware/PrivetBLE_Servo/README.md) and [OLED-only](../firmware/PrivetBLE_Lessons/README.md) variants support only 1–4; unsupported commands show an update notice without retrying or blocking lessons.
 
-The phone owns lessons, checking, progress and pronunciation. Firmware owns OLED faces, durations and servo gestures. THINKING persists until replaced; HINT expires after 2600 ms into THINKING unless superseded. LISTENING is limited to 2600 ms in firmware; successful phone speech completion sends THINKING only for an unanswered question. Its request-scoped callback is invalidated by replacement, cancellation, submission, navigation, error, timeout, background or disposal. No duration guessing or app animation timer is used. Cyrillic quick-start pronunciation buttons also request LISTENING; successful speech completion, page changes during playback, and leaving the quick start restore IDLE because this is not an assessed question. They use the same speech cancellation safeguards. LISTENING/THINKING are servo-quiet, apart from returning an already displaced head toward center.
+The phone owns lessons, checking, progress and pronunciation. Firmware owns OLED faces, text layout, transitions, durations and servo gestures. THINKING persists until replaced; The HINT face lasts 2600 ms; an available hint card then shows for 2000 ms before THINKING, unless superseded. LISTENING is limited to 2600 ms in firmware; successful phone speech completion sends THINKING only for an unanswered question. Its request-scoped callback is invalidated by replacement, cancellation, submission, navigation, error, timeout, background or disposal. No duration guessing or app animation timer is used. Cyrillic quick-start pronunciation buttons also request LISTENING; successful speech completion, page changes during playback, and leaving the quick start restore IDLE because this is not an assessed question. They use the same speech cancellation safeguards. LISTENING/THINKING are servo-quiet, apart from returning an already displaced head toward center.
 
 The current source is implemented, but the additional states and latest return-to-thinking changes have not been reported as uploaded/hardware-tested. Earlier user reports cover commands 1–4, servo movement and lock/background retention. Enclosure illustrations remain concepts.
 
@@ -44,9 +44,9 @@ Subscribe to Status before sending anything. Successful connection and subscript
 | 8 | STREAK | Retained for protocol compatibility; not triggered by profile navigation |
 | 9 | CONNECTED | Fresh BLE connection after successful status subscription, once |
 
-An acknowledgement means **command accepted**, not that the animation finished, the display rendered successfully, or the servo reached a position. OLED initialization can fail while BLE continues accepting commands. The short labels drawn by firmware are predefined; this version carries no arbitrary text, JSON, raw OLED drawing commands, raw servo instructions or BLE audio. Commands 5–9 require the owner-added new-emotions variant; no claim of their hardware verification is made. The existing emotion code selects any servo gesture locally.
+An acknowledgement means **command accepted**, not that the animation finished, the display rendered successfully, or the servo reached a position. OLED initialization can fail while BLE continues accepting commands. Version 1 remains face-only. The negotiated extension below carries bounded app-selected learning text, never JSON, raw OLED drawing commands, raw servo instructions or BLE audio. Commands 5–9 require the owner-added new-emotions variant; no claim of their hardware verification is made. The existing emotion code selects any servo gesture locally.
 
-Hex examples use consecutive distinct IDs `0x12345678` through `0x12345680` (little-endian on the wire). Each ACK echoes its command's ID and code. Code 10 is unknown even in the new variant. Privet sends only codes 1–9 with argument 0.
+Hex examples use consecutive distinct IDs `0x12345678` through `0x12345680` (little-endian on the wire). Each ACK echoes its command's ID and code. Reaction commands remain exactly 1–9. Separate control code 10 probes capabilities with argument 0; legacy firmware rejects it safely.
 
 ```text
 HAPPY:                   01 01 78 56 34 12 01 00
@@ -67,8 +67,8 @@ STREAK:                  01 01 7F 56 34 12 08 00
 STREAK accepted:         01 02 7F 56 34 12 08 00
 CONNECTED:               01 01 80 56 34 12 09 00
 CONNECTED accepted:      01 02 80 56 34 12 09 00
-Unknown code 10:          01 01 81 56 34 12 0A 00
-Unsupported ACK:         01 02 81 56 34 12 0A 01
+Capability request:      01 01 81 56 34 12 0A 00
+Legacy unsupported ACK:  01 02 81 56 34 12 0A 01
 Nonzero IDLE argument:   01 01 82 56 34 12 04 01
 Invalid argument ACK:    01 02 82 56 34 12 04 02
 ```
@@ -77,22 +77,83 @@ Actual requests use distinct, increasing nonzero IDs throughout the running Java
 
 ## Firmware behavior
 
-The [current firmware guide](../firmware/PrivetBLE_Servo_New_Emotions/README.md) lists durations and setup. New commands replace the latest-state mailbox, not an animation queue; repeated commands with new IDs restart their state. OLED drawing and servo updates run in `loop()`, outside BLE callbacks. IDLE cancels the temporary face on the next loop and requests servo centering; physical motion is slewed rather than instantaneous. THINKING has no expiry; HINT returns to THINKING. Other timed states return to IDLE unless another command supersedes them.
+The [current firmware guide](../firmware/PrivetBLE_Servo_New_Emotions_v2/README.md) lists durations and setup. New commands replace the latest-state mailbox, not an animation queue; repeated commands with new IDs restart their state. OLED drawing and servo updates run in `loop()`, outside BLE callbacks. IDLE cancels the temporary face on the next loop and requests servo centering; physical motion is slewed rather than instantaneous. THINKING has no expiry; HINT returns to THINKING. Other timed states return to IDLE unless another command supersedes them.
 
-Servo output uses GPIO25 at 50 Hz, center 1500 µs and clamped targets 1300–1700 µs. The sketch slews toward targets and releases PWM after settling; it does not measure position or guarantee that the screen stays centered under load. LISTENING/THINKING add no expressive gesture. See [servo wiring, power and motion limitations](../firmware/PrivetBLE_Servo/README.md#hardware-and-wiring); that guide also preserves the older sketch's gesture details. The current OLED is rotated 180° and uses faces without captions.
+Servo output uses GPIO25 at 50 Hz, center 1500 µs and clamped targets 1300–1700 µs. The sketch slews toward targets and releases PWM after settling; it does not measure position or guarantee that the screen stays centered under load. LISTENING/THINKING add no expressive gesture. See [servo wiring, power and motion limitations](../firmware/PrivetBLE_Servo/README.md#hardware-and-wiring); that guide also preserves the older sketch's gesture details. The current OLED is rotated 180°; U8g2 preserves the face geometry and adds Cyrillic learning cards.
 
-The current sketch starts CONNECTED locally when the BLE link is created; the app independently sends command 9 once status subscription succeeds. This may restart the welcome animation. Retained-link foreground return uses IDLE, not CONNECTED.
+Link creation holds the sleeping face until an accepted app reaction arrives. Only the app’s ACK-tracked command 9 after successful status subscription starts CONNECTED, once. Retained-link foreground return uses IDLE, not CONNECTED.
 
 ### Validation and duplicate handling
 
-- Length other than 8, version other than 1, or type other than 1: log and ignore without ACK.
+- The v1 path accepts exactly eight bytes, version 1 and type 1; malformed v1 packets are ignored. Version 2 uses the separately validated layouts below.
 - Unknown command code: result 1. For a supported code with nonzero argument: result 2. Unsupported-code validation takes precedence over argument validation.
 - Accepted packets update the mailbox; rejected packets do not change the face. Both accepted and rejected packets become the most-recent cached request/ACK.
 - An exact duplicate of the **most recent** eight-byte command resends its cached ACK without executing/restarting the reaction. Reusing that most-recent request ID with different bytes is logged and ignored without ACK.
 - The cache is reset on BLE connect and disconnect. It holds only one request: replaying an older request after an intervening command is not deduplicated. There is no persistent replay history or authenticated anti-replay protection.
-- The app allocates nonzero IDs; firmware parses the uint32 but does not separately reject ID 0. This does not change the app's nonzero-ID policy.
+- Both current app and current firmware reject request ID 0; legacy sketches may only parse it.
 
-Connect/disconnect reset the duplicate cache. The current sketch requests CONNECTED on connect and IDLE on disconnect; legacy sketches request IDLE for both. Disconnect schedules advertising to restart in `loop()`; this makes the device discoverable again, not an automatic app reconnection. An OLED missing at both 0x3C/0x3D or failing initialization leaves BLE running, so even a matching accepted ACK does not establish that the screen worked. `notify()` itself is not proof that the app received the ACK; the app uses its own matching/deadline logic.
+Connect/disconnect reset the duplicate cache. The current sketch initializes IDLE on connect and requests IDLE on disconnect; legacy sketches request IDLE for both. Disconnect schedules advertising to restart in `loop()`; this makes the device discoverable again, not an automatic app reconnection. An OLED missing at both 0x3C/0x3D or failing initialization leaves BLE running, so even a matching accepted ACK does not establish that the screen worked. `notify()` itself is not proof that the app received the ACK; the app uses its own matching/deadline logic.
+
+## Negotiated UTF-8 learning cards (version 2)
+
+No UUID, v1 reaction packet, emotion code or argument rule changes. After submitting the fresh CONNECTED reaction, the app probes control code **10 CAPABILITIES** on the same serialized writer. Negotiation has independent connection-scoped deferred/writing/waiting/ready/disabled state. Control code 10 is not a schedulable emotion. Legacy unsupported ACK or a missing/malformed offer leaves this connection face-only after the bounded wait. Reaction replacement cancels only obsolete reaction/card work, not the capability matcher. Faces proceed without waiting for the capability reply; an eligible accepted card may follow once negotiation succeeds. A probe deferred behind a submitted native write runs after settlement. Background interruption permits at most one further attempt after retained-link reconciliation (two attempts per connection total); no retry loop or duplicate CONNECTED is introduced. Disconnect discards probe state, timers and matchers; replies require the current connection, lifecycle revision and probe request ID. Content failures never renegotiate. No card is sent until both a matching control ACK and a valid capability offer arrive, in either order.
+
+All multibyte integers below are unsigned **little-endian**. Frame maximum is **20 bytes**; IDs share the app’s nonzero, nonwrapping request-ID allocator.
+
+| Capability notification byte(s) | Value |
+| --- | --- |
+| 0 / 1 | `2` / `0x80` |
+| 2–5 | Capability request ID |
+| 6 | Flags: bit 0 UTF-8 cards, bit 1 Cyrillic, bit 2 OLED ready; all three required |
+| 7 | Maximum frame size `20` |
+| 8–9 | Combined text limit `96` bytes |
+| 10 / 11 | Primary `64` / secondary `32` UTF-8 bytes |
+| 12–15 | Nonzero fresh connection nonce |
+| 16–17 | Absolute reassembly expiry `5000` ms |
+| 18–19 | Reserved `0` |
+
+The ordinary eight-byte v1 ACK echoes code 10 and result 0/1/2. The current app requires the exact limits above, ready OLED and nonzero nonce. An unavailable OLED advertises flags 3, preserving faces/servo/BLE without enabling cards.
+
+| BEGIN byte(s), exactly 20 bytes | Value |
+| --- | --- |
+| 0 / 1 | `2` / `0x10` |
+| 2–5 | Transaction ID |
+| 6–9 | Negotiated connection nonce |
+| 10–13 | Associated **accepted** v1 face request ID |
+| 14 | Mode: 1 DISCOVERY, 2 SAFE_PROMPT, 3 PRONUNCIATION, 4 HINT, 5 ANSWER |
+| 15 / 16 | Primary length 1–64 / secondary length 0–32 bytes |
+| 17 | Actual fragment count 1–11 |
+| 18–19 | CRC-16/CCITT-FALSE over the complete body |
+
+Body is `UTF8(primary) || UTF8(secondary)`, with no separator, padding or NUL. Combined maximum is 96 bytes. CRC polynomial `0x1021`, initial `0xFFFF`, no reflection or final XOR (`123456789` → `0x29B1`). DATA is `[2, 0x11, transaction uint32, index uint8, length uint8, payload]`, exactly 8 + length bytes, payload 1–12 bytes. Each fragment contains complete Unicode scalar values; lengths and truncation use UTF-8 bytes, never JavaScript character count. The conservative fragment cap is `ceil(96 / (12 - 3)) = 11`.
+
+COMMIT is exactly `[2, 0x12, transaction uint32, 0, 0]`. CONTENT_ACK is exactly `[2, 0x90, transaction uint32, result, mode]`; mode is 0 if no valid BEGIN established it. Results: **0** accepted into the completed-card mailbox; **1** unsupported; **2** malformed/reserved; **3** order/conflicting duplicate; **4** invalid UTF-8 or unsupported glyph; **5** length/count; **6** CRC; **7** expired/incomplete; **8** obsolete transaction/nonce/face; **9** OLED unavailable. Acceptance confirms neither rendering nor completed servo movement.
+
+Example discovery card `чай` / `tea`, nonce 77, accepted face ID 9, capability request ID 10, transaction ID 11 (CRC `0x794B`):
+
+```text
+CAP_REQUEST:  01 01 0A 00 00 00 0A 00
+CARD_BEGIN:   02 10 0B 00 00 00 4D 00 00 00 09 00 00 00 01 06 03 01 4B 79
+CARD_DATA:    02 11 0B 00 00 00 00 09 D1 87 D0 B0 D0 B9 74 65 61
+CARD_COMMIT:  02 12 0B 00 00 00 00 00
+CARD_ACK:     02 90 0B 00 00 00 00 01
+```
+
+### Atomic transfer and fallback
+
+The app waits for the matching face ACK before BEGIN. A **3500 ms deadline starts before BEGIN submission**; no later fragment or COMMIT may be submitted at/after it. Each actual native write still owns the single write slot until settlement or the existing link-error path. COMMIT’s final ACK has a separate **two-second** bound. Firmware expires staging absolutely five seconds after BEGIN acceptance, without extending that deadline on DATA. The final ACK wait does not extend reassembly.
+
+A newer BEGIN replaces staging; ordered DATA fills one fixed 96-byte buffer. Exact duplicate BEGIN/DATA are harmless and do not extend expiry; conflicting duplicates abort. COMMIT validates all lengths, count, CRC, UTF-8, nonce and latest face reference before atomically publishing a completed card. Duplicate COMMIT returns the cached terminal ACK without republishing. Older transaction IDs cannot replace newer work. Malformed packets without an identifiable nonzero ID are ignored; identified errors abort and receive a bounded negative response. No partial text reaches the display.
+
+New semantic contexts cancel obsolete ACK waits and unsent fragments; they never recall a submitted native write. After that write settles, the latest pending face clears firmware staging/cards. Cancellation alone does not disable capabilities. A card rejection or content deadline/ACK timeout disables cards **for this connection**, leaves the accepted face running and sends **no extra IDLE or other reaction**. Genuine native write failures retain the existing transport error handling. Disconnect clears capability state; background clears pending content/waits, retains the link, and foreground reconciliation still sends only ACK-gated IDLE. It never replays CONNECTED, a card or an old reaction.
+
+### Safe content and rendering
+
+`src/companionDisplay.ts` owns content selection and compact metadata keyed by stable lesson/exercise IDs. Lesson files and firmware contain no duplicated curriculum tables. Vocabulary reveal sends only the explicitly discovered expression/meaning. Before grading, meaning questions may show their Russian prompt without the English answer; dialogue shows the other speaker’s line only when safe; sentence/typed tasks show an English contextual prompt. Incorrect submissions return to the safe prompt. Only correct grading permits the answer/short meaning. Explicit hints use a bounded “See phone hint” cue; pronunciation displays only validated phone-visible safe content. Missing/unsafe metadata falls back to a safe label or faces. Safety is checked before and after fitting; no answer is reconstructed from success/review prose.
+
+Faces transition once to cards, never continually alternate: THINKING 700 ms, LISTENING 500 ms, HAPPY 2000 ms, ENCOURAGE 2200 ms, HINT 2600 ms. CONNECTED and celebration retain their existing durations, with no card. The hint card lasts 2 seconds from its first visible frame, then returns to THINKING. Other cards expire locally after 30 seconds: safe prompt → THINKING, discovery/answer/pronunciation → IDLE. Text transitions do not trigger servo gestures. Current phone speech completion can replace pronunciation with the safe thinking state; canceled/stale completion cannot do so.
+
+U8g2’s full-buffer SSD1306 driver uses SDA21/SCL22, probes 0x3C/0x3D and rotates 180° (`U8G2_R2`). Primary text uses `u8g2_font_9x15_t_cyrillic`, falling back to `u8g2_font_6x13_t_cyrillic`, at most two centered lines within 120 pixels. Secondary also supports two compact lines. When both sections need two lines, primary uses the compact font; the shared frame geometry keeps all four lines below the connection dot and inside the screen. Wrapping prefers spaces, then scalar boundaries; future overflow ends at a word boundary with ASCII `...`, without splitting UTF-8. All 224 distinct current cards fit in full under an actual-font host check, so scrolling is unnecessary. Printable ASCII and Russian Cyrillic including Ё/ё are supported; optional acute stress marks are removed and typographic quotes/dashes normalized by the app. A small connection dot remains. All drawing/layout and servo work run in `loop()`; callbacks only update bounded buffers/mailboxes under short synchronization. The full display buffer costs 1024 bytes, plus a fixed 1024-byte previous-frame shadow to skip unchanged display regions; reassembly is 96 bytes plus fixed card/cache/layout buffers. No application-owned dynamic text allocation occurs in BLE callbacks.
 
 ## Lesson and navigation events
 
@@ -151,7 +212,7 @@ References checked: [plugin iOS/background configuration](https://github.com/cap
 
 ## Scheduler, cancellation and time bounds
 
-The scheduler has **one in-flight command and at most one replaceable latest pending command**. There is no reaction FIFO. Same-context HAPPY, ENCOURAGE, LISTENING and HINT reactions replace the unsent pending reaction. Context-changing IDLE, THINKING, STREAK, CONNECTED and CELEBRATE mark the in-flight request obsolete, invalidate its ACK matcher/wait, and replace unsent old-context work. A context command already waiting for the native write slot is preserved ahead of fleeting reactions; those may be dropped rather than skip the required context. Another context may replace that pending context. CELEBRATE can replace any unsent earlier IDLE, THINKING, reaction or other state.
+The scheduler has **one in-flight semantic job and at most one replaceable latest pending job** (an accepted face followed by an optional card). There is no reaction FIFO. Same-context HAPPY, ENCOURAGE, LISTENING and HINT reactions replace the unsent pending reaction. Context-changing IDLE, THINKING, STREAK, CONNECTED and CELEBRATE mark the in-flight request obsolete, invalidate its ACK matcher/wait, and replace unsent old-context work. A context command already waiting for the native write slot is preserved ahead of fleeting reactions; those may be dropped rather than skip the required context. Another context may replace that pending context. CELEBRATE can replace any unsent earlier IDLE, THINKING, reaction or other state.
 
 A new context cancels the old **ACK wait immediately**. It cannot cancel a native write already handed to CoreBluetooth, so the scheduler preserves that write's serialization and bounded deadline, then sends the newest pending command without waiting out the old ACK timeout. Late ACKs for canceled requests are ignored, including an unsupported result that would otherwise show a stale update notice. A context change before the native bridge call prevents the obsolete command from being written at all.
 
@@ -163,9 +224,13 @@ A new context cancels the old **ACK wait immediately**. It cannot cancel a nativ
 | Connect/service discovery | 10 seconds |
 | Status subscription | 5 seconds |
 | Native write with response | 4 seconds |
-| Current request's ACK after write response | 5 seconds (at most 9 seconds total per non-canceled command) |
+| v1 reaction ACK after write response | 5 seconds (at most 9 seconds total per non-canceled reaction) |
+| Capability offer/ACK after write response | 2 seconds |
+| Content submission deadline, starting before BEGIN | 3500 ms; no later COMMIT submission |
+| Final content ACK after COMMIT write response | 2 seconds |
+| Firmware staging expiry from accepted BEGIN | 5000 ms, absolute |
 
-While foregrounded, a genuine write error/timeout still invalidates the connection even when navigation made its reaction obsolete: starting another physical write would be unsafe. ACK timeout also drops the link and clears pending work. For ordinary commands, explicit negative ACKs (unsupported/invalid argument) report the problem and keep the link usable; a foreground-resume IDLE needs an accepted ACK, so rejection fails that reconciliation. There are no retries or replay loops. Disconnected/background/checking events are dropped and cannot appear after reconnect or resume.
+While foregrounded, a genuine write error/timeout still invalidates the connection even when navigation made its reaction obsolete: starting another physical write would be unsafe. A reaction ACK timeout also drops the link and clears pending work. Capability/content ACK timeouts instead fall back to face-only mode as described below. For ordinary commands, explicit negative ACKs (unsupported/invalid argument) report the problem and keep the link usable; a foreground-resume IDLE needs an accepted ACK, so rejection fails that reconciliation. There are no retries or replay loops. Disconnected/background/checking events are dropped and cannot appear after reconnect or resume.
 
 A new session cannot begin while earlier native promises/cleanup are still settling. Late native settlement from an invalidated connection triggers cleanup again. Settlement of a submitted write on an ordinarily paused, retained connection does not intentionally disconnect it. If the native bridge is stuck, the UI explains that the previous connection is still finishing and may require reopening Privet. BLE cleanup touches only BLE listeners, preserving App listeners owned by audio and the virtual companion. The plugin queue is disabled so cancellation can reach native code; the app scheduler serializes writes itself.
 
@@ -177,11 +242,13 @@ Connect through Privet's device picker, not manual pairing in iPhone Settings. T
 
 The sketch uses ordinary `PROPERTY_WRITE` and `PROPERTY_NOTIFY` characteristics and a `BLE2902` notification descriptor. It configures no passkey, bonding, authentication, encrypted-write requirement, owner allowlist or application secret. The app does not initiate bonding or authenticate the peripheral. Do not assume link encryption, authenticated pairing or exclusive ownership. Another compatible nearby BLE central could issue these face commands; the advertised name/UUIDs and request IDs are not credentials. Keep this prototype for a trusted local test environment; it has no protocol facility for sensitive content.
 
-Authenticated ownership/pairing, broader recovery and process-termination restoration are future work. There are no arbitrary text payloads, raw OLED drawing commands, raw servo instructions or BLE audio in this protocol. The nine predefined state commands select local firmware behavior; the legacy servo variant accepts only codes 1–4. Predefined face labels come from the sketch, while pronunciation remains on the phone.
+Authenticated ownership/pairing, broader recovery and process-termination restoration are future work. Text is restricted to bounded structured learning cards; there are no unbounded arbitrary payloads, raw OLED drawing commands, raw servo instructions or BLE audio. The nine predefined state commands select local firmware behavior; the legacy servo variant accepts only codes 1–4. Faces come from the sketch, safe learning text from the phone, and pronunciation stays on the phone.
 
 ## Source and native integration
 
 - `src/bleProtocol.ts`: unchanged UUIDs/version, commands 1–9, binary codec and process-wide IDs.
+- `src/learningProtocol.ts`: separate capability control, v2 codecs, CRC and scalar-safe byte limits.
+- `src/companionDisplay.ts`: pure safe content generation and compact ID-keyed metadata.
 - `src/bleDriver.ts`: installed plugin adapter, supported native connection queries and existing listener/subscription ownership.
 - `src/bleTransport.ts`: app-wide connection state, separate lifecycle revisions, foreground reconciliation, bounded scheduler and cancellation.
 - `src/physicalLessonEvents.ts`: accepted lesson transition mapping and duplicate-event suppression.
@@ -189,7 +256,7 @@ Authenticated ownership/pairing, broader recovery and process-termination restor
 - `src/NativeApp.tsx`: explicit native navigation/lesson callbacks; website not involved.
 - `src/PhysicalCompanionSettings.tsx`: settings and accessible home connection status.
 - `src/bleProtocol.test.ts`, `src/bleTransport.test.ts`, `src/physicalLessonEvents.test.ts`: binary, lifecycle, event and scheduler regression tests.
-- `firmware/PrivetBLE_Servo_New_Emotions/PrivetBLE_Servo_New_Emotions.ino`: owner-added nine-state source; no upload or new-animation hardware verification claimed.
+- `firmware/PrivetBLE_Servo_New_Emotions_v2/PrivetBLE_Servo_New_Emotions_v2.ino`: nine reactions plus U8g2 cards; `LearningCards.h` is the portable fixed-buffer receiver. No upload or new-card hardware verification claimed.
 - `firmware/PrivetBLE_Servo/PrivetBLE_Servo.ino`: legacy commands-1–4 BLE/OLED/servo variant with clamped pulse targets, loop-driven slew and PWM release.
 - `firmware/PrivetBLE_Lessons/PrivetBLE_Lessons.ino`: retained OLED-only baseline; same packet contract, earlier celebration duration.
 
@@ -214,9 +281,9 @@ Or use `npm run sync:ios` for build plus sync. Select the existing **App** schem
 
 ### Automated app checks
 
-Latest recorded validation: **133 Node tests**, rendered-shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover target-lesson entry/resume/switching, completed/failed views, replay, hint/audio actions, stale audio completion, rewards/Plus and disconnected behavior. Unit tests cover packet validation, accepted transitions, bounded replacement, ACK matching/cancellation, serialized writes, errors and lifecycle races. Website HTML matched 31 baseline states.
+Current local validation is recorded in the [README](../README.md#verification). The earlier face-only milestone recorded **133 Node tests**, rendered-shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover target-lesson entry/resume/switching, completed/failed views, replay, hint/audio actions, stale audio completion, rewards/Plus and disconnected behavior. Unit tests cover packet validation, accepted transitions, bounded replacement, ACK matching/cancellation, serialized writes, errors and lifecycle races. Website HTML matched 31 baseline states.
 
-BLE and speech are mocked. These results do not verify real radio, audio, OLED rendering or servo motion. No new firmware compile/upload or real-device test was performed by the coding agent. An older background-lifecycle milestone recorded an unsigned Xcode build; that is not a build result for the latest changes.
+BLE and speech are mocked. These results do not verify real radio, audio, OLED rendering or servo motion. That earlier milestone performed no firmware compile/upload or real-device test. This learning-card source compiled for ESP32 Dev Module with Arduino-ESP32 3.3.12: 1,161,546 bytes application storage (88%), 44,884 bytes dynamic memory (13%). No firmware upload or new hardware test was performed. An older background-lifecycle milestone recorded an unsigned Xcode build; that is not a build result for the latest changes.
 
 ### User-reported real-hardware checks
 
@@ -231,3 +298,17 @@ The project owner confirms real-iPhone discovery, connection, matching ACKs, hap
 - Power off ESP32 while locked, go out of range, or toggle Bluetooth. Verify honest status and manual reconnection; explicit Disconnect during reconciliation must remain effective.
 - Confirm fresh CONNECTED versus retained-link ACK-gated IDLE, no background/replayed reactions, bounded failures, and no overlapping writes or duplicate subscriptions.
 - Test force-quit/relaunch and native keyboard/accessibility separately. No automatic reconnection or process-termination restoration is promised.
+
+### Learning-card milestone verification
+
+Automated coverage includes all eight lessons plus welcome-café pre-answer/incorrect/hint safety, byte/scalar limits, capabilities, deadline/fallback behavior, single CONNECTED ownership, atomic receiver publication, CRC/UTF-8 rejection, stale/duplicate transactions, cancellation and native-write serialization. The Node suite compiles and executes the actual portable firmware receiver with the host C++ compiler. Full Arduino target compilation is a separate check, not hardware validation.
+
+Still required on real iPhone/ESP32: old-firmware face-only negotiation; new-firmware Cyrillic/Ё rendering and 180° orientation; all five card modes and face-to-card timing; long words/ellipsis; no pre-answer or incorrect-answer leakage; rapid navigation during fragmentation; rejected/missing ACK fallback with face retained; missing OLED with functioning BLE/servo; lock for 30 seconds and unlock/test; another app for two minutes and return/test; power loss while locked; Bluetooth toggling/out-of-range; explicit Disconnect; force-quit behavior. None is marked passed by this implementation. No firmware upload occurred. After the separately edited curriculum is integrated, rerun **all answer-safety tests against the final lesson content**; that editorial branch was not merged here.
+
+Connection presentation: the sleeping face stays visible while the fresh link subscribes; the app’s accepted CONNECTED command wakes it once, then it returns to IDLE. U8g2 rounded-box radii are clamped during eye opening to prevent unsigned geometry underflow. This correction still requires an OLED check after uploading v2.
+
+The v2 servo uses `ServoMotion.h` for continuous eased gesture targets from the last commanded pulse. OLED refresh sends only changed tile spans in each row (a fixed 1024-byte shadow buffer); unchanged cards produce no display transfers. Servo servicing remains between changed rows; I2C is explicitly 400 kHz. Existing pulse limits, per-step caps and PWM release remain. Host regressions cover every reaction from multiple starting positions, target continuity and return to center; physical smoothness still needs device verification.
+
+`LearningLayout.h` shares wrapping/frame geometry with the host OLED check. `scripts/companion-card-fixtures.ts` derives current cards from the curriculum and guide; no curriculum is copied into firmware. Display-only meanings omit register annotations that remain visible on the phone. Re-run the font-accurate check after curriculum changes.
+
+Incomplete firmware staging expires once at five seconds without altering the accepted face/card. `Receiver::expire()` returns result 7; the main loop snapshots it under the short critical section, then notifies the existing status characteristic after releasing the lock. Late packets cannot publish the expired transaction.

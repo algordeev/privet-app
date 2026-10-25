@@ -3,7 +3,7 @@ export const lesson:LessonDefinition={
  "id": "daily-life",
  "number": "05",
  "title": "My day",
- "description": "Tell Anna about morning coffee, work, and a relaxing evening.",
+ "description": "Recognize Anna's work statement, and describe your own morning coffee and a relaxing evening.",
  "icon": "☀",
  "motivationTags": [
   "Conversations"
