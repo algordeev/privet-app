@@ -185,4 +185,4 @@ git diff --check
 
 The [Pages workflow](.github/workflows/pages.yml) tests, builds and deploys `main` to https://algordeev.github.io/privet-app/ when pushed, or through workflow dispatch. The repository Pages source must be **GitHub Actions**. This documentation update does not commit, push or deploy anything.
 
-`npm run build:pages` uses `/privet-app/`, including favicon/assets. `npm run build` uses the root path for local previews/other hosting. Browser typography uses DM Sans/Manrope from Google Fonts with system fallbacks; native uses local system fonts. The website, including the simulated companion, works without real BLE hardware or paid services.
+`npm run build:pages` uses `/privet-app/`, including favicon/assets. `npm run build` uses the root path for local previews/other hosting. Browser typography uses self-hosted DM Sans/Manrope (`src/fonts/`, no Google Fonts request) with system fallbacks; native uses local system fonts, stripping those font files from its build entirely. The website, including the simulated companion, works without real BLE hardware or paid services.
