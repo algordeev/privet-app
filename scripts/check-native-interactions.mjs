@@ -11,7 +11,7 @@ import {createServer} from 'vite';
 const executable=[process.env.PRIVET_CHROME_PATH,'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome','/usr/bin/chromium','/usr/bin/chromium-browser','/usr/bin/google-chrome',...[process.env.PROGRAMFILES,process.env['PROGRAMFILES(X86)'],process.env.LOCALAPPDATA].filter(Boolean).map(dir=>join(dir,'Google','Chrome','Application','chrome.exe'))].find(path=>path&&existsSync(path));
 assert.ok(executable,'Install Chrome/Chromium or set PRIVET_CHROME_PATH to run interaction checks.');
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-let browserPreview=false,russianAudio=false,skipQuickStart=true,repeatedSentence=false,firstTime=false;
+let browserPreview=false,russianAudio=false,skipQuickStart=true,repeatedSentence=false,firstTime=false,learningCards=false;
 let seed={},initialTime=new Date(2026,9,17,12).getTime();
 // Test-only driver substitution: exercise real root hook, scheduler and UI without radio.
 const server=await createServer({plugins:[{name:'privet-test-ble-driver',enforce:'pre',transform(_source,id){
@@ -19,8 +19,22 @@ const server=await createServer({plugins:[{name:'privet-test-ble-driver',enforce
  return `export function createNativeBleDriver(){let notify;return {
  async initialize(){},async isEnabled(){return true;},async connected(){return true;},async watchEnabled(){},
  async scan(_service,found){found({deviceId:'test-companion',name:'Privet-ESP32'});},async stopScan(){},async connect(){},
- async subscribe(_id,callback){notify=callback;},async write(_id,packet){window.__bleCommands.push(packet.getUint8(6));
- const ack=new DataView(packet.buffer.slice(packet.byteOffset,packet.byteOffset+8));ack.setUint8(1,2);notify(ack);},async cleanup(){}
+ async subscribe(_id,callback){notify=callback;},async write(_id,packet){
+ window.__bleFrames.push(Array.from(new Uint8Array(packet.buffer,packet.byteOffset,packet.byteLength)));
+ if(packet.getUint8(0)===2){
+  const type=packet.getUint8(1),id=packet.getUint32(2,true);
+  if(type===0x10)window.__card={id,mode:packet.getUint8(14),primary:packet.getUint8(15),body:[]};
+  if(type===0x11)window.__card.body.push(...new Uint8Array(packet.buffer,packet.byteOffset+8,packet.getUint8(7)));
+  if(type===0x12){const c=window.__card,bytes=new Uint8Array(c.body),decoder=new TextDecoder();window.__cards.push({mode:c.mode,primary:decoder.decode(bytes.slice(0,c.primary)),secondary:decoder.decode(bytes.slice(c.primary))});
+   const ack=new DataView(new ArrayBuffer(8));ack.setUint8(0,2);ack.setUint8(1,0x90);ack.setUint32(2,id,true);ack.setUint8(7,c.mode);notify(ack);}
+  return;
+ }
+ if(packet.getUint8(6)!==10)window.__bleCommands.push(packet.getUint8(6));
+ const ack=new DataView(packet.buffer.slice(packet.byteOffset,packet.byteOffset+8));ack.setUint8(1,2);
+ if(packet.getUint8(6)===10){ack.setUint8(7,window.__learningCards?0:1);
+  if(window.__learningCards){const caps=new DataView(new ArrayBuffer(20));[2,0x80,0,0,0,0,7,20,96,0,64,32,77,0,0,0,0x88,0x13].forEach((v,i)=>caps.setUint8(i,v));caps.setUint32(2,packet.getUint32(2,true),true);notify(caps);}}
+ notify(ack);},async cleanup(){}
+
  };}`;
 }}],mode:'native',appType:'custom',server:{host:'127.0.0.1',port:0,strictPort:false,hmr:false}});
 server.middlewares.use('/__privet_native_checks',(req,res)=>{
@@ -28,7 +42,7 @@ server.middlewares.use('/__privet_native_checks',(req,res)=>{
  const reset=!req.url.includes('resume');
  res.end(`<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body><div id="root"></div><script type="module">
  ${browserPreview?'':`window.CapacitorCustomPlatform={name:'ios'};window.Capacitor={PluginHeaders:[{name:'BluetoothLe',methods:[]}]};`}
- window.__bleCommands=[];window.__speechTaps=[];window.__utterances=[];window.__holdSpeech=false;window.__russianAudio=${russianAudio};window.__voiceListeners=new Set();window.__openCalls=[];window.open=(...args)=>{window.__openCalls.push(args);};
+ window.__learningCards=${learningCards};window.__bleFrames=[];window.__cards=[];window.__bleCommands=[];window.__speechTaps=[];window.__utterances=[];window.__holdSpeech=false;window.__russianAudio=${russianAudio};window.__voiceListeners=new Set();window.__openCalls=[];window.open=(...args)=>{window.__openCalls.push(args);};
  window.__realDate=Date;window.__now=${initialTime};
  window.Date=class extends window.__realDate{constructor(...args){super(...(args.length?args:[window.__now]));}static now(){return window.__now;}};
  ${reset?`localStorage.clear();for(const [key,value] of Object.entries(${JSON.stringify(seed)}))localStorage.setItem(key,JSON.stringify(value));`:''}
@@ -50,8 +64,8 @@ try{
  const {emptyStats,NATIVE_STATS_KEY,localDay}=await server.ssrLoadModule('/src/nativeStats.ts');
  const {SUBSCRIPTION_KEY,PLUS_MONTHLY_PRICE}=await server.ssrLoadModule('/src/subscription.ts');
  const {CYRILLIC_KEY}=await server.ssrLoadModule('/src/cyrillicProgress.ts');
- const {legacyLesson}=await server.ssrLoadModule('/src/curriculum/compatibility.ts');
  const {CYRILLIC,contextualLetters}=await server.ssrLoadModule('/src/cyrillic.ts');
+ const {russianReading}=await server.ssrLoadModule('/src/pronunciation.ts');
  profile=await mkdtemp(join(tmpdir(),'privet-native-checks-'));
  chrome=spawn(executable,['--headless=new','--no-first-run','--no-default-browser-check','--remote-debugging-port=0',`--user-data-dir=${profile}`,'about:blank'],{stdio:'ignore'});
  let port;for(let n=0;n<100;n++){try{port=(await readFile(join(profile,'DevToolsActivePort'),'utf8')).split('\n')[0];break;}catch{await pause(100);}}
@@ -61,7 +75,7 @@ try{
  let nextId=0;const pending=new Map();const browserErrors=[];
  ws.onmessage=event=>{
   const message=JSON.parse(event.data);
-  if(message.method==='Runtime.exceptionThrown')browserErrors.push(message.params.exceptionDetails.text);
+  if(message.method==='Runtime.exceptionThrown')browserErrors.push(message.params.exceptionDetails.exception?.description??message.params.exceptionDetails.text);
   if(message.id){const request=pending.get(message.id);if(!request)return;pending.delete(message.id);clearTimeout(request.timer);message.error?request.reject(Error(JSON.stringify(message.error))):request.resolve(message.result);}
  };
  const call=(method,params={})=>new Promise((resolve,reject)=>{
@@ -72,7 +86,7 @@ try{
   const result=await call('Runtime.evaluate',{expression:`(${fn.toString()})(${JSON.stringify(arg)})`,awaitPromise:true,returnByValue:true});
   assert.ok(!result.exceptionDetails,JSON.stringify(result.exceptionDetails));return result.result.value;
  };
- const until=async(fn,arg)=>{for(let n=0;n<120;n++){if(await evaluate(fn,arg))return;await pause(50);}throw Error(`UI condition timed out: ${fn}`);};
+ const until=async(fn,arg)=>{for(let n=0;n<120;n++){if(await evaluate(fn,arg))return;await pause(50);}throw Error(`UI condition timed out: ${fn}; browser exceptions: ${JSON.stringify(browserErrors)}`);};
  async function assertNativeLayout(){
   const panes=await evaluate(()=>[...document.querySelectorAll('.native-app,.native-home-scroll,.native-profile-scroll,.native-app .lesson-scroll,.native-sheet,.native-sheet-panel,.native-sheet-scroll,.native-quick-scroll,.first-scroll')].map(el=>{
    el.scrollLeft=1000;
@@ -88,18 +102,19 @@ try{
  }
  const click=async(selector,text)=>{
   if(process.env.PRIVET_INTERACTION_DEBUG)console.log(`CLICK ${selector} ${text??''}`);
-  await until(({selector,text})=>[...document.querySelectorAll(selector)].some(el=>!el.disabled&&(!text||el.textContent.trim().replace(/\s*[→↻∞]\s*$/,'').trim()===text)),{selector,text});
-  await evaluate(({selector,text})=>{const el=[...document.querySelectorAll(selector)].find(el=>!el.disabled&&(!text||el.textContent.trim().replace(/\s*[→↻∞]\s*$/,'').trim()===text));el.scrollIntoView({block:'nearest'});el.click();},{selector,text});await pause(60);await assertNativeLayout();
+  await until(({selector,text})=>[...document.querySelectorAll(selector)].some(el=>!el.disabled&&(!text||(el.matches('.choice')?(el.querySelector('.native-choice-copy')?el.querySelector('.choice-number').textContent+el.querySelector('.native-choice-copy > span').textContent:el.textContent):el.textContent).trim().replace(/\s*[→↻∞]\s*$/,'').trim()===text)),{selector,text});
+  await evaluate(({selector,text})=>{const el=[...document.querySelectorAll(selector)].find(el=>!el.disabled&&(!text||(el.matches('.choice')?(el.querySelector('.native-choice-copy')?el.querySelector('.choice-number').textContent+el.querySelector('.native-choice-copy > span').textContent:el.textContent):el.textContent).trim().replace(/\s*[→↻∞]\s*$/,'').trim()===text));el.scrollIntoView({block:'nearest'});el.click();},{selector,text});await pause(60);await assertNativeLayout();
  };
  async function assertLetterExamples(){
   const cards=await evaluate(()=>[...document.querySelectorAll('.native-letter-card')].map(el=>{
    const example=el.querySelector('.native-letter-example'),visual=example.firstElementChild,target=example.querySelector('.native-target-letter'),style=getComputedStyle(target);
-   return {letter:el.querySelector('.native-letter-heading strong').firstChild.textContent.trim(),visual:visual.textContent,word:example.querySelector('.native-sr-only').textContent,target:target.textContent,hidden:visual.getAttribute('aria-hidden'),lang:example.lang,weight:Number(style.fontWeight),decoration:style.textDecorationLine};
+   return {letter:el.querySelector('.native-letter-heading strong').firstChild.textContent.trim(),visual:visual.textContent,word:example.querySelector('.native-sr-only').textContent,reading:el.querySelector('.native-example-reading')?.textContent,readingLang:el.querySelector('.native-example-reading')?.lang,target:target.textContent,hidden:visual.getAttribute('aria-hidden'),lang:example.lang,weight:Number(style.fontWeight),decoration:style.textDecorationLine};
   }));
   assert.ok(cards.length>0);
   const columns=await evaluate(()=>[...document.querySelectorAll('.native-letter-card')].map(card=>{const letter=card.querySelector('.native-letter-heading').getBoundingClientRect(),copy=card.querySelector('.native-letter-copy').getBoundingClientRect(),sound=card.querySelector('.native-letter-copy > b').getBoundingClientRect(),word=card.querySelector('.native-letter-example').getBoundingClientRect();return {letterRight:letter.right,copyLeft:copy.left,soundTop:sound.top,wordTop:word.top};}));
   for(const column of columns){assert.ok(column.copyLeft>=column.letterRight,'Cyrillic letters stay in the left column');assert.ok(column.soundTop<column.wordTop,'Latin sound guide stays above the example in the adjacent column');}
   for(const card of cards){
+   assert.equal(card.reading,russianReading(card.word),'Latin reading belongs to the actual safe example');assert.equal(card.readingLang,'en');
    assert.equal(card.visual,card.word,'Visual emphasis preserves the complete word');assert.equal(card.lang,'ru');assert.equal(card.hidden,'true');
    assert.equal(card.target.toLowerCase(),card.letter.toLowerCase());assert.ok(card.weight>=700&&card.decoration.includes('underline'),'Target emphasis does not rely on color');
    if(!['Ъ','Ы','Ь'].includes(card.letter))assert.ok(card.word.toLowerCase().startsWith(card.target.toLowerCase()),card.letter);
@@ -250,6 +265,25 @@ try{
   console.log(`PASS ${viewport.width}×${viewport.height}: Plus activate/cancel/reload/zero-heart recovery via lesson and Profile, restored heart consumption, freeze lifecycle→finish, replay reward separation, refill/freeze prices; native panes cannot scroll sideways, all exercises/header controls fit, vertical scroll retained.`);
  }
 
+ // Whole-word readings follow the existing switch without altering answers.
+ for(const viewport of [{width:320,height:568},{width:430,height:932}]){
+  await call('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:true});
+  const exchange=freshSession();exchange.progress.index=3;exchange.progress.results=[true,true,true];
+  await open({[NATIVE_SESSION_KEY]:exchange});await startCafe();
+  assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.native-russian-reading')].map(node=>node.textContent)),['vash chai','spa-SEE-ba','pree-VYET','ya kha-CHOO chai']);
+  await capture(`latin-exchange-${viewport.width}`);
+  await click('.choice','1Спасибо!');const before=await stored(NATIVE_SESSION_KEY);
+  await click('[aria-label="Lesson display settings"]');await click('[aria-label="Pronunciation help"]');await click('[aria-label="Lesson display settings"]');
+  assert.equal(await evaluate(()=>document.querySelectorAll('.native-russian-reading').length),0);
+  await click('[aria-label="Open Cyrillic guide"]');await assertLetterExamples();await click('[aria-label="Close Cyrillic guide"]');
+  assert.deepEqual(await stored(NATIVE_SESSION_KEY),before,'Guide and pronunciation toggles preserve selection, progress and rewards');
+  await open({},initialTime,true);await startCafe();assert.equal(await evaluate(()=>document.querySelectorAll('.native-russian-reading').length),0,'Reading preference survives reload');
+  await click('[aria-label="Lesson display settings"]');await click('[aria-label="Pronunciation help"]');await click('[aria-label="Lesson display settings"]');
+  assert.equal(await evaluate(()=>document.querySelectorAll('.native-russian-reading').length),4);
+  assert.equal((await stored(NATIVE_SESSION_KEY)).selected,'Спасибо!','Persist the canonical Russian choice, never its Latin reading');
+  console.log(`PASS ${viewport.width}×${viewport.height}: dialogue/choice Latin readings follow pronunciation settings and reload, preserve answers/session, and alphabet readings stay available with help off.`);
+ }
+
  // Explicit native UI actions go through the real root controller and transport.
  russianAudio=true;
  await open();await openPhysicalSettings();await click('.native-physical-actions .button','Connect');
@@ -344,19 +378,32 @@ try{
    await click('.lesson-bottom .button','Check answer');assert.ok(await evaluate(()=>!!document.querySelector('.feedback.correct')));
    await click('.lesson-bottom .button','Continue');
   }
-  assert.deepEqual(await codes(),[6,1,6,1,6,1,6,1,6,1,3],`${definition.id}: semantic events only, final celebration once`);
+  // Every vocabulary-kind exercise sends one extra THINKING per revealed word
+  // (onReveal), ahead of its own correct-answer/continue pair; computed per
+  // lesson rather than hardcoded so this stays correct regardless of a
+  // revised lesson's exercise order or word count.
+  const expectedCodes=[6];
+  definition.exercises.forEach((exercise,i)=>{
+   if(exercise.kind==='vocabulary')for(let n=0;n<definition.words.length;n++)expectedCodes.push(6);
+   expectedCodes.push(1,i===definition.exercises.length-1?3:6);
+  });
+  assert.deepEqual(await codes(),expectedCodes,`${definition.id}: semantic events only, final celebration once`);
   const snapshot=await stored(sessionKey(definition));assert.equal(snapshot.contentRevision,2);assert.ok(snapshot.progress.complete);
   assert.equal((await stored(savedKey(definition))).completion.contentRevision,2);
  }
- // An old saved answer keeps its exact question/input; Replay opts into v2 without losing Passed/best/rewards.
+ // An old-revision (or untagged) saved session is discarded on open, starting
+ // fresh at v2 content, rather than resuming its position/tokens; Replay from
+ // a completed session also opts into v2 without losing Passed/best/rewards.
  for(const definition of nativeLessons.slice(2)){
-  const legacy=legacyLesson(definition),index=legacy.exercises.findIndex(e=>e.kind==='sentence');
-  const old={...freshSession(),progress:{...freshSession().progress,index,results:Array(index).fill(true)},tokens:[legacy.exercises[index].tokens[0]]};
+  const index=definition.exercises.findIndex(e=>e.kind==='sentence');
+  const old={...freshSession(),progress:{...freshSession().progress,index,results:Array(index).fill(true)},tokens:[definition.exercises[index].tokens[0]]};
   await open({[sessionKey(definition)]:old});await click(`#native-card-${definition.id} ~ .button`);
-  assert.equal(await evaluate(()=>document.querySelector('.lesson-scroll h3').textContent),legacy.exercises[index].title);
-  assert.deepEqual((await stored(sessionKey(definition))).tokens,old.tokens);assert.equal((await stored(sessionKey(definition))).contentRevision,1);
-  await open({},initialTime,true);await click(`#native-card-${definition.id} ~ .button`);assert.deepEqual((await stored(sessionKey(definition))).tokens,old.tokens);
-  await open({[sessionKey(definition)]:complete});await connectAtHome();await click(`#native-card-${definition.id} ~ .button`);
+  assert.equal(await evaluate(()=>document.querySelector('.lesson-scroll h3').textContent),definition.exercises[0].title,`${definition.id}: untagged session discarded, starts fresh`);
+  await click('[aria-label="Return to app home"]');
+  // complete is a generic fixture with no contentRevision; tag it to match
+  // what a real completed v2 session actually carries, or the discard check
+  // above would also reject this one.
+  await open({[sessionKey(definition)]:{...complete,contentRevision:2}});await connectAtHome();await click(`#native-card-${definition.id} ~ .button`);
   await click('.completion button','Replay the lesson');assert.equal(await evaluate(()=>document.querySelector('.lesson-scroll h3').textContent),definition.exercises[0].title);
   assert.equal((await stored(sessionKey(definition))).contentRevision,2);assert.deepEqual(await codes(),[4,6]);
   await click('[aria-label="Return to app home"]');assert.ok(await evaluate(id=>document.querySelector(`#native-card-${id}`).closest('.native-lesson-card').querySelector('.native-path-state').textContent==='Passed',definition.id));
@@ -372,7 +419,10 @@ try{
  const latestPractice=await stored(savedKey(nativeLessons[0]));assert.equal(latestPractice.bestFirstTry,5);assert.equal(latestPractice.completion.results.filter(Boolean).length,2);
  // A replay is a new attempt, not a revocation of previously earned completion.
  for(const definition of [nativeLessons[0],nativeLessons[2]]){
-  await open({[sessionKey(definition)]:complete});await click(`#native-card-${definition.id} ~ .button`);
+  // complete is a generic fixture with no contentRevision; tag it to match
+  // what useLesson.ts itself actually writes for each lesson (café has none,
+  // around-town has 2), or the discard check would reject around-town's.
+  await open({[sessionKey(definition)]:{...complete,...(definition.contentRevision?{contentRevision:definition.contentRevision}:{})}});await click(`#native-card-${definition.id} ~ .button`);
   await click('.completion button','Replay the lesson');await click('[aria-label="Return to app home"]');
   for(let reload=0;reload<2;reload++){
    const card=await evaluate(id=>{const el=document.querySelector(`#native-card-${id}`).closest('.native-lesson-card');return {state:el.querySelector('.native-path-state').textContent,action:el.querySelector('.button').textContent,progress:el.querySelector('progress').value};},definition.id);
@@ -833,6 +883,20 @@ try{
  assert.equal((await codes()).filter(code=>code===9).length,1,'Home chip never creates a second subscription/reconnect');
  await openPhysicalSettings();await click('.native-physical-disconnect','Disconnect');await physicalBackHome();assert.equal(await evaluate(()=>document.querySelector('#native-companion-chip [role=status]').textContent),'Have a physical companion? Let’s connect it.');
  console.log('PASS: Home companion chip placement, real status, direct settings shortcut, return focus, connection continuity and explicit disconnect.');
+ // Capable peripheral: exercise actual native semantic wiring and app-owned
+ // card generation; the rest of the suite above deliberately tests legacy v1.
+ learningCards=true;russianAudio=true;await open();await openPhysicalSettings();await click('.native-physical-actions .button','Connect');await click('.native-physical-devices button');
+ await until(()=>window.__bleFrames.some(p=>p[0]===1&&p[6]===10));await physicalBackHome();await startCafe();
+ await until(()=>window.__cards.length>0);assert.equal(await evaluate(()=>window.__cards.at(-1).primary),'Tap a word');
+ await click('.vocab-reveal');assert.equal(await evaluate(()=>window.__cards.at(-1).primary),'Привет!');assert.equal(await evaluate(()=>window.__cards.at(-1).secondary),'Hi!');
+ await evaluate(()=>document.querySelectorAll('.vocab-reveal').forEach(el=>el.click()));await click('.lesson-bottom .button','Check answer');await click('.lesson-bottom .button','Continue');
+ await until(()=>window.__cards.at(-1)?.primary==='кофе');assert.equal(await evaluate(()=>window.__cards.at(-1).secondary),'Choose on phone');
+ await click('.choice','1tea');await click('.lesson-bottom .button','Check answer');assert.equal(await evaluate(()=>window.__cards.at(-1).secondary),'Choose on phone');
+ await click('.lesson-bottom .button','Try again');await click('.lesson-hint-button');assert.equal(await evaluate(()=>window.__cards.at(-1).primary),'See phone hint');
+ await click('.choice','2coffee');await click('.lesson-bottom .button','Check answer');assert.equal(await evaluate(()=>window.__cards.at(-1).mode),5);assert.equal(await evaluate(()=>window.__cards.at(-1).secondary),'coffee');
+ await click('[aria-label="Return to app home"]');assert.equal((await codes()).filter(code=>code===9).length,1);
+ assert.ok((await evaluate(()=>window.__bleFrames)).every(p=>p.length<=20),'Every native card frame stays within conservative BLE payload');
+ console.log('PASS: capable native companion negotiates after CONNECTED, shows explicitly discovered vocabulary, safe prompts/incorrect feedback, hint cue and correctly graded answer; v1 legacy tests remain independent.');
  assert.deepEqual(browserErrors,[],'No uncaught browser exceptions');
  console.log('PASS: interaction checks use isolated Chromium shims; no real iPhone, ESP32, speech or payment verification.');
 }finally{

@@ -1,9 +1,9 @@
-import type {PhysicalCompanionController} from './usePhysicalCompanion';
-import type {BleState} from './bleTransport';
+import {useBleState,type PhysicalCompanionController} from './usePhysicalCompanion';
 import {BLE_NAME} from './bleProtocol';
 const phases={suspended:'Reactions paused',reconciling:'Checking connection',disconnected:'Disconnected',scanning:'Scanning',connecting:'Connecting',connected:'Connected',unavailable:'Bluetooth unavailable','permission-denied':'Permission denied',error:'Connection error'} as const;
 export function PhysicalCompanionSettings({controller,onClose,backLabel='Back to home'}:{controller:PhysicalCompanionController;onClose:()=>void;backLabel?:string}){
- const {state,scan,connect,disconnect,testHappy}=controller;
+ const {scan,connect,disconnect,testHappy}=controller;
+ const state=useBleState(controller);
  const inSession=state.phase==='scanning'||state.phase==='connecting'||state.phase==='connected'||state.phase==='suspended'||state.phase==='reconciling';
  return <div className="native-physical-scroll">
   <header className="native-profile-navigation"><button className="app-icon-button" onClick={onClose} aria-label={backLabel}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><h1 id="native-physical-title" tabIndex={-1}>Physical companion</h1><span aria-hidden="true"/></header>
@@ -19,12 +19,14 @@ export function PhysicalCompanionSettings({controller,onClose,backLabel='Back to
  </div>;
 }
 
-export function PhysicalCompanionHomeStatus({state,onOpen}:{state:BleState;onOpen:()=>void}){
+export function PhysicalCompanionHomeStatus({controller,onOpen}:{controller:PhysicalCompanionController;onOpen:()=>void}){
+ const state=useBleState(controller);
  const label=state.phase==='connected'?(state.notice?'Connected · Update needed':'Connected'):phases[state.phase];
  return <button id="native-physical-open" className="native-text-button native-physical-home" onClick={onOpen} aria-label={`Physical companion: ${label}. Open settings.`}><span>Physical companion settings</span><span className="native-physical-home-status" role="status" aria-live="polite"><i aria-hidden="true" data-connected={state.phase==='connected'}/>{label}</span></button>;
 }
 
-export function PhysicalCompanionChip({state,onOpen,greeting}:{state:BleState;onOpen:()=>void;greeting?:string}){
+export function PhysicalCompanionChip({controller,onOpen,greeting}:{controller:PhysicalCompanionController;onOpen:()=>void;greeting?:string}){
+ const state=useBleState(controller);
  const connected=state.phase==='connected'&&state.ready;
  const label=connected?'Companion connected':state.phase==='suspended'?'Companion paused':state.phase==='reconciling'?'Checking companion…':state.phase==='connecting'?'Connecting companion…':state.phase==='scanning'?'Finding companion…':'Have a physical companion? Let’s connect it.';
  return <div className="native-companion-bubble" data-connected={connected}>

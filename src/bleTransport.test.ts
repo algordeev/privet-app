@@ -1,14 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createBleTransport,BLE_TIMEOUTS,type BleDriver,type BleState,type PhysicalDevice} from './bleTransport.ts';
+import {CARD_LIMITS,type LearningCard} from './learningProtocol.ts';
 import {encodeCommand,BLE_SERVICE,COMMAND,type CommandCode} from './bleProtocol.ts';
 function deferred<T=void>(){let resolve!:(value:T)=>void,reject!:(error:Error)=>void;const promise=new Promise<T>((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};}
 const flush=()=>new Promise<void>(resolve=>setImmediate(resolve));
 function acknowledgement(id:number,result=0,command:CommandCode=COMMAND.HAPPY){const packet=encodeCommand(id,command);packet.setUint8(1,2);packet.setUint8(7,result);return packet;}
-function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0){
+function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0,capable:boolean|'silent'|'ack-only'|'malformed'=false){
  let now=0,nextTimer=0,initializations=0,connections=0,cleanups=0,stopScans=0,syncing=false,activeWrites=0,maxWrites=0,subscriptions=0,watches=0,queries=0;
  let found!:(device:PhysicalDevice)=>void,notified!:(value:DataView)=>void,disconnected!:()=>void,enabled!:(value:boolean)=>void;
- const timers=new Map<number,{at:number;fn:()=>void}>(),writes:DataView[]=[],snapshots:BleState[]=[];
+ const timers=new Map<number,{at:number;fn:()=>void}>(),writes:DataView[]=[],allWrites:DataView[]=[],snapshots:BleState[]=[];
  const driver:BleDriver={
   async initialize(){initializations++;await overrides.initialize?.();},
   isEnabled:overrides.isEnabled??(async()=>true),
@@ -19,6 +20,12 @@ function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0){
   async connect(id,callback,timeout){connections++;disconnected=callback;syncing=true;await overrides.connect?.(id,callback,timeout);},
   async subscribe(id,callback,timeout){subscriptions++;notified=callback;await overrides.subscribe?.(id,callback,timeout);},
   async write(id,packet,timeout){
+   allWrites.push(packet);
+   if(packet.getUint8(0)===1&&packet.getUint8(6)===10){
+    const ack=new DataView(packet.buffer.slice(0));ack.setUint8(1,2);ack.setUint8(7,capable?0:1);
+    if(capable===true||capable==='malformed'){const caps=new DataView(new ArrayBuffer(20));[2,0x80,0,0,0,0,7,20,96,0,64,32,77,0,0,0,0x88,0x13].forEach((v,i)=>caps.setUint8(i,v));caps.setUint32(2,packet.getUint32(2,true),true);if(capable==='malformed')caps.setUint8(10,65);notified(caps);}
+    if(capable!=='silent')notified(ack);return;
+   }
    writes.push(packet);activeWrites++;maxWrites=Math.max(maxWrites,activeWrites);
    try{
     if(syncing&&packet.getUint8(6)===COMMAND.CONNECTED){syncing=false;notified(acknowledgement(packet.getUint32(2,true),freshResult,COMMAND.CONNECTED));}
@@ -28,10 +35,11 @@ function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0){
   async cleanup(id){cleanups++;await overrides.cleanup?.(id);}
  };
  const actor=createBleTransport(driver,s=>snapshots.push(s),{supported:()=>supported,clock:{
+  now:()=>now,
   set(fn,ms){const id=++nextTimer;timers.set(id,{at:now+ms,fn});return id as unknown as ReturnType<typeof setTimeout>;},clear(id){timers.delete(id as unknown as number);}
  }});
- return {actor,driver,writes,timers,snapshots,get state(){return actor.getState();},get initializations(){return initializations;},get connections(){return connections;},get cleanups(){return cleanups;},get stopScans(){return stopScans;},get maxWrites(){return maxWrites;},get subscriptions(){return subscriptions;},get watches(){return watches;},get queries(){return queries;},
-  codes:()=>writes.map(p=>p.getUint8(6)),found:(id='device-a')=>found({deviceId:id,name:'Privet-ESP32'}),notify:(p:DataView)=>notified(p),disconnect:()=>disconnected(),disable:()=>enabled(false),
+ return {actor,driver,writes,allWrites,timers,snapshots,get state(){return actor.getState();},get initializations(){return initializations;},get connections(){return connections;},get cleanups(){return cleanups;},get stopScans(){return stopScans;},get maxWrites(){return maxWrites;},get subscriptions(){return subscriptions;},get watches(){return watches;},get queries(){return queries;},
+  codes:()=>writes.filter(p=>p.getUint8(0)===1).map(p=>p.getUint8(6)),found:(id='device-a')=>found({deviceId:id,name:'Privet-ESP32'}),notify:(p:DataView)=>notified(p),disconnect:()=>disconnected(),disable:()=>enabled(false),
   oldCallbacks:()=>({found,notified,disconnected,enabled}),
   async ackLatest(result=0){const p=writes.at(-1)!;notified(acknowledgement(p.getUint32(2,true),result,p.getUint8(6) as CommandCode));await flush();},
   async ready(keepSync=false){actor.navigate('physical');await actor.scan();this.found();await actor.connect('device-a');await flush();assert.equal(this.state.ready,true);assert.equal(this.state.pending,false);if(!keepSync)writes.length=0;},
@@ -294,4 +302,127 @@ test('explicit replay replaces the unsent reset with THINKING before native writ
  h.actor.enterLesson(true); // Explicit replay opens the fresh first exercise.
  await flush();assert.deepEqual(h.codes(),[COMMAND.THINKING]);assert.equal(h.maxWrites,1);await h.ackLatest();
  h.actor.disconnect();assert.equal(h.actor.enterLesson(true),false);h.actor.dispose();
+});
+
+const learningCard:LearningCard={mode:2,primary:'Где метро?',secondary:'Choose on phone'};
+function contentAck(p:DataView,result=0,mode=2){const ack=new DataView(new ArrayBuffer(8));ack.setUint8(0,2);ack.setUint8(1,0x90);ack.setUint32(2,p.getUint32(2,true),true);ack.setUint8(6,result);ack.setUint8(7,mode);return ack;}
+test('fresh connection negotiates once, after authoritative CONNECTED, and foreground only reconciles IDLE',async()=>{
+ const h=harness({},true,0,true);await h.ready(true);assert.deepEqual(h.allWrites.map(p=>p.getUint8(6)),[9,10]);
+ h.actor.setActive(false);h.actor.setActive(true);await flush();await h.ackLatest();assert.deepEqual(h.allWrites.map(p=>p.getUint8(6)),[9,10,4]);h.actor.dispose();
+});
+test('face ACK gates card transaction; early content ACK retained with exact ID/mode matching',async()=>{
+ const h=harness({async write(_id,p){if(p.getUint8(0)===2&&p.getUint8(1)===0x12)h.notify(contentAck(p));}},true,0,true);await h.ready();
+ h.actor.request(COMMAND.THINKING,learningCard);await flush();assert.equal(h.writes.length,1);await h.ackLatest();
+ assert.deepEqual(h.writes.map(p=>p.getUint8(1)),[1,0x10,0x11,0x11,0x11,0x12]);assert.equal(h.state.pending,false);assert.equal(h.maxWrites,1);h.actor.dispose();
+});
+test('content rejection or final ACK timeout disables only cards, with no extra reaction or offline replay',async()=>{
+ for(const outcome of ['reject','timeout']){
+  const h=harness({},true,0,true);await h.ready();h.actor.request(COMMAND.THINKING,learningCard);await flush();await h.ackLatest();
+  const commit=h.writes.at(-1)!;assert.equal(commit.getUint8(1),0x12);
+  if(outcome==='reject')h.notify(contentAck(commit,6));else await h.tick(CARD_LIMITS.ack);
+  await flush();assert.equal(h.state.ready,true);assert.deepEqual(h.codes(),[6]);
+  h.actor.request(COMMAND.HAPPY,{...learningCard,mode:5});await flush();await h.ackLatest();assert.equal(h.writes.at(-1)!.getUint8(0),1);assert.deepEqual(h.codes(),[6,1]);h.actor.dispose();
+ }
+});
+test('transfer deadline includes BEGIN native response; no late COMMIT and no overlapping writes',async()=>{
+ const begin=deferred();const h=harness({write:(_id,p)=>p.getUint8(0)===2&&p.getUint8(1)===0x10?begin.promise:Promise.resolve()},true,0,true);await h.ready();
+ h.actor.request(COMMAND.THINKING,learningCard);await flush();await h.ackLatest();assert.equal(h.writes.at(-1)!.getUint8(1),0x10);
+ await h.tick(3500);begin.resolve();await flush();assert.ok(!h.writes.some(p=>p.getUint8(1)===0x12));assert.equal(h.state.ready,true);assert.equal(h.maxWrites,1);assert.deepEqual(h.codes(),[6]);h.actor.dispose();
+});
+test('context cancellation drops remaining fragments and obsolete content ACK, retaining submitted write slot',async()=>{
+ const data=deferred();const h=harness({write:(_id,p)=>p.getUint8(0)===2&&p.getUint8(1)===0x11?data.promise:Promise.resolve()},true,0,true);await h.ready();
+ h.actor.request(COMMAND.THINKING,learningCard);await flush();await h.ackLatest();const old=h.writes.at(-1)!;
+ for(let i=0;i<100;i++)h.actor.request(COMMAND.THINKING,learningCard);h.actor.request(COMMAND.CELEBRATE);await flush();assert.deepEqual(h.codes(),[6]);
+ data.resolve();await flush();assert.deepEqual(h.codes(),[6,3]);assert.equal(h.maxWrites,1);assert.ok(!h.writes.some(p=>p.getUint8(1)===0x12));
+ h.notify(contentAck(old,6));await h.ackLatest();assert.equal(h.state.ready,true);assert.equal(h.state.notice,undefined);h.actor.dispose();
+});
+test('an instant reaction (non-context) also cuts short an in-progress card transfer instead of queuing behind it',async()=>{
+ const data=deferred();const h=harness({write:(_id,p)=>p.getUint8(0)===2&&p.getUint8(1)===0x11?data.promise:Promise.resolve()},true,0,true);await h.ready();
+ h.actor.request(COMMAND.THINKING,learningCard);await flush();await h.ackLatest();const old=h.writes.at(-1)!;
+ // HAPPY is not a context command; before this fix it would queue behind the
+ // full BEGIN/DATA/COMMIT sequence (up to ~5.5s) instead of preempting it.
+ h.actor.request(COMMAND.HAPPY);await flush();assert.deepEqual(h.codes(),[6]);
+ data.resolve();await flush();assert.deepEqual(h.codes(),[6,1]);assert.equal(h.maxWrites,1);assert.ok(!h.writes.some(p=>p.getUint8(1)===0x12));
+ h.notify(contentAck(old,6));await h.ackLatest();assert.equal(h.state.ready,true);assert.equal(h.state.notice,undefined);h.actor.dispose();
+});
+test('content wait is cancelled by background; resume sends only IDLE and ignores old completion',async()=>{
+ const h=harness({},true,0,true);await h.ready();h.actor.request(COMMAND.THINKING,learningCard);await flush();await h.ackLatest();const old=h.writes.at(-1)!;
+ h.actor.setActive(false);await flush();assert.equal(h.timers.size,0);assert.equal(h.actor.request(COMMAND.HINT,learningCard),false);
+ h.actor.setActive(true);await flush();h.notify(contentAck(old));assert.equal(h.state.ready,false);await h.ackLatest();assert.deepEqual(h.codes(),[6,4]);assert.equal(h.cleanups,0);h.actor.dispose();
+});
+test('content ACK requires both transaction and display mode',async()=>{
+ const h=harness({},true,0,true);await h.ready();h.actor.request(COMMAND.THINKING,learningCard);await flush();await h.ackLatest();const commit=h.writes.at(-1)!;
+ const wrong=contentAck(commit);wrong.setUint32(2,commit.getUint32(2,true)+1,true);h.notify(wrong);h.notify(contentAck(commit,0,5));await flush();assert.equal(h.state.pending,true);
+ h.notify(contentAck(commit));await flush();assert.equal(h.state.pending,false);h.actor.dispose();
+});
+test('canceling a card ACK wait preserves negotiated cards for the next context',async()=>{
+ const h=harness({},true,0,true);await h.ready();h.actor.request(COMMAND.THINKING,learningCard);await flush();await h.ackLatest();const old=h.writes.at(-1)!;
+ h.actor.request(COMMAND.THINKING,{...learningCard,primary:'Next question'});await flush();await h.ackLatest();const commit=h.writes.at(-1)!;
+ assert.equal(commit.getUint8(1),0x12);assert.notEqual(commit.getUint32(2,true),old.getUint32(2,true));h.notify(contentAck(old,6));assert.equal(h.state.pending,true);h.notify(contentAck(commit));await flush();assert.equal(h.state.ready,true);assert.equal(h.state.pending,false);h.actor.dispose();
+});
+test('native content-write errors remain fatal even when a newer context replaces the job',async()=>{
+ for(const outcome of ['reject','timeout']){
+  const write=deferred();const h=harness({write:(_id,p)=>p.getUint8(0)===2?write.promise:Promise.resolve()},true,0,true);await h.ready();h.actor.request(COMMAND.THINKING,learningCard);await flush();await h.ackLatest();h.actor.request(COMMAND.IDLE);
+  if(outcome==='reject'){write.reject(new Error('Native content write failed'));await flush();}else await h.tick(BLE_TIMEOUTS.write);
+  assert.equal(h.state.phase,'error');assert.equal(h.state.ready,false);assert.deepEqual(h.codes(),[6]);assert.equal(h.maxWrites,1);if(outcome==='timeout')write.resolve();await flush();h.actor.dispose();
+ }
+});
+
+test('missing, malformed, or incomplete capability offers quietly retain face-only connection without retry',async()=>{
+ for(const capability of ['silent','ack-only','malformed'] as const){
+  const h=harness({},true,0,capability);await h.actor.scan();h.found();await h.actor.connect('device-a');await flush();assert.equal(h.state.ready,true);
+  await h.tick(CARD_LIMITS.ack);assert.equal(h.state.pending,false);assert.equal(h.state.notice,undefined);assert.equal(h.state.ready,true);
+  h.actor.request(COMMAND.THINKING,learningCard);await flush();await h.ackLatest();assert.deepEqual(h.codes(),[9,6]);assert.equal(h.allWrites.filter(p=>p.getUint8(0)===1&&p.getUint8(6)===10).length,1);assert.ok(!h.writes.some(p=>p.getUint8(0)===2));h.actor.dispose();
+ }
+});
+function capabilityReply(probe:DataView){
+ const ack=new DataView(probe.buffer.slice(0));ack.setUint8(1,2);ack.setUint8(7,0);
+ const caps=new DataView(new ArrayBuffer(20));[2,0x80,0,0,0,0,7,20,96,0,64,32,77,0,0,0,0x88,0x13].forEach((v,i)=>caps.setUint8(i,v));caps.setUint32(2,probe.getUint32(2,true),true);return {ack,caps};
+}
+test('immediate lesson entry replaces reactions without canceling negotiation; current card follows capability ACK',async()=>{
+ const h=harness({async write(_id,p){if(p.getUint8(0)===2&&p.getUint8(1)===0x12)h.notify(contentAck(p));}},true,0,'silent');
+ await h.actor.scan();h.found();await h.actor.connect('device-a');
+ h.actor.enterLesson(true,learningCard);await flush();assert.deepEqual(h.codes(),[9,6]);
+ await h.ackLatest();const probe=h.allWrites.find(p=>p.getUint8(0)===1&&p.getUint8(6)===10)!;
+ assert.ok(probe);const {ack,caps}=capabilityReply(probe);h.notify(caps);h.notify(ack);await flush();
+ assert.equal(h.writes.at(-1)!.getUint8(1),0x12);assert.equal(h.state.pending,false);
+ assert.equal(h.codes().filter(c=>c===9).length,1);assert.equal(h.maxWrites,1);h.actor.dispose();
+});
+test('rapid replacements during a submitted probe retain the single write slot and bounded latest context',async()=>{
+ const held=deferred();let inNative=0,peakNative=0;let notify!:(p:DataView)=>void;
+ const h=harness({subscribe:async(_id,fn)=>{notify=fn;},write:async()=>{}},true,0,'silent');
+ // Hold control writes at the native bridge, after subscription is installed.
+ const original=h.driver.write;h.driver.write=async(id,p,t)=>{inNative++;peakNative=Math.max(peakNative,inNative);try{await original(id,p,t);if(p.getUint8(0)===1&&p.getUint8(6)===10)await held.promise;}finally{inNative--;}};
+ await h.actor.scan();h.found();await h.actor.connect('device-a');await flush();
+ for(let i=0;i<100;i++)h.actor.enterLesson(true,learningCard);
+ await flush();assert.deepEqual(h.codes(),[9]);held.resolve();await flush();assert.deepEqual(h.codes(),[9,6]);
+ await h.ackLatest();const probe=h.allWrites.find(p=>p.getUint8(6)===10)!;const {ack,caps}=capabilityReply(probe);notify(ack);notify(caps);await flush();
+ assert.equal(h.writes.at(-1)!.getUint8(1),0x12);h.notify(contentAck(h.writes.at(-1)!));await flush();assert.equal(h.state.pending,false);assert.equal(peakNative,1);h.actor.dispose();
+});
+test('disconnect and reconnect reject old capability callbacks and transaction IDs',async()=>{
+ const h=harness({},true,0,'silent');await h.actor.scan();h.found();await h.actor.connect('device-a');await flush();
+ const old=h.oldCallbacks(),oldReply=capabilityReply(h.allWrites.find(p=>p.getUint8(6)===10)!);
+ // Even a resolved offer must recheck generation before publishing in a microtask.
+ old.notified(oldReply.ack);old.notified(oldReply.caps);
+ h.actor.disconnect();await flush();await h.actor.scan();h.found();await h.actor.connect('device-a');await flush();
+ old.notified(oldReply.ack);old.notified(oldReply.caps);h.notify(oldReply.ack);h.notify(oldReply.caps);
+ h.actor.enterLesson(true,learningCard);await flush();await h.ackLatest();assert.ok(!h.writes.some(p=>p.getUint8(0)===2));
+ const current=capabilityReply(h.allWrites.filter(p=>p.getUint8(6)===10).at(-1)!);h.notify(current.ack);h.notify(current.caps);await flush();assert.equal(h.writes.at(-1)!.getUint8(1),0x12);h.actor.dispose();
+});
+test('background-interrupted negotiation gets only one deferred attempt after retained-link reconciliation',async()=>{
+ const held=deferred();const h=harness({},true,0,'silent');const original=h.driver.write;let probes=0;
+ h.driver.write=async(id,p,t)=>{await original(id,p,t);if(p.getUint8(0)===1&&p.getUint8(6)===10&&++probes===1)await held.promise;};
+ await h.actor.scan();h.found();await h.actor.connect('device-a');await flush();
+ const obsolete=capabilityReply(h.allWrites.find(p=>p.getUint8(6)===10)!);
+ h.actor.setActive(false);assert.equal(h.timers.size,0);h.actor.setActive(true);await flush();assert.deepEqual(h.codes(),[9]);held.resolve();await flush();await h.ackLatest();await flush();
+ assert.equal(h.allWrites.filter(p=>p.getUint8(6)===10).length,2);
+ h.notify(obsolete.ack);h.notify(obsolete.caps);await h.tick(CARD_LIMITS.ack);
+ h.actor.setActive(false);h.actor.setActive(true);await flush();await h.ackLatest();
+ assert.equal(h.allWrites.filter(p=>p.getUint8(6)===10).length,2);assert.equal(h.codes().filter(c=>c===9).length,1);h.actor.dispose();
+});
+test('same-context reactions do not wait behind pending capability negotiation',async()=>{
+ const h=harness({},true,0,'silent');await h.actor.scan();h.found();await h.actor.connect('device-a');await flush();
+ h.actor.enterLesson(true,learningCard);await flush();await h.ackLatest();
+ h.actor.request(COMMAND.LISTENING);await flush();assert.deepEqual(h.codes(),[9,6,5]);await h.ackLatest();
+ await h.tick(CARD_LIMITS.ack);assert.equal(h.state.ready,true);assert.equal(h.state.pending,false);h.actor.dispose();
 });

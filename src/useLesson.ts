@@ -1,4 +1,3 @@
-import {definitionForSaved} from './curriculum/compatibility';
 import {appStorage} from './previewStorage';
 import {useEffect,useReducer,useRef,useState,type Dispatch,type SetStateAction} from 'react';
 import {cafeLesson,type LessonDefinition} from './lessons';
@@ -7,10 +6,7 @@ import {loadSession,sessionKey,savedKey,readSaved,lessonPassed,recordLessonCompl
 import {useSpeech} from './useSpeech';
 
 export function useLesson({persistSession=false,saveResults=true,definition:currentDefinition=cafeLesson,sharedPreferences,sharedSpeech,onTransition,unlimitedHearts=false}:{persistSession?:boolean;saveResults?:boolean;definition?:LessonDefinition;sharedSpeech?:ReturnType<typeof useSpeech>;sharedPreferences?:{value:Preferences;set:Dispatch<SetStateAction<Preferences>>};onTransition?:(previous:Progress,next:Progress,action:Action)=>void;unlimitedHearts?:boolean}={}) {
- const [definition,setDefinition]=useState(()=>{
-  if(!persistSession)return currentDefinition;
-  try{return definitionForSaved(currentDefinition,appStorage.getItem(sessionKey(currentDefinition)),appStorage.getItem(savedKey(currentDefinition)));}catch{return currentDefinition;}
- });
+ const definition=currentDefinition;
  const {exercises:lesson,words}=definition;
  const [initial]=useState(()=>loadSession(persistSession,definition));
  const [saved,setSaved]=useState(()=>readSaved(definition));
@@ -60,7 +56,7 @@ export function useLesson({persistSession=false,saveResults=true,definition:curr
  function check(){if(!ready||progress.feedback)return;if(persistSession)inputRef.current?.blur();dispatch({type:'check',value:exercise.kind==='vocabulary'?'ready':exercise.kind==='sentence'?tokens.join(' '):selected});}
  function restart(){
   if(lessonScroll.current)lessonScroll.current.scrollTop=0;
-  setLessonSettings(false);dispatch({type:'reset'});setDefinition(currentDefinition);setRevealed([]);setSelected('');setTokens([]);setThinkingAt(null);setHintAt(null);setVocabularyWord(null);
+  setLessonSettings(false);dispatch({type:'reset'});setRevealed([]);setSelected('');setTokens([]);setThinkingAt(null);setHintAt(null);setVocabularyWord(null);
   setNotice('');
  }
  function adoptCompletion(value:Progress){if(progress.complete||!value.complete||value.failed||value.index!==lesson.length||value.results.length!==lesson.length)return;speech.stop();setSelected('');setTokens([]);setHintAt(null);reduce({type:'adoptCompletion',progress:{...value,results:[...value.results]}});}
