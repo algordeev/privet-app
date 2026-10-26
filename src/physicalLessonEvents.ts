@@ -6,7 +6,7 @@ import {COMMAND,type CommandCode} from './bleProtocol.ts';
 export function physicalLessonCommand(previous:Progress,next:Progress,action:Action):CommandCode|null {
  if(action.type==='reset')return COMMAND.IDLE;
  if(previous===next||previous.complete)return null;
- if(action.type==='check'&&!previous.feedback&&next.attempts===previous.attempts+1){
+ if(action.type==='check'&&!previous.feedback&&next.attempts>previous.attempts){
   return next.feedback==='correct'?COMMAND.HAPPY:next.feedback==='incorrect'?COMMAND.ENCOURAGE:null;
  }
  if(action.type==='continue'&&previous.feedback==='correct'&&next.index===previous.index+1){

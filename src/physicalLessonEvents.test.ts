@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {initialProgress,progressReducer,MAX_HEARTS,type Action,type Progress} from './engine.ts';
+import {initialProgress,progressReducer,MAX_HEARTS,matchValue,type Action,type Progress} from './engine.ts';
 import {lesson} from './lesson.ts';
+import {lessonById} from './curriculum/catalog.ts';
 import {COMMAND,type CommandCode} from './bleProtocol.ts';
 import {createPhysicalLessonEvents,physicalLessonCommand} from './physicalLessonEvents.ts';
 
@@ -58,4 +59,16 @@ test('identical progress in different lessons is not suppressed as a duplicate',
  const action:Action={type:'check',value:'coffee'},next=progressReducer(p,action);
  events(p,next,action,'cafe');events(p,next,action,'introductions');events(p,next,action,'introductions');
  assert.deepEqual(sent,[COMMAND.HAPPY,COMMAND.HAPPY]);
+});
+test('listen and match transitions react once; a slipped match check still celebrates the answer with one HAPPY',()=>{
+ for(const [id,kind] of [['around-town','listen'],['making-plans','match']] as const){
+  const l=lessonById(id),index=l.exercises.findIndex(e=>e.kind===kind),e=l.exercises[index];
+  const value=kind==='match'?matchValue(e.pairs!.map(p=>p[0]),e):e.answer;
+  const sent:CommandCode[]=[];const events=createPhysicalLessonEvents(c=>sent.push(c));let p:Progress={...initialProgress(),index,results:Array(index).fill(true)};
+  const run=(action:Action)=>{const next=progressReducer(p,action,l.exercises);events(p,next,action,id);events(p,next,action,id);p=next;};
+  if(kind==='listen'){run({type:'check',value:'Прямо.'});run({type:'retry'});run({type:'check',value});}
+  else run({type:'check',value,slipped:true});
+  run({type:'continue'});
+  assert.deepEqual(sent,kind==='listen'?[COMMAND.ENCOURAGE,COMMAND.THINKING,COMMAND.HAPPY,COMMAND.THINKING]:[COMMAND.HAPPY,COMMAND.THINKING]);
+ }
 });

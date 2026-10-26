@@ -42,7 +42,7 @@ export function useSpeech(enabled=true) {
    void nativeListener?.then(listener=>listener.remove()).catch(()=>{});
   };
  },[enabled]);
- const speak=useCallback((text:string,onEnd?:()=>void)=>controller.current?.speak(text,onEnd),[]);
+ const speak=useCallback((text:string,onEnd?:()=>void,rate?:number)=>controller.current?.speak(text,onEnd,rate),[]);
  const stop=useCallback(()=>controller.current?.stop(),[]);
  return {...state,speaking:state.status==='speaking',speak,stop};
 }

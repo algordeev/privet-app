@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {nativeLessons,nextLesson,lessonById} from './curriculum/catalog.ts';
 import {curriculumForMotivation} from './curriculum/motivation.ts';
-import {normalizeAnswer,checkAnswer,initialProgress,progressReducer} from './engine.ts';
+import {normalizeAnswer,checkAnswer,initialProgress,progressReducer,isPair,matchValue} from './engine.ts';
+import {matchOrder} from './matchOrder.ts';
+import type {Exercise} from './curriculum/types.ts';
+const correctValue=(e:Exercise)=>e.kind==='match'?matchValue(e.pairs!.map(p=>p[0]),e):e.answer;
 import {freshSession,restoreSession,sessionKey,savedKey,lessonPassed,readSaved,recordLessonCompletion} from './session.ts';
 import {emptyStats,recordFinish,restoreStats} from './nativeStats.ts';
 import {createPhysicalLessonEvents} from './physicalLessonEvents.ts';
@@ -26,7 +29,13 @@ test('all curriculum exercises validate vocabulary, canonical answers and displa
    if(e.kind==='choice')assert.ok(e.choices?.includes(e.answer));
    if(e.kind==='sentence')assert.deepEqual([...e.tokens!].sort(),e.answer.split(' ').sort());
    if(e.kind==='typed')for(const c of e.answer)assert.ok(e.letters?.includes(c));
-   assert.ok(checkAnswer(i,`  ${e.answer.toUpperCase()}?!  `,l.exercises));assert.ok(!checkAnswer(i,'wrong answer',l.exercises));
+   if(e.kind==='listen'){const word=l.words.find(w=>w.id===e.wordId)!;assert.ok(word.pronunciation);assert.equal(normalizeAnswer(word.text),normalizeAnswer(e.answer));assert.ok(e.choices?.includes(e.answer)&&e.choices.every(c=>/[а-яё]/iu.test(c)));}
+   if(e.kind==='match'){const pairs=e.pairs!;assert.ok(pairs.length>=3&&pairs.length<=5);for(const side of [0,1])assert.equal(new Set(pairs.map(p=>p[side])).size,pairs.length);
+    assert.notDeepEqual(matchOrder(pairs).map(p=>p[1]),pairs.map(p=>p[1]),`${l.id}/${e.id}: English column must be scrambled`);
+    assert.ok(isPair(e,pairs[0][0],pairs[0][1])&&!isPair(e,pairs[0][0],pairs[1][1]));
+    assert.ok(checkAnswer(i,matchValue(pairs.map(p=>p[0]),e),l.exercises));assert.ok(!checkAnswer(i,matchValue(pairs.slice(1).map(p=>p[0]),e),l.exercises));}
+   else assert.ok(checkAnswer(i,`  ${e.answer.toUpperCase()}?!  `,l.exercises));
+   assert.ok(!checkAnswer(i,'wrong answer',l.exercises));
   }
  }
 });
@@ -60,12 +69,12 @@ test('new lessons retain accepted physical events, retry, final celebration and 
   for(const e of l.exercises){
    const wrong={type:'check' as const,value:'wrong'};let next=progressReducer(p,wrong,l.exercises);emit(p,next,wrong,l.id);p=next;
    next=progressReducer(p,{type:'retry'},l.exercises);emit(p,next,{type:'retry'},l.id);p=next;
-   const right={type:'check' as const,value:e.answer};next=progressReducer(p,right,l.exercises);emit(p,next,right,l.id);p=next;
+   const right={type:'check' as const,value:correctValue(e)};next=progressReducer(p,right,l.exercises);emit(p,next,right,l.id);p=next;
    next=progressReducer(p,{type:'continue'},l.exercises);emit(p,next,{type:'continue'},l.id);p=next;
    // Avoid spending all hearts across this mapping test: each exercise gets its own attempt budget.
    if(!p.complete)p={...p,hearts:3};
   }
-  assert.deepEqual(sent,Array.from({length:5},(_,i)=>[2,6,1,i===4?3:6]).flat());
+  assert.deepEqual(sent,Array.from({length:l.exercises.length},(_,i)=>[2,6,1,i===l.exercises.length-1?3:6]).flat());
   emit(p,p,{type:'continue'},l.id);assert.equal(sent.filter(c=>c===3).length,1);
  }
 });

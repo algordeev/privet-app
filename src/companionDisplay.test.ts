@@ -5,7 +5,8 @@ import {nativeLessons} from './curriculum/catalog.ts';
 import {firstRunLesson} from './firstRunLesson.ts';
 import {initialProgress} from './engine.ts';
 import {companionDisplay,safeBeforeAnswer,normalizedDisplay,compactMeaning} from './companionDisplay.ts';
-import {validateCard} from './learningProtocol.ts';
+import {validateCard,DISPLAY_MODE as MODE} from './learningProtocol.ts';
+import {lessonById} from './curriculum/catalog.ts';
 test('all eight lessons and onboarding have answer-safe pre-answer cards, hints, and incorrect states',()=>{
  assert.equal(nativeLessons.length,8);
  for(const definition of [...nativeLessons,firstRunLesson])for(const [index,e] of definition.exercises.entries()){
@@ -46,4 +47,27 @@ test('OLED meanings retain complete useful words without phone-only register not
 test('every current vocabulary, prompt, answer and available guide-audio card fits wire limits without ellipsis',()=>{
  const cards=companionCardFixtures();assert.ok(cards.length>200);
  for(const card of cards){assert.ok(!card.primary.includes('...')&&!card.secondary.includes('...'),JSON.stringify(card));assert.ok(new TextEncoder().encode(card.primary).length<=64,card.context);assert.ok(new TextEncoder().encode(card.secondary).length<=32,card.context);}
+});
+test('listening never shows the spoken word before grading; afterwards the OLED teaches it',()=>{
+ const l=lessonById('around-town'),index=l.exercises.findIndex(e=>e.kind==='listen'),e=l.exercises[index];
+ for(const feedback of [null,'incorrect'] as const){const p={...initialProgress(),index,feedback};
+  assert.deepEqual(companionDisplay(l,p),{mode:MODE.SAFE_PROMPT,primary:'Listen on phone',secondary:'Find the metro'});
+  for(const text of [e.answer,...e.choices!,...l.words.map(w=>w.text)])assert.equal(companionDisplay(l,p,{kind:'listen',text}),undefined,text);
+ }
+ const p={...initialProgress(),index,feedback:'correct' as const,attempts:1};
+ assert.deepEqual(companionDisplay(l,p),{mode:MODE.ANSWER,primary:'Налево.',secondary:'To the left.'});
+ assert.equal(companionDisplay(l,p,{kind:'listen',text:'Налево.'})?.mode,MODE.PRONUNCIATION);
+});
+test('matching shows progress and single Russian items, never a Russian/English pair',()=>{
+ const l=lessonById('making-plans'),index=l.exercises.findIndex(e=>e.kind==='match'),e=l.exercises[index],p={...initialProgress(),index};
+ assert.deepEqual(companionDisplay(l,p),{mode:MODE.SAFE_PROMPT,primary:'Match the pairs',secondary:'Make a plan'});
+ assert.deepEqual(companionDisplay(l,p,{kind:'match',matched:2}),{mode:MODE.SAFE_PROMPT,primary:'Match the pairs',secondary:'2 of 4'});
+ for(const [ru,en] of e.pairs!){
+  assert.deepEqual(companionDisplay(l,p,{kind:'listen',text:ru}),{mode:MODE.PRONUNCIATION,primary:ru,secondary:''});
+  assert.equal(companionDisplay(l,p,{kind:'listen',text:en}),undefined);
+ }
+ assert.equal(companionDisplay(l,p,{kind:'listen',text:'Давай!'}),undefined);
+ for(const card of companionCardFixtures().filter(card=>card.context.startsWith('making-plans/match/')))
+  for(const [ru,en] of e.pairs!)assert.ok(!(card.primary.includes(ru)&&card.secondary.includes(en)),JSON.stringify(card));
+ assert.deepEqual(companionDisplay(l,{...p,feedback:'correct',attempts:1}),{mode:MODE.ANSWER,primary:'All pairs matched',secondary:'Make a plan'});
 });

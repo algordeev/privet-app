@@ -376,14 +376,15 @@ try{
  const latestPractice=await stored(savedKey(nativeLessons[0]));assert.equal(latestPractice.bestFirstTry,5);assert.equal(latestPractice.completion.results.filter(Boolean).length,2);
  // A replay is a new attempt, not a revocation of previously earned completion.
  for(const definition of [nativeLessons[0],nativeLessons[2]]){
-  await open({[sessionKey(definition)]:complete});await click(`#native-card-${definition.id} ~ .button`);
+  const steps=definition.exercises.length,finished={...complete,progress:{...complete.progress,index:steps,results:Array(steps).fill(true)}};
+  await open({[sessionKey(definition)]:finished});await click(`#native-card-${definition.id} ~ .button`);
   await click('.completion button','Replay the lesson');await click('[aria-label="Return to app home"]');
   for(let reload=0;reload<2;reload++){
    const card=await evaluate(id=>{const el=document.querySelector(`#native-card-${id}`).closest('.native-lesson-card');return {state:el.querySelector('.native-path-state').textContent,action:el.querySelector('.button').textContent,progress:el.querySelector('progress').value};},definition.id);
-   assert.equal(card.state,'Passed');assert.ok(card.action.includes('Continue practice'));assert.equal(card.progress,5);
+   assert.equal(card.state,'Passed');assert.ok(card.action.includes('Continue practice'));assert.equal(card.progress,steps);
    if(reload===0)await open({},initialTime,true);
   }
-  await click(`#native-card-${definition.id} ~ .button`);assert.ok(await evaluate(()=>document.querySelector('.lesson-step-count').textContent.includes('STEP 1 OF 5')));
+  await click(`#native-card-${definition.id} ~ .button`);assert.ok(await evaluate(steps=>document.querySelector('.lesson-step-count').textContent.includes(`STEP 1 OF ${steps}`),steps));
  }
  await open({[lesson2Key]:complete});await connectAtHome();await click(`#native-card-${nativeLessons[1].id} ~ .button`);
  assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.completion > button')].map(el=>({label:el.textContent.replace(/[→↻]/g,'').trim(),primary:el.classList.contains('teal')}))),[{label:'Continue to Lesson 3',primary:true},{label:'Replay the lesson',primary:false}],'Lesson 2 offers the next catalogue lesson and replay underneath');
@@ -851,6 +852,54 @@ try{
  await click('[aria-label="Return to app home"]');assert.equal((await codes()).filter(code=>code===9).length,1);
  assert.ok((await evaluate(()=>window.__bleFrames)).every(p=>p.length<=20),'Every native card frame stays within conservative BLE payload');
  console.log('PASS: capable native companion negotiates after CONNECTED, shows explicitly discovered vocabulary, safe prompts/incorrect feedback, hint cue and correctly graded answer; v1 legacy tests remain independent.');
+ // New exercise kinds with a capable companion: listening keeps the spoken word off the OLED until graded;
+ // matching grades each pair at once, shows progress only, and a slip costs no heart but the first try.
+ {
+  const town=nativeLessons.find(l=>l.id==='around-town'),plans=nativeLessons.find(l=>l.id==='making-plans');
+  const at=(l,kind)=>{const index=l.exercises.findIndex(e=>e.kind===kind),s=freshSession();s.progress={...s.progress,index,results:Array(index).fill(true)};return s;};
+  learningCards=true;russianAudio=true;await open({[sessionKey(town)]:at(town,'listen'),[sessionKey(plans)]:at(plans,'match')});
+  await openPhysicalSettings();await click('.native-physical-actions .button','Connect');await click('.native-physical-devices button');
+  await until(()=>window.__bleFrames.some(p=>p[0]===1&&p[6]===10));await physicalBackHome();
+  await click('#native-card-around-town ~ .button');await until(()=>window.__cards.at(-1)?.primary==='Listen on phone');
+  const listenStart=await evaluate(()=>window.__cards.length);
+  assert.ok(await evaluate(()=>!document.querySelector('.question-word')&&!!document.querySelector('.listen-play')&&!document.querySelector('.choices .native-russian-reading')),'Listening shows a player, no written word and no option readings');
+  await click('.listen-play');await until(()=>window.__speechTaps.at(-1)==='Налево.');assert.equal(await evaluate(()=>window.__utterances.at(-1).rate),.8);
+  await until(()=>window.__bleCommands.includes(5));
+  await click('.listen-slow');await until(()=>window.__utterances.at(-1).rate===.3);
+  await click('.listen-skip');assert.ok(await evaluate(()=>document.querySelector('.listen-fallback')?.textContent.includes('na-LYE-va')&&!document.querySelector('.listen-play')),'Can’t listen now shows the written sound guide');
+  await click('.choice','3Прямо.');await click('.lesson-bottom .button','Check answer');await until(()=>window.__bleCommands.at(-1)===2);
+  await click('.lesson-bottom .button','Try again');await click('.lesson-hint-button');await click('.choice','2Налево.');await click('.lesson-bottom .button','Check answer');
+  await until(()=>window.__cards.at(-1)?.mode===5);assert.deepEqual(await evaluate(()=>{const c=window.__cards.at(-1);return [c.primary,c.secondary];}),['Налево.','To the left.']);
+  assert.ok((await evaluate(n=>window.__cards.slice(n,-1),listenStart)).every(c=>!/налево/i.test(c.primary+c.secondary)),'The spoken word never reached the OLED before grading');
+  assert.equal(await evaluate(()=>document.querySelectorAll('.choices .native-russian-reading').length),3,'Readings return after a correct answer');
+  await click('[aria-label="Return to app home"]');
+  const pick=text=>evaluate(text=>{const b=[...document.querySelectorAll('.match-item')].find(b=>(b.querySelector('span')?.textContent??b.textContent)===text&&!b.disabled);b.click();return true;},text);
+  await click('#native-card-making-plans ~ .button');await until(()=>window.__cards.at(-1)?.primary==='Match the pairs');
+  const matchStart=await evaluate(()=>window.__cards.length);
+  // Hold speech like a real utterance, so its pronunciation card lands before the end-of-speech context.
+  await evaluate(()=>{window.__holdSpeech=true;});await pick('завтра');await until(()=>window.__speechTaps.at(-1)==='завтра');await until(()=>window.__cards.some(c=>c.mode===3&&c.primary==='завтра'&&c.secondary===''));
+  await evaluate(()=>{window.__holdSpeech=false;const u=window.__utterances.at(-1);u.onstart?.();u.onend?.();});
+  await pick('See you tomorrow!');assert.equal(await evaluate(()=>document.querySelectorAll('.match-item.mismatch').length),2,'A wrong pair flags both sides');
+  await until(()=>window.__bleCommands.at(-1)===2);
+  const midSession=await stored(sessionKey(plans));assert.deepEqual([midSession.progress.hearts,midSession.progress.attempts,midSession.progress.feedback,midSession.matches],[3,0,null,[]],'A slip costs no heart and nothing is matched');
+  await pick('завтра');await pick('tomorrow');await until(()=>window.__cards.at(-1)?.secondary==='1 of 4');
+  await pick('today');await pick('сегодня');await until(()=>window.__cards.at(-1)?.secondary==='2 of 4');
+  assert.deepEqual((await stored(sessionKey(plans))).matches,['завтра','сегодня'],'Correct pairs persist');
+  await pick('Давай гулять!');await pick('Let’s go for a walk!');await until(()=>window.__cards.at(-1)?.secondary==='3 of 4');
+  await pick('До завтра!');await pick('See you tomorrow!');
+  await until(()=>window.__cards.at(-1)?.primary==='All pairs matched');await until(()=>window.__bleCommands.at(-1)===1);
+  assert.ok(await evaluate(()=>document.querySelector('.feedback.correct')&&document.querySelectorAll('.match-item.matched').length===8),'The last pair submits the exercise');
+  for(const card of await evaluate(n=>window.__cards.slice(n),matchStart))for(const [ru,en] of plans.exercises.find(e=>e.kind==='match').pairs)assert.ok(!(card.primary.includes(ru)&&card.secondary.includes(en)),`OLED leaked a pair: ${JSON.stringify(card)}`);
+  await click('.lesson-bottom .button','Continue');assert.equal((await stored(sessionKey(plans))).progress.results.at(-1),false,'A slipped match is not a first try');
+  await click('[aria-label="Return to app home"]');
+  // Without a Russian voice, the listening question is still fully answerable from the written sound guide.
+  learningCards=false;russianAudio=false;await open({[sessionKey(town)]:at(town,'listen')});await click('#native-card-around-town ~ .button');
+  await until(()=>!!document.querySelector('.listen-fallback'));
+  assert.ok(await evaluate(()=>document.querySelector('.listen-fallback').textContent.includes('Audio isn’t available')&&document.querySelector('.listen-fallback').textContent.includes('na-LYE-va')&&!document.querySelector('.listen-play')));
+  await click('.choice','2Налево.');await click('.lesson-bottom .button','Check answer');await until(()=>!!document.querySelector('.feedback.correct'));
+  await assertNativeLayout();
+  console.log('PASS: listen-and-choose plays at normal/slow rate, falls back without a voice or on request, and keeps the word off the OLED until graded; match pairs grade per pair, show progress-only cards, cost no heart for a slip and auto-submit.');
+ }
  assert.deepEqual(browserErrors,[],'No uncaught browser exceptions');
  console.log('PASS: interaction checks use isolated Chromium shims; no real iPhone, ESP32, speech or payment verification.');
 }finally{

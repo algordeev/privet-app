@@ -16,19 +16,22 @@ export function lessonPassed(progress:Pick<Progress,'complete'>,saved:Saved){ret
 export const NATIVE_SESSION_KEY=`${PRODUCT.storageKey}-native-session`;
 export const sessionKey=(definition:LessonDefinition=cafeLesson)=>definition.id===cafeLesson.id?NATIVE_SESSION_KEY:`${NATIVE_SESSION_KEY}-${definition.id}`;
 export const savedKey=(definition:LessonDefinition=cafeLesson)=>definition.id===cafeLesson.id?PRODUCT.storageKey:`${PRODUCT.storageKey}-${definition.id}`;
-export type LessonSnapshot={progress:Progress;selected:string;tokens:string[];revealed:string[];hintAt:number|null;vocabularyWord:string|null};
+// matches: Russian sides of correctly matched pairs in the current match exercise.
+export type LessonSnapshot={progress:Progress;selected:string;tokens:string[];matches:string[];revealed:string[];hintAt:number|null;vocabularyWord:string|null};
 export function freshSession():LessonSnapshot {
- return {progress:initialProgress(),selected:'',tokens:[],revealed:[],hintAt:null,vocabularyWord:null};
+ return {progress:initialProgress(),selected:'',tokens:[],matches:[],revealed:[],hintAt:null,vocabularyWord:null};
 }
 // Only native mode restores an in-progress session. The browser demo keeps
 // its existing start-fresh behavior and completion/preferences storage.
 export function restoreSession(serialized:string|null,definition:LessonDefinition=cafeLesson):LessonSnapshot {
  const {exercises:lesson,words}=definition;
  const allowedTokens=lesson.flatMap(exercise=>exercise.tokens??[]);
+ const pairsAt=(index:number)=>lesson[index]?.pairs??[];
  try {
   if(!serialized) return freshSession();
   const s=JSON.parse(serialized);
   const raw=s.progress;
+  const matches=s.matches??[];
   const p=raw&&typeof raw==='object'?{...raw,hearts:Object.hasOwn(raw,'hearts')?raw.hearts:MAX_HEARTS,combo:Object.hasOwn(raw,'combo')?raw.combo:0,bestCombo:Object.hasOwn(raw,'bestCombo')?raw.bestCombo:0,failed:Object.hasOwn(raw,'failed')?raw.failed:false}:raw;
   if(!p||!Number.isInteger(p.index)||p.index<0||p.index>lesson.length||
    typeof p.complete!=='boolean'||p.complete!==(p.index===lesson.length)||
@@ -41,10 +44,11 @@ export function restoreSession(serialized:string|null,definition:LessonDefinitio
    !Array.isArray(p.results)||p.results.length!==p.index||!p.results.every((r:unknown)=>typeof r==='boolean')||
    typeof s.selected!=='string'||s.selected.length>1000||
    !validSentenceTokens(s.tokens,allowedTokens)||
+   !Array.isArray(matches)||new Set(matches).size!==matches.length||!matches.every((ru:unknown)=>pairsAt(p.index).some(([text])=>text===ru))||
    !Array.isArray(s.revealed)||!s.revealed.every((id:unknown)=>words.some(w=>w.id===id))||new Set(s.revealed).size!==s.revealed.length||
    !(s.hintAt===null||(s.hintAt===p.index&&!p.complete))||
    !(s.vocabularyWord===null||words.some(w=>w.text===s.vocabularyWord))) return freshSession();
-  return {progress:p,selected:s.selected,tokens:s.tokens,revealed:s.revealed,hintAt:s.hintAt,vocabularyWord:s.vocabularyWord};
+  return {progress:p,selected:s.selected,tokens:s.tokens,matches,revealed:s.revealed,hintAt:s.hintAt,vocabularyWord:s.vocabularyWord};
  } catch {return freshSession();}
 }
 export function loadSession(enabled:boolean,definition:LessonDefinition=cafeLesson):LessonSnapshot {

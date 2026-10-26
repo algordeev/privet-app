@@ -9,18 +9,20 @@ export function initialCompanion(enabled=true):NativeCompanionView {
  return {expression:'idle',message:'',revision:0,scope:'home',enabled,active:true};
 }
 export function companionEnabled(raw:string|null){return raw!=='false';}
-export function lessonStarted(s:Pick<LessonSnapshot,'progress'|'revealed'|'selected'|'tokens'>){
- return s.progress.complete||s.progress.index>0||s.progress.attempts>0||s.revealed.length>0||!!s.selected||s.tokens.length>0;
+type StartedSnapshot=Pick<LessonSnapshot,'progress'|'revealed'|'selected'|'tokens'>&Partial<Pick<LessonSnapshot,'matches'>>;
+export function lessonStarted(s:StartedSnapshot){
+ return s.progress.complete||s.progress.index>0||s.progress.attempts>0||s.revealed.length>0||!!s.selected||s.tokens.length>0||!!s.matches?.length;
 }
-export function homeGreeting(s:Pick<LessonSnapshot,'progress'|'revealed'|'selected'|'tokens'>,title='Café essentials'){
+export function homeGreeting(s:StartedSnapshot,title='Café essentials'){
  return s.progress.complete?`Молодец! You finished ${title}.`:lessonStarted(s)?'Shall we pick up where we left off?':'Привет! Ready for a little Russian?';
 }
 export const completionSummary='You practised greetings, tea and coffee, ordering tea, and saying thank you.';
 const correct=['A little connection made!','That clicked. Nicely done!','One useful phrase at a time.'];
 const encouraging=['Take your time. You can try again.','A little practice helps. Have another go.','No rush. Try a different answer.'];
 const friendly=['A little Russian, at your pace.','I’m here for the little wins.','One small step is a good start.'];
+const stepCounts=['Zero','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten'];
 export function nativeLessonReaction(progress:Progress):{expression:NativeExpression;message:string}|null {
- if(progress.complete)return {expression:'celebrating',message:'Молодец! Five small steps complete.'};
+ if(progress.complete)return {expression:'celebrating',message:`Молодец! ${stepCounts[progress.results.length]??'All'} small steps complete.`};
  if(!progress.feedback)return null;
  const n=(progress.index+Math.max(0,progress.attempts-1))%3;
  return progress.feedback==='correct'?{expression:'happy',message:correct[n]}:{expression:'encouraging',message:encouraging[n]};

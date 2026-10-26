@@ -496,3 +496,9 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-choice-copy { flex: 1; min-width: 0; }
 .native-app .native-choice-copy > .native-russian-reading { margin-top: 4px; }
 .native-app .exchange > .native-russian-reading { margin: -4px 0 8px; }
+.native-app .listen-play { min-height: 52px; font-size: 18px; }
+.native-app .listen-slow { min-height: 44px; }
+.native-app .match-item { min-height: 57px; font-size: 17px; border-radius: 11px; background: #fffefa; }
+.native-app .match-item .native-russian-reading { margin-top: 2px; }
+.native-app .match-item.matched, .native-app .match-item.matched:disabled { background: #dcf0d2; border-color: #4f9a52; box-shadow: 0 0 0 1px #4f9a52; color: #1d5a30; opacity: 1; }
+.native-app .match-item.matched .native-russian-reading { color: #2f6a3a; }

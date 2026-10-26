@@ -47,7 +47,7 @@ export const READING_WORDS=[{text:'кофе',meaning:'coffee'},{text:'чай',me
 const canonical=(text:string)=>text.toLowerCase().normalize('NFD').replace(/\u0301/g,'').normalize('NFC').replace(/[^а-яё]/g,'');
 export function contextualLetters(definition:LessonDefinition,exercise:Exercise):CyrillicLetter[]{
  // Use the visible prompt/material, never the answer to assemble a solution.
- const material=exercise.kind==='vocabulary'?definition.words.map(w=>w.text).join(' '):[exercise.prompt,...exercise.choices??[],...exercise.tokens??[],...exercise.letters??[],exercise.exchange?.text??''].join(' ');
+ const material=exercise.kind==='vocabulary'?definition.words.map(w=>w.text).join(' '):[exercise.kind==='listen'?'':exercise.prompt,...exercise.choices??[],...exercise.tokens??[],...exercise.letters??[],exercise.exchange?.text??'',...(exercise.pairs??[]).map(([ru])=>ru)].join(' ');
  const letters=new Set(canonical(material));
  return CYRILLIC.filter(item=>letters.has(item.lower));
 }

@@ -7,7 +7,10 @@ export function companionReaction(event: CompanionEvent): { state:CompanionState
  return { state:states[event.type], text:event.text || labels[event.type] };
 }
 export function normalizeAnswer(value:string) { return value.normalize('NFD').replace(/[\u0300\u0301]/g,'').normalize('NFC').trim().toLocaleLowerCase('ru').replace(/[.!?…]+$/u,'').trim().replace(/\s+/g,' '); }
-export function checkAnswer(index:number, value:string, exercises:readonly Exercise[]=lesson) { const {answer,alsoAccepted=[]}=exercises[index]; return [answer,...alsoAccepted].some(accepted=>normalizeAnswer(value) === normalizeAnswer(accepted)); }
+export function checkAnswer(index:number, value:string, exercises:readonly Exercise[]=lesson) { const exercise=exercises[index]; if(exercise.kind==='match') return value===matchValue(exercise.pairs!.map(([ru])=>ru),exercise); const {answer,alsoAccepted=[]}=exercise; return [answer,...alsoAccepted].some(accepted=>normalizeAnswer(value) === normalizeAnswer(accepted)); }
+// Match exercises: each tapped pair is graded at once; the final check submits the matched Russian sides in content order.
+export function isPair(exercise:Exercise,ru:string,en:string){return !!exercise.pairs?.some(pair=>pair[0]===ru&&pair[1]===en);}
+export function matchValue(matched:readonly string[],exercise:Exercise){return (exercise.pairs??[]).filter(([ru])=>matched.includes(ru)).map(([ru])=>ru).join('\n');}
 export const MAX_HEARTS=3;
 export type Progress = { index:number; attempts:number; results:boolean[]; feedback:'correct'|'incorrect'|null; complete:boolean; hearts:number; combo:number; bestCombo:number; failed:boolean };
 export const initialProgress = (): Progress => ({ index:0, attempts:0, results:[], feedback:null, complete:false,hearts:MAX_HEARTS,combo:0,bestCombo:0,failed:false });
@@ -25,13 +28,14 @@ export function lessonCompanionEvent(
  const exercise=exercises[state.index];
  if(state.feedback==='incorrect') return {type:'incorrect'};
  if(state.feedback==='correct') return exercise.kind==='vocabulary'
-  ? {type:'correct'} : {type:'correct',text:exercise.answer};
+  ? {type:'correct'} : exercise.kind==='match' ? {type:'correct'} : {type:'correct',text:exercise.answer};
  if(exercise.kind==='vocabulary') return {type:'prompt',text:options.vocabularyWord || exercise.prompt};
- if(options.hintRequested) return {type:'prompt',text:exercise.answer};
+ if(options.hintRequested&&exercise.kind!=='match') return {type:'prompt',text:exercise.answer};
  return options.thinking ? {type:'thinking'} : {type:'prompt',text:'?'};
 }
 
-export type Action = { type:'check'; value:string } | { type:'retry'|'continue'|'reset'|'revive'|'refill' };
+// slipped: a match exercise had a wrong pair before this check; it is not a first try, but costs no heart.
+export type Action = { type:'check'; value:string; slipped?:boolean } | { type:'retry'|'continue'|'reset'|'revive'|'refill' };
 export function progressReducer(state:Progress, action:Action, exercises:readonly Exercise[]=lesson, options:{unlimitedHearts?:boolean}={}):Progress {
  if(action.type==='reset') return initialProgress();
  if(action.type==='revive')return state.failed&&options.unlimitedHearts?{...state,failed:false,hearts:MAX_HEARTS,feedback:'incorrect'}:state;
@@ -41,8 +45,8 @@ export function progressReducer(state:Progress, action:Action, exercises:readonl
   if(state.feedback) return state;
   const correct=checkAnswer(state.index, action.value,exercises);
   if(!correct){const hearts=options.unlimitedHearts?state.hearts:Math.max(0,state.hearts-1);return {...state,attempts:state.attempts+1,feedback:'incorrect',hearts,combo:0,failed:!options.unlimitedHearts&&hearts===0};}
-  const combo=state.attempts===0?state.combo+1:state.combo;
-  return {...state,attempts:state.attempts+1,feedback:'correct',combo,bestCombo:Math.max(state.bestCombo,combo)};
+  const firstTry=state.attempts===0&&!action.slipped,combo=firstTry?state.combo+1:state.combo;
+  return {...state,attempts:state.attempts+(action.slipped?2:1),feedback:'correct',combo,bestCombo:Math.max(state.bestCombo,combo)};
  }
  if(action.type==='retry') return state.feedback==='incorrect'?{...state,feedback:null}:state;
  if(action.type==='continue' && state.feedback==='correct') {

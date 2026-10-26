@@ -82,6 +82,24 @@ export const lesson:LessonDefinition={
    "hint": "Look at the word in the first step and connect it to this situation."
   },
   {
+   "id": "listen",
+   "kind": "listen",
+   "wordId": "left",
+   "title": "Which way did they say?",
+   "instruction": "Listen, then choose the direction you heard.",
+   "prompt": "Налево.",
+   "choices": [
+    "Направо.",
+    "Налево.",
+    "Прямо."
+   ],
+   "answer": "Налево.",
+   "review": "Налево. → To the left.",
+   "success": "Yes: Налево. means “To the left.”",
+   "retryFeedback": "Replay it and listen for the stressed syllable.",
+   "hint": "Listen for the middle of the word: -пра- or -ле-?"
+  },
+  {
    "id": "sentence",
    "kind": "sentence",
    "title": "Ask for the metro.",
