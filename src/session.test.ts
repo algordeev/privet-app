@@ -4,6 +4,7 @@ import {freshSession,restoreSession,loadSession,NATIVE_SESSION_KEY} from './sess
 import {progressReducer} from './engine.ts';
 import {lesson} from './lesson.ts';
 import {PRODUCT} from './config.ts';
+import {lessonById} from './curriculum/catalog.ts';
 
 test('restores wrong answers, retries, and first-attempt history across reloads',()=>{
  let s=freshSession();
@@ -65,4 +66,12 @@ test('only native mode loads resumable sessions and migrates existing completion
   assert.equal(loadSession(true).progress.complete,false);
   assert.deepEqual(loadSession(false),freshSession());
  }finally{if(descriptor)Object.defineProperty(globalThis,'localStorage',descriptor);else Reflect.deleteProperty(globalThis,'localStorage');}
+});
+test('matched pairs persist only for the current match exercise; older snapshots restore with none',()=>{
+ const plans=lessonById('making-plans'),index=plans.exercises.findIndex(e=>e.kind==='match');
+ const partial={...freshSession(),progress:{...freshSession().progress,index,results:Array(index).fill(true)},matches:['завтра','До завтра!']};
+ assert.deepEqual(restoreSession(JSON.stringify(partial),plans),partial);
+ const {matches:_,...older}=partial;assert.deepEqual(restoreSession(JSON.stringify(older),plans),{...partial,matches:[]});
+ for(const matches of [['завтра','завтра'],['tomorrow'],['Пока!'],'завтра',[1]])assert.deepEqual(restoreSession(JSON.stringify({...partial,matches}),plans),freshSession());
+ assert.deepEqual(restoreSession(JSON.stringify({...partial,progress:{...partial.progress,index:index+1,results:Array(index+1).fill(true)}}),plans),freshSession());
 });

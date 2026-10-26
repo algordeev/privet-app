@@ -65,6 +65,24 @@ export const lesson:LessonDefinition={
    "success": "You have the expressions for this visit. Let’s put them to use."
   },
   {
+   "id": "match",
+   "kind": "match",
+   "title": "Plans, piece by piece.",
+   "instruction": "Match each Russian expression with its meaning.",
+   "prompt": "Match the pairs",
+   "pairs": [
+    ["сегодня", "today"],
+    ["завтра", "tomorrow"],
+    ["Давай гулять!", "Let’s go for a walk!"],
+    ["До завтра!", "See you tomorrow!"]
+   ],
+   "answer": "matched",
+   "review": "сегодня → today · завтра → tomorrow · Давай гулять! → Let’s go for a walk! · До завтра! → See you tomorrow!",
+   "success": "All matched. You can talk about today and tomorrow.",
+   "retryFeedback": "Check the pairs that didn't lock in.",
+   "hint": "Two of these share завтра. Which one is a goodbye?"
+  },
+  {
    "id": "meaning",
    "kind": "choice",
    "wordId": "today",

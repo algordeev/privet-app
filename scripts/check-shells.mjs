@@ -186,15 +186,35 @@ try {
   for(const [index,exercise] of definition.exercises.entries()){
    storage.set(sessionKey(definition),JSON.stringify({...freshSession(),progress:{...freshSession().progress,index,results:Array(index).fill(true)}}));
    const html=renderToStaticMarkup(createElement(CurriculumLesson));assert.ok(html.includes(exercise.title));assert.ok(html.includes(definition.title));assert.ok(html.includes('Open Cyrillic guide'));
-   const readingCount=(exercise.choices??[]).filter(choice=>/[а-яё]/iu.test(choice)).length+(exercise.exchange?1:0);
+   // Listening hides option readings until answered: they would give away the sound.
+   const readingCount=exercise.kind==='listen'?0:(exercise.choices??[]).filter(choice=>/[а-яё]/iu.test(choice)).length+(exercise.exchange?1:0)+(exercise.pairs?.length??0);
    assert.equal((html.match(/class="native-russian-reading"/g)??[]).length,readingCount,`${definition.id}/${exercise.id}: all visible Russian options/dialogue have readings`);
    const withoutHelp=renderToStaticMarkup(createElement(CurriculumLesson,{help:false}));assert.ok(!withoutHelp.includes('native-russian-reading'));
 
+  }
+  for(const [index,exercise] of definition.exercises.entries()){
+   const at=(extra={})=>{storage.set(sessionKey(definition),JSON.stringify({...freshSession(),progress:{...freshSession().progress,index,results:Array(index).fill(true)},...extra}));return renderToStaticMarkup(createElement(CurriculumLesson));};
+   if(exercise.kind==='listen'){
+    // No speech synthesis in this shell: the written sound guide replaces audio, and the word itself is never printed as a prompt.
+    const html=at(),word=definition.words.find(w=>w.id===exercise.wordId);
+    assert.ok(html.includes('Audio isn’t available. Read how it sounds:')&&html.includes(word.pronunciation),`${definition.id}/${exercise.id}: no-voice fallback`);
+    assert.ok(!html.includes('question-word')&&!html.includes('listen-play'));assert.equal((html.match(/class="choice /g)??[]).length,exercise.choices.length);
+    const answered=at({selected:exercise.answer,progress:{...freshSession().progress,index,results:Array(index).fill(true),attempts:1,feedback:'correct'}});
+    assert.equal((answered.match(/class="native-russian-reading"/g)??[]).length,exercise.choices.length,'readings return once answered');
+   }
+   if(exercise.kind==='match'){
+    const html=at({matches:[exercise.pairs[1][0]]});
+    assert.equal((html.match(/class="match-item /g)??[]).length,exercise.pairs.length*2);
+    assert.equal((html.match(/class="match-item matched/g)??[]).length,2,'a restored pair stays locked on both sides');
+    const english=[...html.matchAll(/<button class="match-item [^"]*"[^>]*>([^<]+)<\/button>/g)].map(m=>m[1].replaceAll('&#x27;','’'));
+    assert.deepEqual(english,[...exercise.pairs].sort((a,b)=>a[1].localeCompare(b[1],'en',{sensitivity:'base'})).map(p=>p[1]),'English column uses the fixed scramble');
+   }
   }
   storage.set(NATIVE_STATS_KEY,JSON.stringify({version:1,days:{'2020-01-01':1},earlierFinishes:0,latest:{day:'2020-01-01',firstTry:5,lessonId:definition.id}}));
   assert.ok(renderToStaticMarkup(createElement(Profile)).includes(`<h2 id="native-result-title">${definition.title}</h2>`));
  }
  console.log('PASS: all eight curriculum lessons render every exercise/Cyrillic entry and correct profile result title.');
+ console.log('PASS: listen questions fall back to a written sound guide without a voice and hide option readings until answered; match pairs render both columns, restored locks and a fixed English scramble.');
  Capacitor.isNativePlatform=()=>false;
  const unchangedWebsite=renderToStaticMarkup(createElement(RuntimeApp));
  assert.ok(unchangedWebsite.includes('STEP 1 OF 5'));assert.ok(!unchangedWebsite.includes('Nice to meet you'));

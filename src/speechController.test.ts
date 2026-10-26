@@ -118,3 +118,7 @@ test('timed-out, failed, unavailable and canceled voice loading never report suc
   old?.end?.({} as SpeechSynthesisEvent);assert.equal(ends,0,scenario);
  }
 });
+test('slower replay changes only that utterance’s rate',()=>{
+ const h=harness();h.audio.speak('Налево.',undefined,.5);assert.equal(h.spoken[0].rate,.5);
+ h.audio.speak('Налево.');assert.equal(h.spoken[1].rate,.8);
+});

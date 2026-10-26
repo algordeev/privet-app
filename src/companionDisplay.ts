@@ -12,7 +12,7 @@ export function safeBeforeAnswer(exercise:Exercise,primary:string,secondary=''){
 // Register/context details remain on the phone; the OLED keeps the meaning.
 export function compactMeaning(text:string){return text.replace(/ \(informal\)/g,'').replace('And you? (your name)','And your name?');}
 function card(mode:LearningCard['mode'],primary:string,secondary=''){const result={mode,primary:fitText(primary,64),secondary:fitText(compactMeaning(secondary),32)};return validateCard(result)?result:undefined;}
-export type DisplayAction={kind:'state'}|{kind:'reveal';word:string}|{kind:'hint'}|{kind:'listen';text:string};
+export type DisplayAction={kind:'state'}|{kind:'reveal';word:string}|{kind:'hint'}|{kind:'listen';text:string}|{kind:'match';matched:number};
 export function companionDisplay(definition:LessonDefinition,progress:Progress,action:DisplayAction={kind:'state'}):LearningCard|undefined{
  if(progress.complete||progress.failed)return;
  const e=definition.exercises[progress.index];if(!e)return;
@@ -22,6 +22,9 @@ export function companionDisplay(definition:LessonDefinition,progress:Progress,a
   // Only phone-visible vocabulary, question words, exchange lines and safe
   // alphabet examples may be spoken before grading; never trust input text.
   if(progress.feedback==='correct')return card(MODE.PRONUNCIATION,action.text);
+  // Listening exercises never show what is being spoken; a matching item alone (no meaning) is already on the phone.
+  if(e.kind==='listen')return;
+  if(e.kind==='match')return e.pairs?.some(([ru])=>ru===action.text)?safe(MODE.PRONUNCIATION,action.text):undefined;
   const guide=CYRILLIC.map(item=>referenceExample(item,definition,e));
   const reference=guide.some(item=>item.example===action.text||letterAudioText(item)===action.text);
   const visible=reference||definition.words.some(w=>w.text===action.text)&&(e.kind==='vocabulary'||definition.words.find(w=>w.id===e.wordId)?.text===action.text)||e.exchange?.text===action.text;
@@ -31,6 +34,11 @@ export function companionDisplay(definition:LessonDefinition,progress:Progress,a
   const word=definition.words.find(w=>w.id===action.word);return word?card(MODE.DISCOVERY,word.text,word.meaning):undefined;
  }
  if(action.kind==='hint')return safe(MODE.HINT,'See phone hint',label);
+ if(e.kind==='match'){
+  // Progress only: never a Russian/English pair.
+  if(progress.feedback==='correct')return card(MODE.ANSWER,'All pairs matched',label);
+  return action.kind==='match'?safe(MODE.SAFE_PROMPT,'Match the pairs',`${action.matched} of ${e.pairs?.length??0}`):safe(MODE.SAFE_PROMPT,'Match the pairs',label);
+ }
  if(progress.feedback==='correct'){
   if(e.kind==='vocabulary')return;
   const word=definition.words.find(w=>w.id===e.wordId);
@@ -40,6 +48,7 @@ export function companionDisplay(definition:LessonDefinition,progress:Progress,a
   return /[А-Яа-яЁё]/u.test(e.answer)&&meaning?card(MODE.ANSWER,e.answer,meaning):undefined;
  }
  if(e.kind==='vocabulary')return card(MODE.SAFE_PROMPT,'Tap a word',label);
+ if(e.kind==='listen')return safe(MODE.SAFE_PROMPT,'Listen on phone',label);
  if(e.wordId){const word=definition.words.find(w=>w.id===e.wordId);if(word)return safe(MODE.SAFE_PROMPT,word.text,'Choose on phone');}
  if(e.exchange)return safe(MODE.SAFE_PROMPT,e.exchange.text,'Your reply?')??safe(MODE.SAFE_PROMPT,label,'Your reply?');
  return safe(MODE.SAFE_PROMPT,e.translation??label,'Try on your phone')??safe(MODE.SAFE_PROMPT,label);

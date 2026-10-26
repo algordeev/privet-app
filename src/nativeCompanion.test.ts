@@ -79,3 +79,7 @@ test('background and disposal cancel timers; foreground and restored feedback do
 test('native preference defaults on and restores an explicit disabled value',()=>{
  assert.equal(companionEnabled(null),true);assert.equal(companionEnabled('true'),true);assert.equal(companionEnabled('false'),false);assert.equal(companionEnabled('corrupt'),true);
 });
+test('completion counts the lesson’s real steps and matched pairs count as a started lesson',()=>{
+ for(const [n,word] of [[5,'Five'],[6,'Six']] as const)assert.equal(nativeLessonReaction({...initialProgress(),complete:true,index:n,results:Array(n).fill(true)})?.message,`Молодец! ${word} small steps complete.`);
+ assert.equal(lessonStarted({...freshSession(),matches:['завтра']}),true);
+});

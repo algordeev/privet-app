@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeAnswer, checkAnswer, progressReducer, initialProgress, companionReaction, lessonCompanionEvent,lessonXp,MAX_HEARTS} from './engine.ts';
+import {normalizeAnswer, checkAnswer, progressReducer, initialProgress, companionReaction, lessonCompanionEvent,lessonXp,MAX_HEARTS,isPair,matchValue} from './engine.ts';
 import {lesson} from './lesson.ts';
+import {lessonById} from './curriculum/catalog.ts';
 test('normalizes case, stress, surrounding spaces and terminal punctuation',()=>{
  for(const input of [' Спасибо! ','СПАСИБО','спаси́бо…','спасибо?!']) assert.equal(normalizeAnswer(input),'спасибо');
  assert.equal(checkAnswer(4,'Спаси́бо!'),true);
@@ -113,4 +114,19 @@ test('gem refill restores hearts from failure and leaves incorrect feedback for 
  const failed={...initialProgress(),index:2,attempts:1,hearts:0,failed:true,feedback:'incorrect' as const};
  const refilled=progressReducer(failed,{type:'refill'});assert.equal(refilled.failed,false);assert.equal(refilled.hearts,MAX_HEARTS);assert.equal(refilled.feedback,'incorrect');
  assert.deepEqual(progressReducer(initialProgress(),{type:'refill'}),initialProgress());
+});
+test('listen grades like a choice; match grades pairs at once and a slipped final check is not a first try',()=>{
+ const town=lessonById('around-town'),li=town.exercises.findIndex(e=>e.kind==='listen');
+ assert.ok(checkAnswer(li,'налево',town.exercises));assert.ok(!checkAnswer(li,'Направо.',town.exercises));
+ const plans=lessonById('making-plans'),mi=plans.exercises.findIndex(e=>e.kind==='match'),match=plans.exercises[mi];
+ assert.ok(isPair(match,'завтра','tomorrow'));assert.ok(!isPair(match,'завтра','See you tomorrow!'));assert.ok(!isPair(match,'tomorrow','завтра'));
+ const all=matchValue(['До завтра!','сегодня','завтра','Давай гулять!'],match);assert.ok(checkAnswer(mi,all,plans.exercises));assert.ok(!checkAnswer(mi,'matched',plans.exercises));
+ const start={...initialProgress(),index:mi,combo:1,bestCombo:1};
+ const clean=progressReducer(start,{type:'check',value:all},plans.exercises);
+ assert.deepEqual([clean.attempts,clean.combo,clean.hearts],[1,2,MAX_HEARTS]);assert.equal(progressReducer(clean,{type:'continue'},plans.exercises).results.at(-1),true);
+ const slipped=progressReducer(start,{type:'check',value:all,slipped:true},plans.exercises);
+ assert.deepEqual([slipped.feedback,slipped.attempts,slipped.combo,slipped.hearts],['correct',2,1,MAX_HEARTS]);assert.equal(progressReducer(slipped,{type:'continue'},plans.exercises).results.at(-1),false);
+ // The companion never receives a whole matching solution, even after a hint.
+ assert.deepEqual(lessonCompanionEvent({...start,feedback:'correct',attempts:1},{},plans.exercises),{type:'correct'});
+ assert.deepEqual(lessonCompanionEvent(start,{hintRequested:true},plans.exercises),{type:'prompt',text:'?'});
 });

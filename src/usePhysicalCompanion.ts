@@ -76,10 +76,19 @@ export function usePhysicalCompanion(){
  const onListenEnd=useCallback(()=>{const c=context.current;transport.current?.request(COMMAND.THINKING,c?companionDisplay(c.definition,c.progress):undefined);},[]);
  const onQuickStartListenEnd=useCallback(()=>{revision.current++;context.current=null;transport.current?.request(COMMAND.IDLE);},[]);
  const onHint=useCallback(()=>{revision.current++;const c=context.current;transport.current?.request(COMMAND.HINT,c?companionDisplay(c.definition,c.progress,{kind:'hint'}):undefined);},[]);
+ // Match pairs: progress on the OLED with a neutral face per correct pair (the last pair reacts through
+ // the normal check transition); a wrong pair encourages, at most every 2s so fast taps don't flicker.
+ const lastSlip=useRef(-Infinity);
+ const onMatchPair=useCallback((correct:boolean,matched:number)=>{
+  const c=context.current;if(!c)return;const total=c.definition.exercises[c.progress.index]?.pairs?.length??0;
+  if(correct){if(matched>=total)return;revision.current++;transport.current?.request(COMMAND.THINKING,companionDisplay(c.definition,c.progress,{kind:'match',matched}));return;}
+  if(Date.now()-lastSlip.current<2000)return;lastSlip.current=Date.now();revision.current++;
+  transport.current?.request(COMMAND.ENCOURAGE,companionDisplay(c.definition,c.progress,{kind:'match',matched}));
+ },[]);
  const onReveal=useCallback((word:string)=>{revision.current++;const c=context.current;if(c)transport.current?.request(COMMAND.THINKING,companionDisplay(c.definition,c.progress,{kind:'reveal',word}));},[]);
  const enterLesson=useCallback((hasActiveQuestion:boolean,definition?:LessonDefinition,progress?:Progress)=>{revision.current++;context.current=definition&&progress?{definition,progress}:null;return transport.current?.enterLesson(hasActiveQuestion,definition&&progress&&hasActiveQuestion?companionDisplay(definition,progress):undefined);},[]);
  const onTransition=useCallback((previous:Progress,next:Progress,action:Action,lessonId='cafe')=>{lessonEvents.current?.(previous,next,action,lessonId);},[]);
- return {getState,subscribe,scan,connect,testHappy,disconnect,navigate,enterLesson,greet,onListen,onListenEnd,onQuickStartListenEnd,onHint,onReveal,onTransition};
+ return {getState,subscribe,scan,connect,testHappy,disconnect,navigate,enterLesson,greet,onListen,onListenEnd,onQuickStartListenEnd,onHint,onReveal,onMatchPair,onTransition};
 }
 export type PhysicalCompanionController=ReturnType<typeof usePhysicalCompanion>;
 // Fine-grained subscription: only the component calling this (e.g. the
