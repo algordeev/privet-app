@@ -45,7 +45,8 @@ int main(){
    const int value=f.step(float(target(axis,m,age,rest)),0.02f,speed(m),accel(m));
    assert(value>=minPulse(axis)&&value<=maxPulse(axis));
    assert(f.velocity<=speed(m)+1&&f.velocity>=-speed(m)-1);
-   if(value<low)low=value;if(value>high)high=value;
+   if(value<low)low=value;
+   if(value>high)high=value;
   }
   assert(f.settled(float(target(axis,m,600000,rest))));
   printf("%-2u %s moves %+5.1f..%+5.1f deg\n",m,axis==PAN?"pan ":"tilt",degrees(low),degrees(high));
@@ -61,7 +62,10 @@ int main(){
   Follower f;f.limits(TILT);f.reset(float(home(TILT)));int peaks=0,last=home(TILT),direction=0;
   for(uint32_t age=0;age<=1500;age+=20){
    const int value=f.step(float(target(TILT,HAPPY,age,home(TILT))),0.02f,speed(HAPPY),accel(HAPPY));
-   const int d=value>last?1:value<last?-1:0;if(d<0&&direction>0)peaks++;if(d)direction=d;last=value;
+   const int d=value>last?1:value<last?-1:0;
+   if(d<0&&direction>0)peaks++;
+   if(d)direction=d;
+   last=value;
   }
   assert(peaks>=2);
  }
