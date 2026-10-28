@@ -1,4 +1,3 @@
-import {CYRILLIC,referenceExample,letterAudioText} from './cyrillic.ts';
 import type {LessonDefinition,Exercise} from './curriculum/types.ts';
 import type {Progress} from './engine.ts';
 import {DISPLAY_MODE as MODE,fitText,validateCard,type LearningCard} from './learningProtocol.ts';
@@ -12,24 +11,12 @@ export function safeBeforeAnswer(exercise:Exercise,primary:string,secondary=''){
 // Register/context details remain on the phone; the OLED keeps the meaning.
 export function compactMeaning(text:string){return text.replace(/ \(informal\)/g,'').replace('And you? (your name)','And your name?');}
 function card(mode:LearningCard['mode'],primary:string,secondary=''){const result={mode,primary:fitText(primary,64),secondary:fitText(compactMeaning(secondary),32)};return validateCard(result)?result:undefined;}
-export type DisplayAction={kind:'state'}|{kind:'reveal';word:string}|{kind:'hint'}|{kind:'listen';text:string}|{kind:'match';matched:number};
+export type DisplayAction={kind:'state'}|{kind:'reveal';word:string}|{kind:'hint'}|{kind:'match';matched:number};
 export function companionDisplay(definition:LessonDefinition,progress:Progress,action:DisplayAction={kind:'state'}):LearningCard|undefined{
  if(progress.complete||progress.failed)return;
  const e=definition.exercises[progress.index];if(!e)return;
  const label=labels[definition.id]??'See your phone';
  const safe=(mode:LearningCard['mode'],p:string,s='')=>{if(!safeBeforeAnswer(e,p,s))return;const result=card(mode,p,s);return result&&safeBeforeAnswer(e,result.primary,result.secondary)?result:undefined;};
- if(action.kind==='listen'){
-  // Only phone-visible vocabulary, question words, exchange lines and safe
-  // alphabet examples may be spoken before grading; never trust input text.
-  if(progress.feedback==='correct')return card(MODE.PRONUNCIATION,action.text);
-  // Listening exercises never show what is being spoken; a matching item alone (no meaning) is already on the phone.
-  if(e.kind==='listen')return;
-  if(e.kind==='match')return e.pairs?.some(([ru])=>ru===action.text)?safe(MODE.PRONUNCIATION,action.text):undefined;
-  const guide=CYRILLIC.map(item=>referenceExample(item,definition,e));
-  const reference=guide.some(item=>item.example===action.text||letterAudioText(item)===action.text);
-  const visible=reference||definition.words.some(w=>w.text===action.text)&&(e.kind==='vocabulary'||definition.words.find(w=>w.id===e.wordId)?.text===action.text)||e.exchange?.text===action.text;
-  return visible?safe(MODE.PRONUNCIATION,action.text):undefined;
- }
  if(action.kind==='reveal'&&e.kind==='vocabulary'){
   const word=definition.words.find(w=>w.id===action.word);return word?card(MODE.DISCOVERY,word.text,word.meaning):undefined;
  }

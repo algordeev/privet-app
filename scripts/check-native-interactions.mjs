@@ -319,7 +319,7 @@ try{
  await click('.choice','2coffee');await click('.lesson-bottom .button','Check answer');
  assert.deepEqual(await codes(),[5,1]);await evaluate(()=>window.__lateAudioEnd?.());assert.deepEqual(await codes(),[5,1],'Old audio completion cannot overwrite answer feedback');
  await evaluate(()=>{window.__holdSpeech=false;});await click('.round-audio');
- assert.deepEqual(await codes(),[5,1,5],'Audio on correct feedback must not enter THINKING');
+ assert.deepEqual(await codes(),[5,1,5,4],'Audio after an answer listens, then returns to IDLE (with the answer card), never THINKING');
  await click('[aria-label="Return to app home"]');await click('#native-profile-open');
  assert.equal((await codes()).at(-1),4);assert.ok(!(await codes()).includes(8),'Profile entry must not trigger STREAK');
  const beforeOverlay=await codes();await click('#native-profile-plus-open');await click('[aria-label="Back"]');
@@ -876,14 +876,19 @@ try{
   const pick=text=>evaluate(text=>{const b=[...document.querySelectorAll('.match-item')].find(b=>(b.querySelector('span')?.textContent??b.textContent)===text&&!b.disabled);b.click();return true;},text);
   await click('#native-card-making-plans ~ .button');await until(()=>window.__cards.at(-1)?.primary==='Match the pairs');
   const matchStart=await evaluate(()=>window.__cards.length);
-  // Hold speech like a real utterance, so its pronunciation card lands before the end-of-speech context.
-  await evaluate(()=>{window.__holdSpeech=true;});await pick('завтра');await until(()=>window.__speechTaps.at(-1)==='завтра');await until(()=>window.__cards.some(c=>c.mode===3&&c.primary==='завтра'&&c.secondary===''));
+  // Hold speech like a real utterance: the listening face, and no card, lasts until the audio ends;
+  // then the question's own card returns immediately.
+  await evaluate(()=>{window.__holdSpeech=true;});const cardsBeforeAudio=await evaluate(()=>window.__cards.length);
+  await pick('завтра');await until(()=>window.__speechTaps.at(-1)==='завтра');await until(()=>window.__bleCommands.at(-1)===5);
+  await pause(150);assert.equal(await evaluate(()=>window.__cards.length),cardsBeforeAudio,'No card while the companion listens');
   await evaluate(()=>{window.__holdSpeech=false;const u=window.__utterances.at(-1);u.onstart?.();u.onend?.();});
+  await until(()=>window.__bleCommands.at(-1)===6&&window.__cards.at(-1)?.primary==='Match the pairs');
   await pick('See you tomorrow!');assert.equal(await evaluate(()=>document.querySelectorAll('.match-item.mismatch').length),2,'A wrong pair flags both sides');
   await until(()=>window.__bleCommands.at(-1)===2);
   const midSession=await stored(sessionKey(plans));assert.deepEqual([midSession.progress.hearts,midSession.progress.attempts,midSession.progress.feedback,midSession.matches],[3,0,null,[]],'A slip costs no heart and nothing is matched');
   await pick('завтра');await pick('tomorrow');await until(()=>window.__cards.at(-1)?.secondary==='1 of 4');
-  await pick('today');await pick('сегодня');await until(()=>window.__cards.at(-1)?.secondary==='2 of 4');
+  const beforeCompletingTap=await codes();await pick('today');await pick('сегодня');await until(()=>window.__cards.at(-1)?.secondary==='2 of 4');
+  assert.ok(!(await codes()).slice(beforeCompletingTap.length).includes(5),'A Russian tap that completes a pair plays audio without a listening face');
   assert.deepEqual((await stored(sessionKey(plans))).matches,['завтра','сегодня'],'Correct pairs persist');
   await pick('Давай гулять!');await pick('Let’s go for a walk!');await until(()=>window.__cards.at(-1)?.secondary==='3 of 4');
   await pick('До завтра!');await pick('See you tomorrow!');

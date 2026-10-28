@@ -4,7 +4,8 @@ export const CARD_LIMITS={primary:64,secondary:32,combined:96,frame:20,data:12,f
 export const DISPLAY_MODE={DISCOVERY:1,SAFE_PROMPT:2,PRONUNCIATION:3,HINT:4,ANSWER:5} as const;
 export type DisplayMode=typeof DISPLAY_MODE[keyof typeof DISPLAY_MODE];
 export type LearningCard={mode:DisplayMode;primary:string;secondary:string};
-export type Capabilities={nonce:number};
+// reactions: the firmware accepts the extended reactions 11 NOD and 12 ON_FIRE (feature bit 8).
+export type Capabilities={nonce:number;reactions:boolean};
 const encoder=new TextEncoder();
 export function displayText(value:string){return value.normalize('NFD').replace(/\u0301/g,'').normalize('NFC').replace(/[“”]/g,'"').replace(/[‘’]/g,"'").replace(/[–—]/g,'-').replace(/…/g,'...');}
 export function validText(text:string){return !/[\uD800-\uDFFF]/u.test(text)&&Array.from(text).every(c=>{const n=c.codePointAt(0)!;return n>=32&&n<=126||n>=0x410&&n<=0x44f||n===0x401||n===0x451;});}
@@ -14,7 +15,7 @@ export function fitText(text:string,limit:number){const clean=displayText(text);
 function packet(length:number,type:number,id:number){if(!Number.isInteger(id)||id<1||id>0xffffffff)throw new Error('Invalid request ID');const p=new DataView(new ArrayBuffer(length));p.setUint8(0,2);p.setUint8(1,type);p.setUint32(2,id,true);return p;}
 export function encodeControl(id:number,command:typeof CAPABILITIES=CAPABILITIES){if(command!==CAPABILITIES)throw new Error('Invalid control command');const p=packet(8,1,id);p.setUint8(0,1);p.setUint8(6,command);return p;}
 export function decodeControlAck(p:DataView){return p.byteLength===8&&p.getUint8(0)===1&&p.getUint8(1)===2&&p.getUint8(6)===10&&p.getUint8(7)<=2?{id:p.getUint32(2,true),result:p.getUint8(7)}:null;}
-export function decodeCapabilities(p:DataView){if(p.byteLength!==20||p.getUint8(0)!==2||p.getUint8(1)!==0x80||(p.getUint8(6)&7)!==7||(p.getUint8(6)&~7)!==0||p.getUint8(7)!==20||p.getUint16(8,true)!==96||p.getUint8(10)!==64||p.getUint8(11)!==32||p.getUint32(12,true)===0||p.getUint16(16,true)!==5000||p.getUint16(18,true)!==0)return null;return {id:p.getUint32(2,true),nonce:p.getUint32(12,true)};}
+export function decodeCapabilities(p:DataView){if(p.byteLength!==20||p.getUint8(0)!==2||p.getUint8(1)!==0x80||(p.getUint8(6)&7)!==7||(p.getUint8(6)&~15)!==0||p.getUint8(7)!==20||p.getUint16(8,true)!==96||p.getUint8(10)!==64||p.getUint8(11)!==32||p.getUint32(12,true)===0||p.getUint16(16,true)!==5000||p.getUint16(18,true)!==0)return null;return {id:p.getUint32(2,true),nonce:p.getUint32(12,true),reactions:(p.getUint8(6)&8)!==0};}
 export function decodeContentAck(p:DataView){if(p.byteLength!==8||p.getUint8(0)!==2||p.getUint8(1)!==0x90||p.getUint8(6)>9||p.getUint8(7)>5)return null;return {id:p.getUint32(2,true),result:p.getUint8(6),mode:p.getUint8(7)};}
 export function crc16(bytes:Uint8Array){let crc=0xffff;for(const byte of bytes){crc^=byte<<8;for(let i=0;i<8;i++)crc=(crc&0x8000)?(crc<<1)^0x1021:crc<<1;crc&=0xffff;}return crc;}
 export function cardFrames(id:number,nonce:number,faceId:number,card:LearningCard){

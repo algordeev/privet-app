@@ -6,7 +6,7 @@ Native iOS BLE central using `@capacitor-community/bluetooth-le` 8.3.0 with Capa
 
 Current firmware: [PrivetBLE_Servo_New_Emotions_v2](../firmware/PrivetBLE_Servo_New_Emotions_v2/README.md), for ESP32 ESP-32S, SSD1306 128×64 I2C OLED and SG90 on GPIO25; also ported as [PrivetBLE_S3](../firmware/PrivetBLE_S3/README.md) for ESP32-S3 N16R8 with an SH1106 1.3" SPI OLED and pan/tilt servos, same protocol. Both support reaction codes 1–9 plus negotiated learning cards. The original [new-emotions variant](../firmware/PrivetBLE_Servo_New_Emotions/README.md) remains unchanged and face-only. The older [servo](../firmware/PrivetBLE_Servo/README.md) and [OLED-only](../firmware/PrivetBLE_Lessons/README.md) variants support only 1–4; unsupported commands show an update notice without retrying or blocking lessons.
 
-The phone owns lessons, checking, progress and pronunciation. Firmware owns OLED faces, text layout, transitions, durations and servo gestures. THINKING persists until replaced; The HINT face lasts 2600 ms; an available hint card then shows for 2000 ms before THINKING, unless superseded. LISTENING is limited to 2600 ms in firmware; successful phone speech completion sends THINKING only for an unanswered question. Its request-scoped callback is invalidated by replacement, cancellation, submission, navigation, error, timeout, background or disposal. No duration guessing or app animation timer is used. Cyrillic quick-start pronunciation buttons also request LISTENING; successful speech completion, page changes during playback, and leaving the quick start restore IDLE because this is not an assessed question. They use the same speech cancellation safeguards. LISTENING/THINKING are servo-quiet, apart from returning an already displaced head toward center.
+The phone owns lessons, checking, progress and pronunciation. Firmware owns OLED faces, text layout, transitions, durations and servo gestures. THINKING persists until replaced. The HINT face lasts 2600 ms (1500 ms on the S3 firmware); an available hint card then shows for 2000 ms before THINKING, unless superseded. LISTENING carries no card and lasts exactly as long as the phone's audio: when speech finishes, the app restores what the companion showed before, THINKING while the question is open or IDLE once it is answered or finished, with the last context card (the question, a revealed word, match progress or the graded answer). LISTENING keeps a firmware safety limit (2600 ms on older firmware, 15 s on the S3) in case no completion arrives. Its request-scoped callback is invalidated by replacement, cancellation, submission, navigation, error, timeout, background or disposal. No duration guessing or app animation timer is used. Cyrillic quick-start pronunciation buttons also request LISTENING; successful speech completion, page changes during playback, and leaving the quick start restore IDLE because this is not an assessed question. They use the same speech cancellation safeguards. LISTENING/THINKING are servo-quiet, apart from returning an already displaced head toward center.
 
 The current source is implemented, but the additional states and latest return-to-thinking changes have not been reported as uploaded/hardware-tested. Earlier user reports cover commands 1–4, servo movement and lock/background retention. Enclosure illustrations remain concepts.
 
@@ -38,11 +38,15 @@ Subscribe to Status before sending anything. Successful connection and subscript
 | 2 | ENCOURAGE | Gentle encouragement, never a sad or punishing face; user-verified firmware supports this |
 | 3 | CELEBRATE | Lesson completion celebration; user-verified firmware supports this |
 | 4 | IDLE | Immediately cancel a temporary reaction and show a neutral face; user-verified firmware supports this |
-| 5 | LISTENING | Explicit available pronunciation-button tap; intentionally servo-quiet |
-| 6 | THINKING | Persistent unanswered-question state; intentionally servo-quiet |
+| 5 | LISTENING | Explicit available pronunciation-button tap, for as long as the audio plays; no card, servo-quiet |
+| 6 | THINKING | Persistent unanswered-question state; servo-quiet (the S3 head just rests) |
 | 7 | HINT | Explicit first hint request |
 | 8 | STREAK | Retained for protocol compatibility; not triggered by profile navigation |
 | 9 | CONNECTED | Fresh BLE connection after successful status subscription, once |
+| 11 | NOD | Correct match pair while the question stays open; returns to THINKING after 900 ms. Sent only to firmware advertising capability bit 8, otherwise 6 THINKING |
+| 12 | ON_FIRE | A first-try correct answer that extends a combo of two or more, matching the in-lesson "✦ N combo". The argument byte is the combo (1–255; the only nonzero argument in the protocol), drawn as "xN" on the face. Sent only to firmware advertising capability bit 8, otherwise 1 HAPPY with argument 0 |
+
+Code 10 is the separate capability control command below, not a reaction.
 
 An acknowledgement means **command accepted**, not that the animation finished, the display rendered successfully, or the servo reached a position. OLED initialization can fail while BLE continues accepting commands. Version 1 remains face-only. The negotiated extension below carries bounded app-selected learning text, never JSON, raw OLED drawing commands, raw servo instructions or BLE audio. Commands 5–9 require the owner-added new-emotions variant; no claim of their hardware verification is made. The existing emotion code selects any servo gesture locally.
 
@@ -104,7 +108,7 @@ All multibyte integers below are unsigned **little-endian**. Frame maximum is **
 | --- | --- |
 | 0 / 1 | `2` / `0x80` |
 | 2–5 | Capability request ID |
-| 6 | Flags: bit 0 UTF-8 cards, bit 1 Cyrillic, bit 2 OLED ready; all three required |
+| 6 | Flags: bit 0 UTF-8 cards, bit 1 Cyrillic, bit 2 OLED ready, all three required; bit 3 (8) extended reactions 11–12 (optional) |
 | 7 | Maximum frame size `20` |
 | 8–9 | Combined text limit `96` bytes |
 | 10 / 11 | Primary `64` / secondary `32` UTF-8 bytes |
@@ -149,25 +153,26 @@ New semantic contexts cancel obsolete ACK waits and unsent fragments; they never
 
 ### Safe content and rendering
 
-`src/companionDisplay.ts` owns content selection and compact metadata keyed by stable lesson/exercise IDs. Lesson files and firmware contain no duplicated curriculum tables. Vocabulary reveal sends only the explicitly discovered expression/meaning. Before grading, meaning questions may show their Russian prompt without the English answer; dialogue shows the other speaker’s line only when safe; sentence/typed tasks show an English contextual prompt. Incorrect submissions return to the safe prompt. Only correct grading permits the answer/short meaning. Explicit hints use a bounded “See phone hint” cue; pronunciation displays only validated phone-visible safe content. Missing/unsafe metadata falls back to a safe label or faces. Safety is checked before and after fitting; no answer is reconstructed from success/review prose.
+`src/companionDisplay.ts` owns content selection and compact metadata keyed by stable lesson/exercise IDs. Lesson files and firmware contain no duplicated curriculum tables. Vocabulary reveal sends only the explicitly discovered expression/meaning. Before grading, meaning questions may show their Russian prompt without the English answer; dialogue shows the other speaker’s line only when safe; sentence/typed tasks show an English contextual prompt. Incorrect submissions return to the safe prompt. Only correct grading permits the answer/short meaning. Explicit hints use a bounded “See phone hint” cue. Pronunciation shows the listening face only, never the spoken text. Missing/unsafe metadata falls back to a safe label or faces. Safety is checked before and after fitting; no answer is reconstructed from success/review prose.
 
-Faces transition once to cards, never continually alternate: THINKING 700 ms, LISTENING 500 ms, HAPPY 2000 ms, ENCOURAGE 2200 ms, HINT 2600 ms. CONNECTED and celebration retain their existing durations, with no card. The hint card lasts 2 seconds from its first visible frame, then returns to THINKING. Other cards expire locally after 30 seconds: safe prompt → THINKING, discovery/answer/pronunciation → IDLE. Text transitions do not trigger servo gestures. Current phone speech completion can replace pronunciation with the safe thinking state; canceled/stale completion cannot do so.
+Faces transition once to cards, never continually alternate: THINKING 700 ms for a new question, HAPPY 2000 ms, ENCOURAGE 2200 ms, HINT 2600 ms, and on the S3 firmware NOD 900 ms, ON_FIRE 2200 ms and HINT 1500 ms. IDLE shows its card at once. On the S3 firmware a THINKING that returns to the same question (after LISTENING, HINT, NOD or another THINKING such as a revealed word) also shows its card at once, so nothing flashes; older firmware shows the thinking face for 700 ms first. CONNECTED and celebration retain their existing durations, with no card. The hint card lasts 2 seconds from its first visible frame, then returns to THINKING. Other cards expire locally after 30 seconds: safe prompt → THINKING, discovery/answer → IDLE. On the S3 firmware the home status card ("N to review", a discovery card sent with IDLE) shows for 4 seconds, then the idle face. Text transitions do not trigger servo gestures. Only the current speech's completion restores the previous context; canceled or stale completion (after an answer, hint, pair, reveal, new audio or navigation) cannot.
 
 U8g2’s full-buffer SSD1306 driver uses SDA21/SCL22, probes 0x3C/0x3D and rotates 180° (`U8G2_R2`). Primary text uses `u8g2_font_9x15_t_cyrillic`, falling back to `u8g2_font_6x13_t_cyrillic`, at most two centered lines within 120 pixels. Secondary also supports two compact lines. When both sections need two lines, primary uses the compact font; the shared frame geometry keeps all four lines below the connection dot and inside the screen. Wrapping prefers spaces, then scalar boundaries; future overflow ends at a word boundary with ASCII `...`, without splitting UTF-8. All distinct current cards fit in full under an actual-font host check, so scrolling is unnecessary. Printable ASCII and Russian Cyrillic including Ё/ё are supported; optional acute stress marks are removed and typographic quotes/dashes normalized by the app. A small connection dot remains. All drawing/layout and servo work run in `loop()`; callbacks only update bounded buffers/mailboxes under short synchronization. The full display buffer costs 1024 bytes, plus a fixed 1024-byte previous-frame shadow to skip unchanged display regions; reassembly is 96 bytes plus fixed card/cache/layout buffers. No application-owned dynamic text allocation occurs in BLE callbacks.
 
 ## Lesson and navigation events
 
-Lesson reactions come from explicit accepted reducer transitions. LISTENING and HINT start only on explicit taps. A guarded successful speech-completion callback can restore THINKING; voice initialization, rerenders, keystrokes, stored results and virtual animation timers emit no commands. Profile entry is silent. Optional callbacks leave the shared website lesson independent of BLE.
+Lesson reactions come from explicit accepted reducer transitions. LISTENING and HINT start only on explicit taps. A guarded successful speech-completion callback restores the previous context; voice initialization, rerenders, keystrokes, stored results and virtual animation timers emit no commands. Profile entry is silent. Optional callbacks leave the shared website lesson independent of BLE.
 
 | User event | Command |
 | --- | --- |
 | Incorrect answer | 2 ENCOURAGE |
-| Correct answer | 1 HAPPY |
+| Correct answer | 1 HAPPY (12 ON_FIRE with the combo when a first try extends a combo of two or more) |
+| Correct match pair, more pairs left | 11 NOD (6 THINKING without bit 3) |
 | Continue to next exercise | 6 THINKING |
 | Try again | 6 THINKING |
 | Final lesson completion | 3 CELEBRATE |
 | Available audio button, explicit tap | 5 LISTENING |
-| Pronunciation finishes with an unanswered exercise still open | 6 THINKING |
+| Pronunciation finishes | 6 THINKING with the question's card while it is open, otherwise 4 IDLE with the last card (e.g. the graded answer) |
 | Show hint, first explicit tap | 7 HINT |
 | Open profile/statistics from home | No command (no reaction or movement) |
 | Fresh subscribed connection | 9 CONNECTED |
@@ -257,7 +262,7 @@ Authenticated ownership/pairing, broader recovery and process-termination restor
 - `src/PhysicalCompanionSettings.tsx`: settings and accessible home connection status.
 - `src/bleProtocol.test.ts`, `src/bleTransport.test.ts`, `src/physicalLessonEvents.test.ts`: binary, lifecycle, event and scheduler regression tests.
 - `firmware/PrivetBLE_Servo_New_Emotions_v2/PrivetBLE_Servo_New_Emotions_v2.ino`: nine reactions plus U8g2 cards; `LearningCards.h` is the portable fixed-buffer receiver. No upload or new-card hardware verification claimed.
-- `firmware/PrivetBLE_S3/PrivetBLE_S3.ino`: same protocol/reactions/cards ported to ESP32-S3, SH1106 SPI OLED and a pan/tilt head; not yet compiled or run on hardware.
+- `firmware/PrivetBLE_S3/PrivetBLE_S3.ino`: same protocol/reactions/cards ported to ESP32-S3, SH1106 SPI OLED and a pan/tilt head; servos on direct LEDC PWM.
 - `firmware/PrivetBLE_Servo/PrivetBLE_Servo.ino`: legacy commands-1–4 BLE/OLED/servo variant with clamped pulse targets, loop-driven slew and PWM release.
 - `firmware/PrivetBLE_Lessons/PrivetBLE_Lessons.ino`: retained OLED-only baseline; same packet contract, earlier celebration duration.
 
