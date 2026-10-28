@@ -31,6 +31,8 @@ export function usePhysicalCompanion(){
  const transport=useRef<BleTransport|null>(null);
  const context=useRef<{definition:LessonDefinition;progress:Progress}|null>(null);
  const revision=useRef(0);
+ // The card that describes the current state; restored after a pronunciation.
+ const contextCard=useRef<LearningCard|undefined>(undefined);
  const lessonEvents=useRef<ReturnType<typeof createPhysicalLessonEvents>|null>(null);
  useEffect(()=>{
   const actor=createBleTransport(createNativeBleDriver(),setState,{supported:()=>Capacitor.isNativePlatform()&&Capacitor.getPlatform()==='ios'&&Capacitor.isPluginAvailable('BluetoothLe')});
@@ -38,7 +40,8 @@ export function usePhysicalCompanion(){
   lessonEvents.current=createPhysicalLessonEvents((command,next,id)=>{
    const current=context.current;if(!current||current.definition.id!==id)return;
    revision.current++;current.progress=next;
-   actor.request(command,companionDisplay(current.definition,next));
+   const card=companionDisplay(current.definition,next);contextCard.current=card;
+   actor.request(command,card,command===COMMAND.ON_FIRE?Math.min(next.combo,255):0);
   });
   let alive=true,nativeActive=true,version=0;
   const visibility=()=>{revision.current++;actor.setActive(nativeActive&&!document.hidden);};
@@ -67,27 +70,47 @@ export function usePhysicalCompanion(){
  const connect=useCallback((id:string)=>{void transport.current?.connect(id);},[]);
  const testHappy=useCallback(()=>{void transport.current?.testHappy();},[]);
  const disconnect=useCallback(()=>{revision.current++;transport.current?.disconnect();},[]);
- const navigate=useCallback((screen:'home'|'profile'|'lesson'|'physical',homeCard?:LearningCard)=>{revision.current++;context.current=null;transport.current?.navigate(screen,homeCard);},[]);
+ const navigate=useCallback((screen:'home'|'profile'|'lesson'|'physical',homeCard?:LearningCard)=>{revision.current++;context.current=null;contextCard.current=undefined;transport.current?.navigate(screen,homeCard);},[]);
  const greet=useCallback(()=>{transport.current?.request(COMMAND.HAPPY);},[]);
- const onListen=useCallback((text?:string)=>{
-  const token=++revision.current,current=context.current,connection=transport.current?.connectionToken();
-  transport.current?.request(COMMAND.LISTENING,current&&text?companionDisplay(current.definition,current.progress,{kind:'listen',text}):undefined);
-  return ()=>{if(revision.current!==token||transport.current?.connectionToken()!==connection)return;revision.current++;const c=context.current;transport.current?.request(c?COMMAND.THINKING:COMMAND.IDLE,c?companionDisplay(c.definition,c.progress):undefined);};
+ // Puts back what the robot showed before a pronunciation: THINKING while the
+ // question is open, otherwise IDLE, with the last context card (the question,
+ // a revealed word, match progress or the graded answer). The firmware draws a
+ // card that returns to the same question at once, so nothing flashes.
+ const restore=useCallback(()=>{
+  revision.current++;const c=context.current;
+  const open=!!c&&!c.progress.feedback&&!c.progress.complete&&!c.progress.failed;
+  transport.current?.request(open?COMMAND.THINKING:COMMAND.IDLE,c?contextCard.current:undefined);
  },[]);
- const onListenEnd=useCallback(()=>{const c=context.current;transport.current?.request(COMMAND.THINKING,c?companionDisplay(c.definition,c.progress):undefined);},[]);
- const onQuickStartListenEnd=useCallback(()=>{revision.current++;context.current=null;transport.current?.request(COMMAND.IDLE);},[]);
+ // Pronunciation: the listening face, and nothing else, for exactly as long as
+ // the audio plays (like the Cyrillic guide). The returned function runs when
+ // speech actually finishes; anything newer (an answer, a hint, a pair, leaving)
+ // bumps the revision and makes it a no-op.
+ const onListen=useCallback(()=>{
+  const token=++revision.current,connection=transport.current?.connectionToken();
+  transport.current?.request(COMMAND.LISTENING);
+  return ()=>{if(revision.current!==token||transport.current?.connectionToken()!==connection)return;restore();};
+ },[restore]);
+ const onListenEnd=restore;
+ const onQuickStartListenEnd=useCallback(()=>{revision.current++;context.current=null;contextCard.current=undefined;transport.current?.request(COMMAND.IDLE);},[]);
+ // A hint card is a short cue, not context: after it the question's card returns.
  const onHint=useCallback(()=>{revision.current++;const c=context.current;transport.current?.request(COMMAND.HINT,c?companionDisplay(c.definition,c.progress,{kind:'hint'}):undefined);},[]);
- // Match pairs: progress on the OLED with a neutral face per correct pair (the last pair reacts through
- // the normal check transition); a wrong pair encourages, at most every 2s so fast taps don't flicker.
+ // Match pairs: progress on the OLED with a small nod per correct pair (firmware without NOD keeps a
+ // neutral face; the last pair reacts through the normal check transition); a wrong pair encourages,
+ // at most every 2s so fast taps don't flicker.
  const lastSlip=useRef(-Infinity);
  const onMatchPair=useCallback((correct:boolean,matched:number)=>{
   const c=context.current;if(!c)return;const total=c.definition.exercises[c.progress.index]?.pairs?.length??0;
-  if(correct){if(matched>=total)return;revision.current++;transport.current?.request(COMMAND.THINKING,companionDisplay(c.definition,c.progress,{kind:'match',matched}));return;}
+  if(correct){if(matched>=total)return;revision.current++;contextCard.current=companionDisplay(c.definition,c.progress,{kind:'match',matched});transport.current?.request(COMMAND.NOD,contextCard.current);return;}
   if(Date.now()-lastSlip.current<2000)return;lastSlip.current=Date.now();revision.current++;
-  transport.current?.request(COMMAND.ENCOURAGE,companionDisplay(c.definition,c.progress,{kind:'match',matched}));
+  contextCard.current=companionDisplay(c.definition,c.progress,{kind:'match',matched});
+  transport.current?.request(COMMAND.ENCOURAGE,contextCard.current);
  },[]);
- const onReveal=useCallback((word:string)=>{revision.current++;const c=context.current;if(c)transport.current?.request(COMMAND.THINKING,companionDisplay(c.definition,c.progress,{kind:'reveal',word}));},[]);
- const enterLesson=useCallback((hasActiveQuestion:boolean,definition?:LessonDefinition,progress?:Progress)=>{revision.current++;context.current=definition&&progress?{definition,progress}:null;return transport.current?.enterLesson(hasActiveQuestion,definition&&progress&&hasActiveQuestion?companionDisplay(definition,progress):undefined);},[]);
+ const onReveal=useCallback((word:string)=>{revision.current++;const c=context.current;if(!c)return;contextCard.current=companionDisplay(c.definition,c.progress,{kind:'reveal',word});transport.current?.request(COMMAND.THINKING,contextCard.current);},[]);
+ const enterLesson=useCallback((hasActiveQuestion:boolean,definition?:LessonDefinition,progress?:Progress)=>{
+  revision.current++;context.current=definition&&progress?{definition,progress}:null;
+  contextCard.current=definition&&progress&&hasActiveQuestion?companionDisplay(definition,progress):undefined;
+  return transport.current?.enterLesson(hasActiveQuestion,contextCard.current);
+ },[]);
  const onTransition=useCallback((previous:Progress,next:Progress,action:Action,lessonId='cafe')=>{lessonEvents.current?.(previous,next,action,lessonId);},[]);
  return {getState,subscribe,scan,connect,testHappy,disconnect,navigate,enterLesson,greet,onListen,onListenEnd,onQuickStartListenEnd,onHint,onReveal,onMatchPair,onTransition};
 }

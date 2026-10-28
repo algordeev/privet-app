@@ -18,7 +18,8 @@ test('final Continue celebrates exactly once, with no immediate IDLE; saved comp
  for(const exercise of lesson){let action:Action={type:'check',value:exercise.answer};let next=progressReducer(p,action);events(p,next,action);p=next;
   action={type:'continue'};next=progressReducer(p,action);events(p,next,action);events(p,next,action);p=next;
  }
- assert.equal(codes.filter(c=>c===COMMAND.CELEBRATE).length,1);assert.deepEqual(codes.slice(-2),[COMMAND.HAPPY,COMMAND.CELEBRATE]);
+ // A perfect run: its last answer extends the combo, so it is ON_FIRE before the celebration.
+ assert.equal(codes.filter(c=>c===COMMAND.CELEBRATE).length,1);assert.deepEqual(codes.slice(-2),[COMMAND.ON_FIRE,COMMAND.CELEBRATE]);
  const before=codes.length;events(p,p,{type:'continue'});events(p,progressReducer(p,{type:'check',value:'спасибо'}),{type:'check',value:'спасибо'});assert.equal(codes.length,before);
  const restored={...p,results:[...p.results]};assert.equal(physicalLessonCommand(restored,restored,{type:'continue'}),null);
 });
@@ -71,4 +72,18 @@ test('listen and match transitions react once; a slipped match check still celeb
   run({type:'continue'});
   assert.deepEqual(sent,kind==='listen'?[COMMAND.ENCOURAGE,COMMAND.THINKING,COMMAND.HAPPY,COMMAND.THINKING]:[COMMAND.HAPPY,COMMAND.THINKING]);
  }
+});
+test('a first try that extends a combo of two or more is ON_FIRE; other, retried and slipped correct answers stay HAPPY',()=>{
+ const check:Action={type:'check',value:''};
+ const at=(combo:number):Progress=>({...initialProgress(),index:combo,combo,bestCombo:combo,results:Array(combo).fill(true)});
+ const firstTry=(p:Progress):Progress=>({...p,attempts:1,feedback:'correct',combo:p.combo+1,bestCombo:p.combo+1});
+ assert.deepEqual([1,2,3,4,5,6].map(n=>physicalLessonCommand(at(n-1),firstTry(at(n-1)),check)),[1,12,12,12,12,12].map(code=>code as CommandCode));
+ const retry={...at(3),attempts:1,feedback:null};
+ assert.equal(physicalLessonCommand(retry,{...retry,attempts:2,feedback:'correct'},check),COMMAND.HAPPY,'a retried answer does not extend the combo');
+ const slip=at(2);
+ assert.equal(physicalLessonCommand(slip,{...slip,attempts:2,feedback:'correct'},{type:'check',value:'',slipped:true}),COMMAND.HAPPY,'a slipped match is not a first try');
+ // A real lesson: the second straight first try starts the combo.
+ const codes:CommandCode[]=[];const events=createPhysicalLessonEvents(c=>codes.push(c));let p=initialProgress();
+ for(const exercise of lesson.slice(0,3)){const a:Action={type:'check',value:exercise.answer},next=progressReducer(p,a);events(p,next,a);p=progressReducer(next,{type:'continue'});}
+ assert.deepEqual(codes,[COMMAND.HAPPY,COMMAND.ON_FIRE,COMMAND.ON_FIRE]);
 });

@@ -24,6 +24,8 @@ const stepCounts=['Zero','One','Two','Three','Four','Five','Six','Seven','Eight'
 export function nativeLessonReaction(progress:Progress):{expression:NativeExpression;message:string}|null {
  if(progress.complete)return {expression:'celebrating',message:`Молодец! ${stepCounts[progress.results.length]??'All'} small ${progress.results.length===1?'step':'steps'} complete.`};
  if(!progress.feedback)return null;
+ // A first try that extends a combo of two or more: the same moment the physical companion goes "on fire".
+ if(progress.feedback==='correct'&&progress.attempts===1&&progress.combo>=2)return {expression:'celebrating',message:`${stepCounts[progress.combo]??progress.combo} in a row!${progress.combo>=3?' You’re on fire.':''}`};
  const n=(progress.index+Math.max(0,progress.attempts-1))%3;
  return progress.feedback==='correct'?{expression:'happy',message:correct[n]}:{expression:'encouraging',message:encouraging[n]};
 }

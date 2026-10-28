@@ -11,7 +11,7 @@ test('all eight lessons, onboarding and every review format have answer-safe pre
  assert.equal(nativeLessons.length,8);
  for(const definition of [...nativeLessons,firstRunLesson,...reviewDefinitions()])for(const [index,e] of definition.exercises.entries()){
   for(const feedback of [null,'incorrect'] as const){const state={...initialProgress(),index,feedback};
-   for(const action of [{kind:'state'},{kind:'hint'},...definition.words.map(w=>({kind:'listen',text:w.text})),{kind:'listen',text:e.answer}] as const){
+   for(const action of [{kind:'state'},{kind:'hint'},...definition.words.map(w=>({kind:'reveal',word:w.id}))] as const){
     const card=companionDisplay(definition,state,action);if(card){assert.ok(validateCard(card),`${definition.id}/${e.id}`);if(e.kind!=='vocabulary'&&/[а-яё]/iu.test(e.answer)){const answer=normalizedDisplay(e.answer);for(const text of [card.primary,card.secondary,card.primary+' '+card.secondary])assert.ok(!normalizedDisplay(text).includes(answer),`${definition.id}/${e.id}: leaked ${e.answer}`);}
      assert.ok(safeBeforeAnswer(e,card.primary,card.secondary),`${definition.id}/${e.id}: ${JSON.stringify(card)}`);}
    }
@@ -25,9 +25,9 @@ test('vocabulary reveals only the requested known word and discovery meaning',()
 test('meaning prompt hides its English answer; grading permits it, incorrect does not',()=>{
  const l=nativeLessons[0],p={...initialProgress(),index:1};assert.equal(companionDisplay(l,p)?.primary,'кофе');assert.equal(companionDisplay(l,p)?.secondary,'Choose on phone');assert.equal(companionDisplay(l,{...p,feedback:'correct'})?.secondary,'coffee');assert.equal(companionDisplay(l,{...p,feedback:'incorrect'})?.secondary,'Choose on phone');
 });
-test('typed and sentence answers are hidden even during attempted pronunciation; completed/failed contexts have no card',()=>{
+test('completed and failed typed/sentence contexts have no card',()=>{
  for(const l of nativeLessons)for(const [index,e] of l.exercises.entries())if(e.kind==='typed'||e.kind==='sentence'){
-  const p={...initialProgress(),index};assert.equal(companionDisplay(l,p,{kind:'listen',text:e.answer}),undefined);assert.equal(companionDisplay(l,{...p,complete:true}),undefined);assert.equal(companionDisplay(l,{...p,failed:true}),undefined);
+  const p={...initialProgress(),index};assert.equal(companionDisplay(l,{...p,complete:true}),undefined);assert.equal(companionDisplay(l,{...p,failed:true}),undefined);
  }
 });
 
@@ -52,21 +52,14 @@ test('listening never shows the spoken word before grading; afterwards the OLED 
  const l=lessonById('around-town'),index=l.exercises.findIndex(e=>e.kind==='listen'),e=l.exercises[index];
  for(const feedback of [null,'incorrect'] as const){const p={...initialProgress(),index,feedback};
   assert.deepEqual(companionDisplay(l,p),{mode:MODE.SAFE_PROMPT,primary:'Listen on phone',secondary:'Find the metro'});
-  for(const text of [e.answer,...e.choices!,...l.words.map(w=>w.text)])assert.equal(companionDisplay(l,p,{kind:'listen',text}),undefined,text);
  }
  const p={...initialProgress(),index,feedback:'correct' as const,attempts:1};
  assert.deepEqual(companionDisplay(l,p),{mode:MODE.ANSWER,primary:'Налево.',secondary:'To the left.'});
- assert.equal(companionDisplay(l,p,{kind:'listen',text:'Налево.'})?.mode,MODE.PRONUNCIATION);
 });
 test('matching shows progress and single Russian items, never a Russian/English pair',()=>{
  const l=lessonById('making-plans'),index=l.exercises.findIndex(e=>e.kind==='match'),e=l.exercises[index],p={...initialProgress(),index};
  assert.deepEqual(companionDisplay(l,p),{mode:MODE.SAFE_PROMPT,primary:'Match the pairs',secondary:'Make a plan'});
  assert.deepEqual(companionDisplay(l,p,{kind:'match',matched:2}),{mode:MODE.SAFE_PROMPT,primary:'Match the pairs',secondary:'2 of 4'});
- for(const [ru,en] of e.pairs!){
-  assert.deepEqual(companionDisplay(l,p,{kind:'listen',text:ru}),{mode:MODE.PRONUNCIATION,primary:ru,secondary:''});
-  assert.equal(companionDisplay(l,p,{kind:'listen',text:en}),undefined);
- }
- assert.equal(companionDisplay(l,p,{kind:'listen',text:'Давай!'}),undefined);
  for(const card of companionCardFixtures().filter(card=>card.context.startsWith('making-plans/match/')))
   for(const [ru,en] of e.pairs!)assert.ok(!(card.primary.includes(ru)&&card.secondary.includes(en)),JSON.stringify(card));
  assert.deepEqual(companionDisplay(l,{...p,feedback:'correct',attempts:1}),{mode:MODE.ANSWER,primary:'All pairs matched',secondary:'Make a plan'});

@@ -1,5 +1,5 @@
 import {CAPABILITIES,CARD_LIMITS,encodeControl,decodeControlAck,decodeCapabilities,decodeContentAck,cardFrames,validateCard,type Capabilities,type LearningCard} from './learningProtocol.ts';
-import {BLE_SERVICE,COMMAND,decodeAcknowledgement,encodeCommand,nextRequestId,type CommandCode} from './bleProtocol.ts';
+import {BLE_SERVICE,COMMAND,EXTENDED_FALLBACK,decodeAcknowledgement,encodeCommand,nextRequestId,type CommandCode} from './bleProtocol.ts';
 
 export type PhysicalDevice={deviceId:string;name?:string};
 export interface BleDriver {
@@ -29,9 +29,11 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
  const cancelWaits=new Set<()=>void>();
  type AckResult=0|1|2|'cancelled';
  type Flight={id:number;generation:number;command:CommandCode;revision:number;resume:boolean;obsolete:boolean;waitingCapabilities?:boolean;sendingCard?:boolean;reply?:(packet:DataView|null)=>void;ack:(result:AckResult)=>void};
- type Job={command:CommandCode;card?:LearningCard};
+ type Job={command:CommandCode;card?:LearningCard;argument?:number};
  let flight:Flight|undefined,latest:Job|undefined;
  let capabilities:Capabilities|undefined;
+ // Kept separately: a paused card transfer clears `capabilities`, not the firmware's reaction set.
+ let extendedReactions=false;
  type Probe={generation:number;revision:number;attempts:number;phase:'deferred'|'writing'|'waiting'|'ready'|'disabled';reply?:(packet:DataView)=>void;done:Promise<void>;finish:()=>void};
  let probe:Probe|undefined;
  function newProbe(attempts=0){let finish!:()=>void;const done=new Promise<void>(resolve=>{finish=resolve;});return {generation,revision:activityRevision,attempts,phase:'deferred' as const,done,finish};}
@@ -52,7 +54,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
      if(probe!==p||!current(g)||p.revision!==activityRevision)return;
      const ack=decodeControlAck(packet),caps=decodeCapabilities(packet);
      if(ack?.id===probeId){if(ack.result!==0){finish(undefined);return;}acked=true;}
-     if(caps?.id===probeId)offer={nonce:caps.nonce};
+     if(caps?.id===probeId)offer={nonce:caps.nonce,reactions:caps.reactions};
      if(acked&&offer)finish(offer);
     };
     const writing=raw(()=>driver.write(id,encodeControl(probeId,CAPABILITIES),time.write));
@@ -64,7 +66,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
     let accepted:Capabilities|undefined;
     try{accepted=await wait(response,g,CARD_LIMITS.ack,'Capability reply timed out.');}
     catch(error){if(error instanceof Cancelled)throw error;}
-    if(probe===p&&current(g)&&p.revision===activityRevision){capabilities=accepted;p.phase=accepted?'ready':'disabled';p.reply=undefined;p.finish();}
+    if(probe===p&&current(g)&&p.revision===activityRevision){capabilities=accepted;extendedReactions=!!accepted?.reactions;p.phase=accepted?'ready':'disabled';p.reply=undefined;p.finish();}
    }catch(error){if(p.revision===activityRevision)failure(error,g);}
   })();
  }
@@ -102,7 +104,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
   void driver.cleanup(id).catch(()=>{/* Already disconnected/unavailable. */}).finally(()=>{cleaning--;update();});
  }
  function invalidate(phase:BlePhase,message:string){
-  generation++;clearScanTimer();latest=undefined;capabilities=undefined;stopProbe();
+  generation++;clearScanTimer();latest=undefined;capabilities=undefined;extendedReactions=false;stopProbe();
   if(flight){flight.obsolete=true;flight.ack('cancelled');flight.reply?.(null);}flight=undefined;
   for(const cancel of [...cancelWaits])cancel();
   const id=state.device?.deviceId;
@@ -165,9 +167,11 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
  // Context changes cancel ACK waits, never an active native write. The next
  // command may run only once that write resolves (or its bounded timeout drops
  // the connection). There is one replaceable slot, never a reaction FIFO.
- const contextCommands:ReadonlySet<CommandCode>=new Set([COMMAND.IDLE,COMMAND.THINKING,COMMAND.STREAK,COMMAND.CONNECTED,COMMAND.CELEBRATE]);
- function request(command:CommandCode,card?:LearningCard){
+ // NOD keeps the open question's context (firmware returns it to THINKING), like the THINKING it replaces.
+ const contextCommands:ReadonlySet<CommandCode>=new Set([COMMAND.IDLE,COMMAND.THINKING,COMMAND.STREAK,COMMAND.CONNECTED,COMMAND.CELEBRATE,COMMAND.NOD]);
+ function request(command:CommandCode,card?:LearningCard,argument=0){
   if(!Object.values(COMMAND).includes(command))return false;
+  if(!Number.isInteger(argument)||argument<0||argument>255||(argument!==0&&command!==COMMAND.ON_FIRE))argument=0;
   if(card&&!validateCard(card))card=undefined;
   if(!alive||!active||!state.ready||!state.device)return false;
   // Preserve a pending context change ahead of fleeting same-context reactions.
@@ -183,12 +187,17 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
    latest=undefined;
    if(flight){flight.obsolete=true;flight.ack('cancelled');flight.reply?.(null);}
   }
-  latest={command,card};update({pending:true});pump();return true;
+  latest={command,card,argument};update({pending:true});pump();return true;
  }
  function pump(resume=false){
   if(latest===undefined){startProbe();return;}
   if(flight||submittedWrite||(!state.ready&&!(resume&&state.phase==='reconciling'))||!state.device||!active||!alive)return;
-  const {command,card}=latest;latest=undefined;
+  const {card}=latest;
+  // Resolved at send time: firmware without the extended reactions gets their
+  // fallback, always with argument 0 (older firmware rejects any other).
+  const fallback=!extendedReactions&&EXTENDED_FALLBACK[latest.command];
+  const command=fallback||latest.command,argument=fallback?0:latest.argument??0;
+  latest=undefined;
   const g=generation,id=state.device.deviceId;
   let requestId:number;
   try{requestId=nextRequestId();}catch(error){failure(error,g);return;}
@@ -212,7 +221,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
      void writing.then(()=>{if(submittedWrite===writing)submittedWrite=undefined;pump();startProbe();},()=>{if(submittedWrite===writing)submittedWrite=undefined;});
      await wait(writing,g,time.write,'Command timed out. Connect again to try later.');
     };
-    await write(encodeCommand(requestId,command));
+    await write(encodeCommand(requestId,command,argument));
     startProbe();
     if(!current(g)||job.obsolete)return;
     update({message:'Waiting for companion…'});
