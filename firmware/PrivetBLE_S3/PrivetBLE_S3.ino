@@ -2,13 +2,14 @@
  * Target: ESP32-S3-DevKitC-1 N16R8, Arduino-ESP32 3.x, built-in BLE library.
  * 1.3" SH1106 OLED on SPI; pan servo GPIO4, tilt servo GPIO5 (SG90 or MG90S)
  * on ~5V with common GND. Pinout matches pcb/privet-v2-kicad-spec.md.
- * Servo pulses 1300-1700 us, neutral 1500 us; no mechanical load for first tests.
+ * Head angles, limits and gestures are in degrees: see the tuning block in ServoMotion.h.
  * No Wi-Fi, audio, bonding, or background reaction queue.
- * Required: U8g2 and ESP32Servo.
+ * Required: U8g2. Servos use the core's LEDC PWM directly.
  * Command: [1, 1, request-id uint32 LE, command, argument]
  * ACK:     [1, 2, same request-id, same command, result]
  * Commands: 1 HAPPY, 2 ENCOURAGE, 3 CELEBRATE, 4 IDLE, 5 LISTENING,
- * 6 THINKING, 7 HINT, 8 STREAK, 9 CONNECTED. Argument always 0.
+ * 6 THINKING, 7 HINT, 8 STREAK, 9 CONNECTED, 11 NOD, 12 ON_FIRE
+ * (11-12 advertised by capability bit 8). Argument 0, except ON_FIRE: the combo.
  * ACK result: 0 accepted, 1 unsupported command, 2 invalid argument.
  * Separate control code 10 negotiates bounded v2 cards; see LearningCards.h
  * and docs/companion-ble.md. No partial content is drawn.
@@ -27,7 +28,6 @@
 #include "ServoMotion.h"
 #include "LearningLayout.h"
 #include "DisplayRefresh.h"
-#include <ESP32Servo.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 
@@ -65,6 +65,9 @@ static PrivetFaces::WakeTransition wakeTransition;
 // upper bits are a revision so even repeated commands restart the timer.
 // BLE callbacks are the sole producer; loop() only reads this atomic value.
 static std::atomic<uint32_t> faceMailbox{4};
+// ON_FIRE's argument: the answer combo (first tries in a row) shown on the face.
+// Stored before the mailbox is published, so loop() sees it with the reaction.
+static std::atomic<uint8_t> fireCombo{0};
 
 enum Reaction : uint8_t {
   HAPPY = 1,
@@ -75,7 +78,10 @@ enum Reaction : uint8_t {
   THINKING = 6,
   HINT = 7,
   STREAK = 8,
-  CONNECTED = 9
+  CONNECTED = 9,
+  // Code 10 is the capability control command, not a reaction.
+  NOD = 11,
+  ON_FIRE = 12
 };
 
 static void requestFace(uint8_t reaction) {
@@ -93,6 +99,8 @@ static const char *reactionName(uint8_t reaction) {
     case HINT: return "hint";
     case STREAK: return "streak";
     case CONNECTED: return "connected";
+    case NOD: return "nod";
+    case ON_FIRE: return "on fire";
     default: return "idle";
   }
 }
@@ -102,14 +110,19 @@ static uint32_t reactionDuration(uint8_t reaction) {
     case HAPPY: return 2000;
     case ENCOURAGE: return 2200;
     case CELEBRATE: return 4500;
-    case LISTENING: return 2600;
+    // LISTENING lasts as long as the audio: the app ends it when speech finishes.
+    // This is only a safety cap in case that message never arrives.
+    case LISTENING: return 15000;
 
     // THINKING remains active until another command replaces it.
     case THINKING: return 0;
 
-    case HINT: return 2600;
+    case HINT: return 1500;
     case STREAK: return 3600;
     case CONNECTED: return 2400;
+    // A correct match pair; the question continues, so NOD returns to THINKING.
+    case NOD: return 900;
+    case ON_FIRE: return 2200;
     default: return 0;
   }
 }
@@ -118,20 +131,30 @@ static uint32_t reactionDuration(uint8_t reaction) {
 // Set false to keep BLE/OLED available while testing power or wiring.
 static constexpr bool SERVO_ENABLED = true;
 static constexpr bool TILT_ENABLED = true;
-// Flip if "up" on your tilt joint moves the head down.
-static constexpr bool TILT_INVERTED = false;
+// Flip if "up" on your tilt joint moves the head down. True on the owner's v2
+// head: sleep droops and the wake-up nod lifts, as intended.
+static constexpr bool TILT_INVERTED = true;
+// Flip if the head turns away from the side the eyes look to.
+static constexpr bool PAN_INVERTED = false;
 static constexpr int PAN_PIN = 4;
 static constexpr int TILT_PIN = 5;
 static constexpr int SERVO_CENTER_US = 1500;
-static constexpr int SERVO_MIN_US = 1300;
-static constexpr int SERVO_MAX_US = 1700;
 
-// Motion limits for the smooth follower (pulse microseconds; ~10 us = 1 deg).
+// Head speed (degrees per second) and acceleration (degrees per second squared).
 // Lower SPEED for calmer movement; lower ACCEL for softer starts and stops.
-static constexpr float SERVO_SPEED_US_S = 450.0f;
-static constexpr float SERVO_GENTLE_SPEED_US_S = 180.0f;  // ENCOURAGE
-static constexpr float SERVO_ACCEL_US_S2 = 1800.0f;
+// PERKY: happy, celebrate, hint, nod, on fire. GENTLE: encourage, sleep and
+// settling back to rest. NORMAL: connected and streak.
+// Slow, tiny steps make loaded SG90s buzz without visibly moving, so even
+// GENTLE stays reasonably brisk.
+static constexpr float SERVO_SPEED_DEG_S = 50.0f;
+static constexpr float SERVO_ACCEL_DEG_S2 = 225.0f;
+static constexpr float SERVO_PERKY_SPEED_DEG_S = 80.0f;
+static constexpr float SERVO_PERKY_ACCEL_DEG_S2 = 540.0f;
+static constexpr float SERVO_GENTLE_SPEED_DEG_S = 32.0f;
+static constexpr float SERVO_GENTLE_ACCEL_DEG_S2 = 180.0f;
 static constexpr uint32_t SERVO_TICK_MS = 20;  // one PWM period
+// How far (degrees) the head turns when it follows the eyes' idle glance.
+static constexpr int IDLE_GLANCE_DEG = 5;
 
 // PWM is released once an axis has reached the end of its gesture and stayed
 // still this long, so idle servos are silent instead of humming. It comes back
@@ -139,6 +162,15 @@ static constexpr uint32_t SERVO_TICK_MS = 20;  // one PWM period
 // position feedback: if the head was pushed while released, it returns there
 // (smoothly limited only from the re-attach point onward).
 static constexpr uint32_t SERVO_RELEASE_AFTER_MS = 300;
+
+// Each servo owns one LEDC channel for the whole run; "release" is duty 0
+// (line held low, no pulses), never a detach. ESP32Servo on the S3 hands out
+// MCPWM outputs by count when re-attaching, so after one servo was released
+// both pins could end up on the same output: the tilt then followed the pan's
+// pulse (e.g. 1700 us during HAPPY) and the head shot to its top position.
+static constexpr uint32_t SERVO_PWM_HZ = 50;
+static constexpr uint8_t SERVO_PWM_BITS = 14;
+static constexpr uint32_t SERVO_PERIOD_US = 1000000UL / SERVO_PWM_HZ;
 
 static constexpr uint32_t AMBIENT_WINDOW_MS = 60000;
 
@@ -150,49 +182,55 @@ struct ServoAxis {
   bool enabled;
   bool inverted;
   PrivetMotion::Axis axis;
-  Servo servo;
   PrivetMotion::Follower follower;
   int writtenUs = -1;
   int fromUs = SERVO_CENTER_US;
   uint32_t lastStep = 0;
   uint32_t settledAt = 0;
   bool settling = false;
+  bool ready = false;      // LEDC channel attached (once, in begin())
+  bool energized = false;  // pulses currently being sent
 
   ServoAxis(const char *n, int p, bool e, bool inv, PrivetMotion::Axis a)
     : name(n), pin(p), enabled(e), inverted(inv), axis(a) {}
 
-  bool active() const { return SERVO_ENABLED && enabled; }
-
-  void park() {
-    pinMode(pin, OUTPUT);
-    digitalWrite(pin, LOW);
-  }
+  bool active() const { return SERVO_ENABLED && enabled && ready; }
 
   void write(int pulse) {
     if (pulse == writtenUs) return;  // identical pulses add nothing but noise
     writtenUs = pulse;
-    servo.writeMicroseconds(inverted ? 2 * SERVO_CENTER_US - pulse : pulse);
+    // pulse is already inside this axis's limits; only a mirrored mount flips it.
+    const int out = inverted ? 2 * SERVO_CENTER_US - pulse : pulse;
+    ledcWrite(pin, (uint32_t(out) << SERVO_PWM_BITS) / SERVO_PERIOD_US);
   }
 
-  bool attach(uint32_t now) {
-    if (servo.attached()) return true;
-    servo.setPeriodHertz(50);
-    servo.attach(pin, 500, 2500);
-    if (!servo.attached()) {
-      Serial.printf("[SERVO] %s PWM attach failed; BLE/OLED continue.\n", name);
-      return false;
-    }
+  bool energize(uint32_t now) {
+    if (energized) return true;
     // Resume exactly at the last commanded pulse; no position feedback exists.
+    energized = true;
     writtenUs = -1;
     write(int(follower.position + 0.5f));
     lastStep = now;
     return true;
   }
 
-  // Called once from setup(): the only intentional jump, to centre at power-on.
+  void release() {
+    ledcWrite(pin, 0);
+    energized = false;
+    writtenUs = -1;
+  }
+
+  // Called once from setup(): the only intentional jump, to the resting pose at power-on.
   void begin(uint32_t now) {
-    follower.reset(SERVO_CENTER_US);
-    if (active()) attach(now);
+    follower.limits(axis);
+    follower.reset(PrivetMotion::home(axis));
+    if (!SERVO_ENABLED || !enabled) return;
+    ready = ledcAttach(pin, SERVO_PWM_HZ, SERVO_PWM_BITS);
+    if (!ready) {
+      Serial.printf("[SERVO] %s PWM setup failed; BLE/OLED continue.\n", name);
+      return;
+    }
+    energize(now);
   }
 
   void start() {
@@ -202,7 +240,8 @@ struct ServoAxis {
     settling = false;
   }
 
-  void update(uint8_t reaction, uint32_t started, uint32_t now) {
+  // offset: extra pulse on top of the gesture (the idle glance on the pan axis).
+  void update(uint8_t motion, uint32_t started, uint32_t now, int offset) {
     if (!active()) return;
 
     const uint32_t elapsed = uint32_t(now - lastStep);
@@ -210,20 +249,22 @@ struct ServoAxis {
     lastStep = now;
 
     const uint32_t age = uint32_t(now - started);
-    const int target = PrivetMotion::target(axis, reaction, age, fromUs);
+    const int target = PrivetMotion::clampPulse(axis, PrivetMotion::target(axis, motion, age, fromUs) + offset);
 
-    if (!servo.attached()) {
+    if (!energized) {
       // Stay silent until the gesture path actually leaves the resting pulse.
       if (follower.settled(float(target))) return;
-      if (!attach(now)) return;
+      energize(now);
     }
 
     const float dt = (elapsed > 100 ? 100 : elapsed) / 1000.0f;
-    const float speed = reaction == ENCOURAGE ? SERVO_GENTLE_SPEED_US_S : SERVO_SPEED_US_S;
-    write(follower.step(float(target), dt, speed, SERVO_ACCEL_US_S2));
+    const PrivetMotion::Style style = PrivetMotion::style(motion);
+    const float speed = PrivetMotion::US_PER_DEGREE * (style == PrivetMotion::PERKY ? SERVO_PERKY_SPEED_DEG_S : style == PrivetMotion::GENTLE ? SERVO_GENTLE_SPEED_DEG_S : SERVO_SPEED_DEG_S);
+    const float accel = PrivetMotion::US_PER_DEGREE * (style == PrivetMotion::PERKY ? SERVO_PERKY_ACCEL_DEG_S2 : style == PrivetMotion::GENTLE ? SERVO_GENTLE_ACCEL_DEG_S2 : SERVO_ACCEL_DEG_S2);
+    write(follower.step(float(target), dt, speed, accel));
 
     const bool resting =
-      age >= PrivetMotion::gestureEnd(axis, reaction) &&
+      age >= PrivetMotion::gestureEnd(axis, motion) &&
       follower.settled(float(target));
 
     if (!resting) {
@@ -235,33 +276,30 @@ struct ServoAxis {
       settledAt = now;
     }
     if (uint32_t(now - settledAt) >= SERVO_RELEASE_AFTER_MS) {
-      servo.detach();
-      // detach() removes the pin from the GPIO matrix, so a plain
-      // digitalWrite() afterward is a no-op and leaves the signal line
-      // floating (picking up BLE antenna noise and twitching the servo).
-      // Re-claim the pin as a GPIO output before pulling it low.
-      park();
+      release();
       settling = false;
       Serial.printf("[SERVO] %s still; PWM released.\n", name);
     }
   }
 };
 
-static ServoAxis panServo("pan", PAN_PIN, true, false, PrivetMotion::PAN);
+static ServoAxis panServo("pan", PAN_PIN, true, PAN_INVERTED, PrivetMotion::PAN);
 static ServoAxis tiltServo("tilt", TILT_PIN, TILT_ENABLED, TILT_INVERTED, PrivetMotion::TILT);
-static uint8_t servoReaction = IDLE;
+static uint8_t servoReaction = IDLE;  // the gesture playing (a reaction, or SLEEP)
 static uint32_t servoStarted = 0;
+static int servoGlanceUs = 0;         // set by updateOLED() while the face glances
 
 static void startServoReaction(uint8_t reaction, uint32_t now) {
   servoReaction = reaction;
   servoStarted = now;
+  servoGlanceUs = 0;
   panServo.start();
   tiltServo.start();
 }
 
 static void updateServo(uint32_t now) {
-  panServo.update(servoReaction, servoStarted, now);
-  tiltServo.update(servoReaction, servoStarted, now);
+  panServo.update(servoReaction, servoStarted, now, servoReaction == IDLE ? servoGlanceUs : 0);
+  tiltServo.update(servoReaction, servoStarted, now, 0);
 }
 
 // Only send changed tile spans; static cards no longer rewrite all eight rows.
@@ -379,10 +417,12 @@ static void drawFace(
   const bool joyful =
     reaction == HAPPY ||
     reaction == CELEBRATE ||
-    reaction == STREAK;
+    reaction == STREAK ||
+    reaction == NOD ||
+    reaction == ON_FIRE;
 
   const int bob =
-    reaction == CELEBRATE || reaction == STREAK
+    reaction == CELEBRATE || reaction == STREAK || reaction == ON_FIRE
       ? ((age / 180U) % 2U ? -1 : 1)
       : 0;
 
@@ -394,26 +434,11 @@ static void drawFace(
     age < 2200U ? int((2200U - age) / 400U) :
     0;
 
-  const uint32_t lookPhase = age % 7800U;
-  int look = 0;
-
-  if (reaction == IDLE &&
-      connected &&
-      age < AMBIENT_WINDOW_MS &&
-      lookPhase >= 2200U &&
-      lookPhase < 4000U) {
-    const uint32_t t = lookPhase - 2200U;
-
-    const int direction =
-      (age / 7800U) % 2U ? -1 : 1;
-
-    const int offset =
-      t < 300U ? int(t) * 5 / 300 :
-      t < 1500U ? 5 :
-      int(1800U - t) * 5 / 300;
-
-    look = direction * offset;
-  }
+  // The head follows the same glance (see updateOLED()).
+  const int look =
+    reaction == IDLE && connected && age < AMBIENT_WINDOW_MS
+      ? PrivetMotion::glance(age) * 5 / 1000
+      : 0;
 
   if (joyful) {
     for (int x : {28, 80}) {
@@ -691,6 +716,25 @@ static void drawFace(
     drawSparkle(11, 19, radius);
     drawSparkle(116, 43, radius);
     drawSparkle(64, 10, 2);
+  } else if (reaction == ON_FIRE) {
+    // A flickering flame above the eyes with the combo count ("x3"), and sparkles at the sides.
+    const int flicker = (age / 120U) % 2U;
+    display.fillCircle(56, 10, 3, SSD1306_WHITE);
+    display.drawLine(53, 9, 56, 2 - flicker, SSD1306_WHITE);
+    display.drawLine(59, 9, 56, 2 - flicker, SSD1306_WHITE);
+    display.drawLine(54, 8, 56, 3 - flicker, SSD1306_WHITE);
+    display.drawLine(58, 8, 56, 3 - flicker, SSD1306_WHITE);
+    const uint8_t combo = fireCombo.load();
+    if (combo >= 2) {
+      char text[5];
+      snprintf(text, sizeof text, "x%u", unsigned(combo));
+      oled.setDrawColor(1);
+      oled.setFont(u8g2_font_6x13_t_cyrillic);
+      oled.drawStr(63, 12, text);
+    }
+    const int radius = (age / 180U) % 2U ? 2 : 4;
+    drawSparkle(11, 19, radius);
+    drawSparkle(116, 43, radius);
   } else if (reaction == LISTENING) {
     const int wave =
       2 + int((age / 220U) % 3U);
@@ -811,6 +855,7 @@ static void updateOLED() {
   static uint32_t lastFrame = 0;
   static uint32_t lastCommandAt = 0;
   static uint8_t current = IDLE;
+  static uint32_t cardDelay = 0;  // set per command; see PrivetFaces::cardDelay()
   static bool wasConnected = false;
   static PrivetCards::Card shownCard;
   static uint32_t cardAt=0,cardShownAt=0;
@@ -836,20 +881,24 @@ static void updateOLED() {
   if (requested != seenMailbox || waking) {
     lastCommandAt = now;
     seenMailbox = requested;
+    const uint8_t previous = current;
 
     current =
       connected
         ? uint8_t(requested & 0xFFU)
         : uint8_t(IDLE);
 
+    cardDelay = PrivetFaces::cardDelay(current, previous, reactionDuration(current));
     started = now;
-    startServoReaction(current, now);
+    startServoReaction(connected ? current : uint8_t(PrivetMotion::SLEEP), now);
     changed = true;
   }
 
-  if (!connected && current != IDLE) {
+  // Without a phone the face sleeps and the head droops; the CONNECTED
+  // wake-up nod lifts it again.
+  if (!connected && (current != IDLE || servoReaction != PrivetMotion::SLEEP)) {
     current = IDLE;
-    startServoReaction(IDLE, now);
+    if (servoReaction != PrivetMotion::SLEEP) startServoReaction(PrivetMotion::SLEEP, now);
     changed = true;
   }
 
@@ -863,10 +912,10 @@ static void updateOLED() {
     duration > 0 &&
     age >= duration
   ) {
-    // After HINT, return to THINKING because the
+    // After HINT or a match-pair NOD, return to THINKING because the
     // question remains unanswered.
     current =
-      connected && current == HINT
+      connected && (current == HINT || current == NOD)
         ? THINKING
         : IDLE;
 
@@ -880,6 +929,13 @@ static void updateOLED() {
     connected &&
     uint32_t(now - lastCommandAt) <
       AMBIENT_WINDOW_MS;
+
+  // The head follows the face's idle glance, but not while a card is shown.
+  static bool cardOnScreen = false;
+  servoGlanceUs =
+    current == IDLE && ambientAwake && !cardOnScreen && age < AMBIENT_WINDOW_MS
+      ? int(lroundf(PrivetMotion::glance(age) * IDLE_GLANCE_DEG * PrivetMotion::US_PER_DEGREE / 1000.0f))
+      : 0;
 
   updateServo(now);
 
@@ -905,16 +961,21 @@ static void updateOLED() {
         ? AMBIENT_WINDOW_MS
         : age;
 
-  const uint32_t transition=current==THINKING?700:current==LISTENING?500:reactionDuration(uint8_t(requested & 255));
+  const uint32_t transition=cardDelay;
   const bool validCard=connected&&shownCard.mode&&shownCard.face==latestFaceId.load();
-  if(validCard&&PrivetFaces::cardExpired(shownCard.mode,now,cardAt,cardVisible,cardShownAt)){
+  if(validCard&&PrivetFaces::cardExpired(shownCard.mode,current,now,cardAt,cardVisible,cardShownAt)){
     current=(shownCard.mode==2||shownCard.mode==4)?THINKING:IDLE;
-    shownCard.mode=0;started=now; // Local safe expiry; no gesture restart.
+    shownCard.mode=0;started=now;
+    // Local safe expiry: THINKING keeps the head still; IDLE restarts only so
+    // the head's glance stays in step with the face's.
+    if(current==IDLE)startServoReaction(IDLE,now);
   }
   if(validCard&&shownCard.mode&&uint32_t(now-lastCommandAt)>=transition){
     if(!cardVisible){cardVisible=true;cardShownAt=now;}
+    cardOnScreen=true;
     drawCard(shownCard);return;
   }
+  cardOnScreen=false;
   drawFace(
     connected,
     current,
@@ -1012,7 +1073,9 @@ class ServerCallbacks : public BLEServerCallbacks {
 static void sendCapabilities(uint32_t requestId){
  uint8_t p[20]={2,0x80};
  for(int i=0;i<4;i++){p[i+2]=uint8_t(requestId>>(8*i));p[i+12]=uint8_t(connectionNonce>>(8*i));}
- p[6]=oledReady?7:3;p[7]=20;p[8]=96;p[10]=64;p[11]=32;p[16]=0x88;p[17]=0x13;
+ // Bit 3 (8): reactions 11 NOD and 12 ON_FIRE are supported; the app sends
+ // them only when this bit is set.
+ p[6]=(oledReady?7:3)|8;p[7]=20;p[8]=96;p[10]=64;p[11]=32;p[16]=0x88;p[17]=0x13;
  sendStatus(p,20);
 }
 class CommandCallbacks : public BLECharacteristicCallbacks {
@@ -1033,10 +1096,12 @@ class CommandCallbacks : public BLECharacteristicCallbacks {
    if(packet[6]==10&&lastAck[7]==0)sendCapabilities(requestId);
    return;
   }
-  uint8_t result=packet[6]<1||packet[6]>10?1:packet[7]!=0?2:0;
+  // Only ON_FIRE carries an argument (its combo); every other command requires 0.
+  uint8_t result=packet[6]<1||packet[6]>ON_FIRE?1:packet[7]!=0&&packet[6]!=ON_FIRE?2:0;
   uint8_t ack[8];memcpy(ack,packet,8);ack[1]=2;ack[7]=result;
   if(!result&&packet[6]!=10){
    // Fixed buffers only. All OLED/servo work stays in loop().
+   if(packet[6]==ON_FIRE)fireCombo.store(packet[7]);
    portENTER_CRITICAL(&cardsMux);cards.face(requestId);portEXIT_CRITICAL(&cardsMux);
    latestFaceId.store(requestId);requestFace(packet[6]);
    wakeTransition.acceptReaction(); // Publish after the face mailbox is ready.
@@ -1064,7 +1129,7 @@ void setup() {
   tiltServo.begin(millis());
 
   Serial.println(
-    "[SERVO] Pan GPIO4, tilt GPIO5, 1300-1700 us; "
+    "[SERVO] Pan GPIO4, tilt GPIO5, limits in ServoMotion.h; "
     "center 1500 us. Smooth follower; PWM off when still."
   );
 

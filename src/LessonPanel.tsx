@@ -28,13 +28,15 @@ export function LessonPanel({controller,native=false,onClose,onUpgrade,nextLesso
  useEffect(()=>{if(!mismatch)return;const timer=setTimeout(()=>setMismatch(null),700);return ()=>clearTimeout(timer);},[mismatch]);
  const questionWord=words.find(w=>w.id===exercise.wordId);
  const displayText=(text:string)=>preferences.stress?stressText(text,words):text;
- const listen=(text:string,rate?:number)=>{if(!speech.available)return;const done=onListen?.(text);speech.speak(text,!progress.complete&&!progress.failed&&!progress.feedback?(typeof done==='function'?done:onListenEnd):undefined,rate);};
+ // The companion listens for as long as the audio plays, then returns to what it showed before.
+ const listen=(text:string,rate?:number)=>{if(!speech.available)return;const done=onListen?.(text);speech.speak(text,typeof done==='function'?done:onListenEnd,rate);};
  // Listening falls back to the written sound guide when no Russian voice works, or on request.
  const listenByEar=speech.available&&speech.status!=='error'&&listenFallbackAt!==progress.index;
  function choosePair(side:'ru'|'en',value:string){
   if(progress.feedback)return;
-  if(side==='ru')listen(value);
   const next={...pick,[side]:pick[side]===value?undefined:value};
+  // A tap that completes a pair plays the word without the listening face: the pair's own reaction follows at once.
+  if(side==='ru'){if(next.ru&&next.en&&speech.available)speech.speak(value);else listen(value);}
   if(!next.ru||!next.en){setPick(next);return;}
   const result=matchPair(next.ru,next.en);setPick({});setThinkingAt(progress.index);
   if(!result.correct)setMismatch([next.ru,next.en]);

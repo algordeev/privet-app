@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {encodeHappy,encodeCommand,COMMAND,decodeAcknowledgement,nextRequestId} from './bleProtocol.ts';
+import {encodeHappy,encodeCommand,COMMAND,EXTENDED_FALLBACK,decodeAcknowledgement,nextRequestId} from './bleProtocol.ts';
 const bytes=(view:DataView)=>Array.from(new Uint8Array(view.buffer,view.byteOffset,view.byteLength));
 test('happy packet is exactly eight bytes with a little-endian unsigned request ID',()=>{
  assert.deepEqual(bytes(encodeHappy(0x12345678)),[1,1,0x78,0x56,0x34,0x12,1,0]);
@@ -25,12 +25,15 @@ test('request IDs remain distinct across controller instances during the process
  for(let i=1;i<ids.length;i++)assert.equal(ids[i],ids[i-1]+1);
 });
 
-test('all nine commands preserve version, eight-byte format and argument zero; ACK echoes each code',()=>{
- assert.deepEqual(Object.values(COMMAND),[1,2,3,4,5,6,7,8,9]);
+test('all eleven reaction commands preserve version, eight-byte format and argument zero; ACK echoes each code',()=>{
+ assert.deepEqual(Object.values(COMMAND),[1,2,3,4,5,6,7,8,9,11,12]);
+ assert.deepEqual(EXTENDED_FALLBACK,{[COMMAND.NOD]:COMMAND.THINKING,[COMMAND.ON_FIRE]:COMMAND.HAPPY},'extended reactions fall back to protocol-v1 codes');
  for(const command of Object.values(COMMAND)){
   const packet=encodeCommand(0x12345678,command);
   assert.deepEqual(bytes(packet),[1,1,0x78,0x56,0x34,0x12,command,0]);
   packet.setUint8(1,2);assert.equal(decodeAcknowledgement(packet)?.command,command);
  }
  for(const code of [0,10,255,-1,1.5,NaN])assert.throws(()=>encodeCommand(1,code as never));
+ assert.deepEqual(bytes(encodeCommand(1,COMMAND.ON_FIRE,7)),[1,1,1,0,0,0,12,7],'ON_FIRE carries its combo');
+ for(const [command,argument] of [[COMMAND.HAPPY,1],[COMMAND.ON_FIRE,256],[COMMAND.ON_FIRE,-1],[COMMAND.ON_FIRE,1.5]] as const)assert.throws(()=>encodeCommand(1,command,argument));
 });
