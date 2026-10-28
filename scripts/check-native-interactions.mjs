@@ -900,6 +900,44 @@ try{
   await assertNativeLayout();
   console.log('PASS: listen-and-choose plays at normal/slow rate, falls back without a voice or on request, and keeps the word off the OLED until graded; match pairs grade per pair, show progress-only cards, cost no heart for a slip and auto-submit.');
  }
+ // Spaced review: a lesson passed before review existed is scheduled on load; its mistake is due today.
+ {
+  const {REVIEW_KEY}=await server.ssrLoadModule('/src/review.ts');
+  const cafe=nativeLessons[0],today=localDay(new Date(2026,9,17,12)),tomorrow=localDay(new Date(2026,9,18,12));
+  const results=cafe.exercises.map(e=>e.id!=='meaning');
+  learningCards=true;russianAudio=true;await open({[savedKey(cafe)]:{preferences:{stress:false,pronunciation:true},completion:{results,date:new Date(2026,9,16,12).toISOString()}}});
+  await until(()=>document.querySelector('.native-review-card')?.textContent.includes('1 word or phrase is ready.'));
+  const seeded=await stored(REVIEW_KEY);assert.deepEqual(seeded.items['cafe/w/coffee'],{box:0,due:today,lapses:0,reviews:0});assert.equal(seeded.items['cafe/w/tea'].due,tomorrow);
+  await openPhysicalSettings();await click('.native-physical-actions .button','Connect');await click('.native-physical-devices button');
+  await until(()=>window.__bleFrames.some(p=>p[0]===1&&p[6]===10));await physicalBackHome();
+  assert.ok(await evaluate(()=>document.querySelector('.native-greeting-row').textContent.includes('1 to review today')),'The companion greeting mentions due reviews');
+  // Returning home from any lesson shows only the due count, with the neutral face.
+  await click('#native-card-introductions ~ .button');await click('[aria-label="Return to app home"]');
+  await until(()=>window.__cards.at(-1)?.primary==='1 to review');assert.deepEqual(await evaluate(()=>[window.__cards.at(-1).secondary,window.__cards.at(-1).mode,window.__bleCommands.at(-1)]),['Practice on phone',1,4]);
+  const statsBefore=await stored(NATIVE_STATS_KEY);
+  await click('#native-review-open');await until(()=>document.querySelector('.native-app')?.dataset.view==='review'&&document.activeElement?.tagName==='H3');
+  assert.ok(await evaluate(()=>document.querySelector('.lesson-step-count').textContent.includes('REVIEW')&&document.querySelector('.lesson-vitals').textContent.includes('∞')),'Review shows its own step label and no heart cost');
+  await until(()=>window.__cards.at(-1)?.primary==='кофе');assert.equal(await evaluate(()=>window.__cards.at(-1).secondary),'Choose on phone');
+  const choose=text=>evaluate(text=>{const b=[...document.querySelectorAll('.choice')].find(b=>b.querySelector('.native-choice-copy > span').textContent===text);b.click();return true;},text);
+  const wrong=await evaluate(()=>[...document.querySelectorAll('.choice .native-choice-copy > span')].map(s=>s.textContent).find(t=>t!=='coffee'));
+  await choose(wrong);await click('.lesson-bottom .button','Check answer');await until(()=>window.__bleCommands.at(-1)===2);
+  assert.ok(await evaluate(()=>document.querySelector('.lesson-vitals').textContent.includes('∞')),'A wrong answer costs nothing');
+  await click('.lesson-bottom .button','Try again');await choose('coffee');await click('.lesson-bottom .button','Check answer');
+  await until(()=>window.__cards.at(-1)?.mode===5);assert.deepEqual(await evaluate(()=>[window.__cards.at(-1).primary,window.__cards.at(-1).secondary]),['кофе','coffee']);
+  await click('.lesson-bottom .button','Continue');await until(()=>window.__bleCommands.at(-1)===3);
+  assert.ok(await evaluate(()=>document.querySelector('.completion h3').textContent.includes('Review done')&&![...document.querySelectorAll('.completion button')].some(b=>b.textContent.includes('Replay'))),'Review completion has no replay');
+  const after=await stored(REVIEW_KEY);
+  assert.deepEqual(after.items['cafe/w/coffee'],{box:0,due:tomorrow,lapses:1,reviews:1});assert.deepEqual(after.log,[{key:'cafe/w/coffee',day:today,correct:false,format:'meaning'}]);
+  const statsAfter=await stored(NATIVE_STATS_KEY);
+  assert.equal(statsAfter.days[today],(statsBefore.days[today]??0)+1,'Review keeps the streak');assert.ok(statsAfter.xp[today]>(statsBefore.xp[today]??0));assert.equal(statsAfter.gems.balance,statsBefore.gems.balance,'Review awards no gems');
+  const commands=await evaluate(()=>window.__bleCommands.length);
+  await click('.native-completion-home');await until(()=>document.activeElement?.id==='native-review-title');
+  assert.ok(await evaluate(()=>document.querySelector('.native-review-card').textContent.includes('All caught up. Next review tomorrow.')&&!document.querySelector('#native-review-open')));
+  assert.equal(await evaluate(n=>window.__bleCommands.slice(n).at(-1),commands),4);assert.notEqual(await evaluate(()=>window.__cards.at(-1).primary),'0 to review');
+  await open({[savedKey(cafe)]:{preferences:{stress:false,pronunciation:true},completion:{results,date:new Date(2026,9,16,12).toISOString()}},[REVIEW_KEY]:after},new Date(2026,9,18,12).getTime());
+  await until(()=>document.querySelector('.native-review-card')?.textContent.includes('ready.'));
+  console.log('PASS: passed lessons seed review; home card, greeting and OLED show only the due count; a review session reuses lesson UI with free mistakes, safe OLED cards and CELEBRATE, reschedules the item, keeps the streak/XP without gems, and items return the next day.');
+ }
  assert.deepEqual(browserErrors,[],'No uncaught browser exceptions');
  console.log('PASS: interaction checks use isolated Chromium shims; no real iPhone, ESP32, speech or payment verification.');
 }finally{

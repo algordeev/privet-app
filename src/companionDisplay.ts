@@ -4,7 +4,7 @@ import type {Progress} from './engine.ts';
 import {DISPLAY_MODE as MODE,fitText,validateCard,type LearningCard} from './learningProtocol.ts';
 // Small OLED labels, independent of lesson prose/editorial changes. Never parse
 // success/review strings to invent a translation or embed curriculum in firmware.
-const labels:Readonly<Record<string,string>>={cafe:'At the cafe',introductions:'Meet Anna','around-town':'Find the metro',shopping:'At the shop','daily-life':'Your day','making-plans':'Make a plan',studies:'Study and work',culture:'A weekend together'};
+const labels:Readonly<Record<string,string>>={cafe:'At the cafe',introductions:'Meet Anna','around-town':'Find the metro',shopping:'At the shop','daily-life':'Your day','making-plans':'Make a plan',studies:'Study and work',culture:'A weekend together',review:'Review'};
 const replies:Readonly<Record<string,{russian:string;meaning:string}>>={'studies/exchange':{russian:'А я работаю.',meaning:'And I work.'}};
 export function normalizedDisplay(text:string){return text.normalize('NFD').replace(/[\u0300\u0301]/g,'').normalize('NFC').toLocaleLowerCase('ru').replace(/[^\p{L}\p{N}]+/gu,' ').trim();}
 export function containsAnswer(text:string,answer:string){const a=normalizedDisplay(answer),t=normalizedDisplay(text);return !!a&&(/[а-яё]/iu.test(answer)?t.includes(a):(` ${t} `).includes(` ${a} `));}
@@ -43,7 +43,8 @@ export function companionDisplay(definition:LessonDefinition,progress:Progress,a
   if(e.kind==='vocabulary')return;
   const word=definition.words.find(w=>w.id===e.wordId);
   if(word)return card(MODE.ANSWER,word.text,word.meaning);
-  const curated=replies[`${definition.id}/${e.id}`];
+  // Review exercises carry their source as `${lessonId}/e/${exerciseId}`.
+  const curated=replies[`${definition.id}/${e.id}`]??replies[e.id.replace('/e/','/')];
   const meaning=e.translation??definition.words.find(w=>normalizedDisplay(w.text)===normalizedDisplay(e.answer))?.meaning??(curated&&normalizedDisplay(curated.russian)===normalizedDisplay(e.answer)?curated.meaning:undefined);
   return /[А-Яа-яЁё]/u.test(e.answer)&&meaning?card(MODE.ANSWER,e.answer,meaning):undefined;
  }

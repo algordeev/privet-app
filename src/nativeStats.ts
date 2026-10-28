@@ -77,6 +77,12 @@ export function recordFinish(stats:NativeStats,results:boolean[],date:Date,lesso
  const cumulative={finish:previous.finish+finish,perfect:previous.perfect+perfect,streakWeek:previous.streakWeek+streakWeek};
  next={...next,latest:{...next.latest!,gemAward:breakdown},gems:{...next.gems,balance:next.gems.balance+finish+perfect+streakWeek,milestones:streakWeek?[...next.gems.milestones,day]:next.gems.milestones,awards:{...next.gems.awards,[day]:{...next.gems.awards[day],[id]:cumulative}}}};return next;
 }
+// Review sessions keep the streak alive and earn XP, but award no gems and leave `latest` (a lesson receipt) untouched.
+export const REVIEW_SESSION_PREFIX='review:';
+export function recordReviewFinish(stats:NativeStats,date:Date,xp=0):NativeStats{
+ const day=resolveToday(stats,date),lastSeenAt=Math.max(stats.lastSeenAt??0,date.getTime());
+ return {...stats,days:{...stats.days,[day]:(stats.days[day]??0)+1},xp:xp>0?{...stats.xp,[day]:(stats.xp[day]??0)+xp}:stats.xp,lastSeenAt};
+}
 export function createStatsTracker(initial:NativeStats,save:(stats:NativeStats)=>void,now:()=>Date){
  let stats=initial;
  const recorded=new Set<string>();
@@ -95,6 +101,7 @@ export function createStatsTracker(initial:NativeStats,save:(stats:NativeStats)=
    if(action.type!=='continue'||recorded.has(lessonId)||previous.complete||!next.complete||next.failed)return;
    recorded.add(lessonId);
    const date=now();
+   if(lessonId.startsWith(REVIEW_SESSION_PREFIX)){update(current=>recordReviewFinish(applyStreakFreezes(current,date),date,lessonXp(next,next.results.length)));return;}
    update(current=>recordFinish(applyStreakFreezes(current,date),next.results,date,lessonId,lessonXp(next,next.results.length)));
   },
   reset(){recorded.clear();update(()=>emptyStats());},

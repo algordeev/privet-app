@@ -3,6 +3,7 @@ import {App} from '@capacitor/app';
 import {Capacitor} from '@capacitor/core';
 import {companionDisplay} from './companionDisplay';
 import type {LessonDefinition} from './curriculum/types';
+import type {LearningCard} from './learningProtocol';
 import {COMMAND} from './bleProtocol';
 import {createPhysicalLessonEvents} from './physicalLessonEvents';
 import type {Action,Progress} from './engine';
@@ -66,7 +67,7 @@ export function usePhysicalCompanion(){
  const connect=useCallback((id:string)=>{void transport.current?.connect(id);},[]);
  const testHappy=useCallback(()=>{void transport.current?.testHappy();},[]);
  const disconnect=useCallback(()=>{revision.current++;transport.current?.disconnect();},[]);
- const navigate=useCallback((screen:'home'|'profile'|'lesson'|'physical')=>{revision.current++;context.current=null;transport.current?.navigate(screen);},[]);
+ const navigate=useCallback((screen:'home'|'profile'|'lesson'|'physical',homeCard?:LearningCard)=>{revision.current++;context.current=null;transport.current?.navigate(screen,homeCard);},[]);
  const greet=useCallback(()=>{transport.current?.request(COMMAND.HAPPY);},[]);
  const onListen=useCallback((text?:string)=>{
   const token=++revision.current,current=context.current,connection=transport.current?.connectionToken();

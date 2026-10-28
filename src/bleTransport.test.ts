@@ -426,3 +426,12 @@ test('same-context reactions do not wait behind pending capability negotiation',
  h.actor.request(COMMAND.LISTENING);await flush();assert.deepEqual(h.codes(),[9,6,5]);await h.ackLatest();
  await h.tick(CARD_LIMITS.ack);assert.equal(h.state.ready,true);assert.equal(h.state.pending,false);h.actor.dispose();
 });
+test('home navigation may carry a status card with the neutral face; profile and lesson navigation never do',async()=>{
+ const h=harness({async write(_id,p){if(p.getUint8(0)===2&&p.getUint8(1)===0x12)h.notify(contentAck(p));}},true,0,true);await h.ready();
+ h.actor.navigate('lesson');await flush();await h.ackLatest();h.writes.length=0;
+ h.actor.navigate('home',learningCard);await flush();await h.ackLatest();
+ assert.equal(h.writes[0].getUint8(6),COMMAND.IDLE);assert.deepEqual(h.writes.map(p=>p.getUint8(1)),[1,0x10,0x11,0x11,0x11,0x12]);
+ h.writes.length=0;h.actor.navigate('profile',learningCard);await flush();assert.equal(h.writes.length,0);
+ h.actor.navigate('lesson',learningCard);await flush();await h.ackLatest();assert.deepEqual(h.writes.map(p=>p.getUint8(1)),[1]);
+ h.actor.dispose();
+});
