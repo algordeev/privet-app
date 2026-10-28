@@ -1,4 +1,5 @@
-// Version 1 wire format; commands 5–9 require the new-emotions firmware. Canonical UUIDs are shared by the transport and firmware docs.
+// Version 1 wire format; commands 5–9 require the new-emotions firmware, and 11–12 are sent only to
+// firmware advertising them (capability bit 8; see learningProtocol.ts). Canonical UUIDs are shared by the transport and firmware docs.
 export const BLE_SERVICE='7b5e0001-6d8a-4f3b-9c2e-1a0d8f6b4c91';
 export const BLE_COMMAND='7b5e0002-6d8a-4f3b-9c2e-1a0d8f6b4c91';
 export const BLE_STATUS='7b5e0003-6d8a-4f3b-9c2e-1a0d8f6b4c91';
@@ -8,14 +9,18 @@ export function nextRequestId(){
  if(lastRequestId===0xffffffff)throw new Error('Request IDs exhausted. Restart Privet before testing again.');
  return ++lastRequestId;
 }
-export const COMMAND={HAPPY:1,ENCOURAGE:2,CELEBRATE:3,IDLE:4,LISTENING:5,THINKING:6,HINT:7,STREAK:8,CONNECTED:9} as const;
+export const COMMAND={HAPPY:1,ENCOURAGE:2,CELEBRATE:3,IDLE:4,LISTENING:5,THINKING:6,HINT:7,STREAK:8,CONNECTED:9,NOD:11,ON_FIRE:12} as const;
 export type CommandCode=typeof COMMAND[keyof typeof COMMAND];
+// What firmware without the extended reactions receives instead.
+export const EXTENDED_FALLBACK:Readonly<Partial<Record<CommandCode,CommandCode>>>={[COMMAND.NOD]:COMMAND.THINKING,[COMMAND.ON_FIRE]:COMMAND.HAPPY};
 const validCommands:ReadonlySet<number>=new Set(Object.values(COMMAND));
-export function encodeCommand(requestId:number,command:CommandCode):DataView {
+// Only ON_FIRE carries an argument (its combo, 0-255); every other command sends 0.
+export function encodeCommand(requestId:number,command:CommandCode,argument=0):DataView {
  if(!validCommands.has(command))throw new Error('Invalid command');
  if(!Number.isInteger(requestId)||requestId<1||requestId>0xffffffff)throw new Error('Invalid request ID');
+ if(!Number.isInteger(argument)||argument<0||argument>255||(argument!==0&&command!==COMMAND.ON_FIRE))throw new Error('Invalid argument');
  const packet=new DataView(new ArrayBuffer(8));
- packet.setUint8(0,1);packet.setUint8(1,1);packet.setUint32(2,requestId,true);packet.setUint8(6,command);packet.setUint8(7,0);
+ packet.setUint8(0,1);packet.setUint8(1,1);packet.setUint32(2,requestId,true);packet.setUint8(6,command);packet.setUint8(7,argument);
  return packet;
 }
 export const encodeHappy=(requestId:number)=>encodeCommand(requestId,COMMAND.HAPPY);

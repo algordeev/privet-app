@@ -6,7 +6,7 @@ import {encodeCommand,BLE_SERVICE,COMMAND,type CommandCode} from './bleProtocol.
 function deferred<T=void>(){let resolve!:(value:T)=>void,reject!:(error:Error)=>void;const promise=new Promise<T>((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};}
 const flush=()=>new Promise<void>(resolve=>setImmediate(resolve));
 function acknowledgement(id:number,result=0,command:CommandCode=COMMAND.HAPPY){const packet=encodeCommand(id,command);packet.setUint8(1,2);packet.setUint8(7,result);return packet;}
-function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0,capable:boolean|'silent'|'ack-only'|'malformed'=false){
+function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0,capable:boolean|'silent'|'ack-only'|'malformed'|'extended'=false){
  let now=0,nextTimer=0,initializations=0,connections=0,cleanups=0,stopScans=0,syncing=false,activeWrites=0,maxWrites=0,subscriptions=0,watches=0,queries=0;
  let found!:(device:PhysicalDevice)=>void,notified!:(value:DataView)=>void,disconnected!:()=>void,enabled!:(value:boolean)=>void;
  const timers=new Map<number,{at:number;fn:()=>void}>(),writes:DataView[]=[],allWrites:DataView[]=[],snapshots:BleState[]=[];
@@ -23,7 +23,7 @@ function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0,ca
    allWrites.push(packet);
    if(packet.getUint8(0)===1&&packet.getUint8(6)===10){
     const ack=new DataView(packet.buffer.slice(0));ack.setUint8(1,2);ack.setUint8(7,capable?0:1);
-    if(capable===true||capable==='malformed'){const caps=new DataView(new ArrayBuffer(20));[2,0x80,0,0,0,0,7,20,96,0,64,32,77,0,0,0,0x88,0x13].forEach((v,i)=>caps.setUint8(i,v));caps.setUint32(2,packet.getUint32(2,true),true);if(capable==='malformed')caps.setUint8(10,65);notified(caps);}
+    if(capable===true||capable==='malformed'||capable==='extended'){const caps=new DataView(new ArrayBuffer(20));[2,0x80,0,0,0,0,capable==='extended'?15:7,20,96,0,64,32,77,0,0,0,0x88,0x13].forEach((v,i)=>caps.setUint8(i,v));caps.setUint32(2,packet.getUint32(2,true),true);if(capable==='malformed')caps.setUint8(10,65);notified(caps);}
     if(capable!=='silent')notified(ack);return;
    }
    writes.push(packet);activeWrites++;maxWrites=Math.max(maxWrites,activeWrites);
@@ -434,4 +434,22 @@ test('home navigation may carry a status card with the neutral face; profile and
  h.writes.length=0;h.actor.navigate('profile',learningCard);await flush();assert.equal(h.writes.length,0);
  h.actor.navigate('lesson',learningCard);await flush();await h.ackLatest();assert.deepEqual(h.writes.map(p=>p.getUint8(1)),[1]);
  h.actor.dispose();
+});
+test('extended reactions reach only firmware that advertises them; others get THINKING and HAPPY',async()=>{
+ for(const [capable,expected] of [[false,[COMMAND.THINKING,COMMAND.HAPPY]],[true,[COMMAND.THINKING,COMMAND.HAPPY]],['extended',[COMMAND.NOD,COMMAND.ON_FIRE]]] as const){
+  const h=harness({},true,0,capable);await h.ready();
+  h.actor.request(COMMAND.NOD);await flush();await h.ackLatest();
+  h.actor.request(COMMAND.ON_FIRE);await flush();await h.ackLatest();
+  assert.deepEqual(h.codes(),expected,String(capable));assert.equal(h.state.notice,undefined,'no update notice for a supported fallback');
+  h.actor.dispose();
+ }
+});
+test('the ON_FIRE combo reaches extended firmware; a fallback HAPPY always carries argument 0',async()=>{
+ for(const [capable,expected] of [['extended',[12,5]],[true,[1,0]]] as const){
+  const h=harness({},true,0,capable);await h.ready();
+  h.actor.request(COMMAND.ON_FIRE,undefined,5);await flush();await h.ackLatest();
+  const packet=h.writes.at(-1)!;assert.deepEqual([packet.getUint8(6),packet.getUint8(7)],[...expected],String(capable));
+  h.actor.request(COMMAND.HAPPY,undefined,9);await flush();await h.ackLatest();assert.equal(h.writes.at(-1)!.getUint8(7),0,'only ON_FIRE carries an argument');
+  h.actor.dispose();
+ }
 });

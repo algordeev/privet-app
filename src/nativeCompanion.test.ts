@@ -84,3 +84,9 @@ test('completion counts the lesson’s real steps and matched pairs count as a s
  assert.equal(nativeLessonReaction({...initialProgress(),complete:true,index:1,results:[true]})?.message,'Молодец! One small step complete.');
  assert.equal(lessonStarted({...freshSession(),matches:['завтра']}),true);
 });
+test('the virtual companion is "on fire" exactly when the physical one is',()=>{
+ const p={...initialProgress(),index:2,attempts:1,feedback:'correct' as const,combo:2,bestCombo:2};
+ assert.deepEqual(nativeLessonReaction(p),{expression:'celebrating',message:'Two in a row!'});
+ assert.deepEqual(nativeLessonReaction({...p,combo:3,bestCombo:3}),{expression:'celebrating',message:'Three in a row! You’re on fire.'});
+ for(const other of [{...p,combo:1,bestCombo:1},{...p,attempts:2},{...p,feedback:'incorrect' as const}])assert.doesNotMatch(nativeLessonReaction(other)!.message,/in a row/);
+});
