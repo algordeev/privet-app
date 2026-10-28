@@ -22,7 +22,7 @@ const encouraging=['Take your time. You can try again.','A little practice helps
 const friendly=['A little Russian, at your pace.','I’m here for the little wins.','One small step is a good start.'];
 const stepCounts=['Zero','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten'];
 export function nativeLessonReaction(progress:Progress):{expression:NativeExpression;message:string}|null {
- if(progress.complete)return {expression:'celebrating',message:`Молодец! ${stepCounts[progress.results.length]??'All'} small steps complete.`};
+ if(progress.complete)return {expression:'celebrating',message:`Молодец! ${stepCounts[progress.results.length]??'All'} small ${progress.results.length===1?'step':'steps'} complete.`};
  if(!progress.feedback)return null;
  const n=(progress.index+Math.max(0,progress.attempts-1))%3;
  return progress.feedback==='correct'?{expression:'happy',message:correct[n]}:{expression:'encouraging',message:encouraging[n]};

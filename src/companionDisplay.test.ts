@@ -1,4 +1,4 @@
-import {companionCardFixtures} from '../scripts/companion-card-fixtures.ts';
+import {companionCardFixtures,reviewDefinitions} from '../scripts/companion-card-fixtures.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {nativeLessons} from './curriculum/catalog.ts';
@@ -7,9 +7,9 @@ import {initialProgress} from './engine.ts';
 import {companionDisplay,safeBeforeAnswer,normalizedDisplay,compactMeaning} from './companionDisplay.ts';
 import {validateCard,DISPLAY_MODE as MODE} from './learningProtocol.ts';
 import {lessonById} from './curriculum/catalog.ts';
-test('all eight lessons and onboarding have answer-safe pre-answer cards, hints, and incorrect states',()=>{
+test('all eight lessons, onboarding and every review format have answer-safe pre-answer cards, hints, and incorrect states',()=>{
  assert.equal(nativeLessons.length,8);
- for(const definition of [...nativeLessons,firstRunLesson])for(const [index,e] of definition.exercises.entries()){
+ for(const definition of [...nativeLessons,firstRunLesson,...reviewDefinitions()])for(const [index,e] of definition.exercises.entries()){
   for(const feedback of [null,'incorrect'] as const){const state={...initialProgress(),index,feedback};
    for(const action of [{kind:'state'},{kind:'hint'},...definition.words.map(w=>({kind:'listen',text:w.text})),{kind:'listen',text:e.answer}] as const){
     const card=companionDisplay(definition,state,action);if(card){assert.ok(validateCard(card),`${definition.id}/${e.id}`);if(e.kind!=='vocabulary'&&/[а-яё]/iu.test(e.answer)){const answer=normalizedDisplay(e.answer);for(const text of [card.primary,card.secondary,card.primary+' '+card.secondary])assert.ok(!normalizedDisplay(text).includes(answer),`${definition.id}/${e.id}: leaked ${e.answer}`);}

@@ -272,13 +272,14 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
  function leaveSettings(){
   if(state.phase==='scanning'||state.phase==='connecting')invalidate('disconnected','Connection cancelled.');
  }
- function navigate(next:typeof screen){
+ // homeCard: an optional status card (e.g. reviews due) shown with the neutral home face.
+ function navigate(next:typeof screen,homeCard?:LearningCard){
   if(next===screen)return;
   if(screen==='physical')leaveSettings();
   screen=next;
   // Profile entry is silent: no face change or movement. Other navigation
   // establishes a neutral context. Code STREAK remains protocol-compatible only.
-  if(next!=='profile')request(COMMAND.IDLE);
+  if(next!=='profile')request(COMMAND.IDLE,next==='home'?homeCard:undefined);
  }
  // Unlike ordinary same-screen navigation, direct lesson switches must replace
  // the old question context even while the lesson view is already open.
