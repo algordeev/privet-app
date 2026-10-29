@@ -10,7 +10,8 @@ export const lesson:LessonDefinition={
  ],
  "skills": [
   "ask a price",
-  "buy politely"
+  "buy politely",
+  "pay"
  ],
  "prerequisiteIds": [
   "around-town"
@@ -82,23 +83,59 @@ export const lesson:LessonDefinition={
    "hint": "Look at the word in the first step and connect it to this situation."
   },
   {
-   "id": "type",
-   "kind": "typed",
-   "title": "Bread on the list.",
-   "instruction": "Type “bread” in Russian. The letter buttons are here if you need them.",
-   "prompt": "хлеб",
-   "translation": "bread",
-   "letters": [
-    "е",
-    "б",
-    "х",
-    "л"
+   "id": "match",
+   "kind": "match",
+   "title": "Words for the counter.",
+   "instruction": "Match each Russian expression with its meaning.",
+   "prompt": "Match the pairs",
+   "pairs": [
+    ["Да, спасибо.", "Yes, thank you."],
+    ["Сколько стоит?", "How much does it cost?"],
+    ["пожалуйста", "please"],
+    ["хлеб", "bread"],
+    ["Вот, пожалуйста.", "Here you are."]
    ],
-   "answer": "хлеб",
-   "review": "хлеб → bread",
-   "success": "Yes: хлеб means “bread”. A useful word for this story.",
-   "retryFeedback": "This is the short word for bread. Check the breathy first letter.",
-   "hint": "Four letters: the first sound is the breathy kh."
+   "answer": "matched",
+   "review": "Да, спасибо. → Yes, thank you. · Сколько стоит? → How much does it cost? · пожалуйста → please · хлеб → bread · Вот, пожалуйста. → Here you are.",
+   "success": "All matched: you can ask, order, confirm and pay.",
+   "retryFeedback": "Check the pairs that didn't lock in.",
+   "hint": "Two of these contain пожалуйста. Which one hands something over?"
+  },
+  {
+   "id": "listen",
+   "kind": "listen",
+   "wordId": "here",
+   "title": "At the counter.",
+   "instruction": "The assistant hands you the bread. Listen, then choose what you heard.",
+   "prompt": "Вот, пожалуйста.",
+   "choices": [
+    "Сколько стоит?",
+    "Вот, пожалуйста.",
+    "Да, спасибо."
+   ],
+   "answer": "Вот, пожалуйста.",
+   "review": "Вот, пожалуйста. → Here you are.",
+   "success": "Yes: Вот, пожалуйста. means “Here you are.”",
+   "retryFeedback": "Replay it: the assistant is handing something over, not asking.",
+   "hint": "Listen for the short first word: вот."
+  },
+  {
+   "id": "sentence",
+   "kind": "sentence",
+   "title": "A small, polite order.",
+   "instruction": "Build “Bread, please.”",
+   "prompt": "Хлеб, пожалуйста",
+   "translation": "Bread, please.",
+   "tokens": [
+    "пожалуйста",
+    "Хлеб,"
+   ],
+   "answer": "Хлеб, пожалуйста",
+   "review": "Хлеб, пожалуйста → Bread, please.",
+   "success": "That works: Хлеб, пожалуйста. Bread, please.",
+   "retryFeedback": "The words are right; try a different order for this message.",
+   "hint": "Name what you want, then add the polite word.",
+   "pronunciationGuide": "Хлеб · hlep / пожа́луйста · pa-ZHA-lu-sta"
   },
   {
    "id": "exchange",
@@ -123,24 +160,42 @@ export const lesson:LessonDefinition={
    "hint": "Choose a reply that fits the invitation or question, rather than starting a new topic."
   },
   {
-   "id": "sentence",
-   "kind": "sentence",
-   "title": "A small, polite order.",
-   "instruction": "Build “Bread, please.”",
-   "prompt": "Хлеб, пожалуйста",
-   "translation": "Bread, please.",
-   "tokens": [
-    "пожалуйста",
-    "Хлеб,"
+   "id": "pay",
+   "kind": "choice",
+   "title": "Time to pay.",
+   "instruction": "You hand the money to the assistant. What do you say?",
+   "prompt": "Вот, пожалуйста.",
+   "choices": [
+    "Сколько стоит?",
+    "Пока!",
+    "Вот, пожалуйста."
    ],
-   "answer": "Хлеб, пожалуйста",
-   "review": "Хлеб, пожалуйста → Bread, please.",
-   "success": "That works: Хлеб, пожалуйста. Bread, please.",
-   "retryFeedback": "The words are right; try a different order for this message.",
-   "hint": "Name what you want, then add the polite word.",
-   "pronunciationGuide": "Хлеб · hlep / пожа́луйста · pa-ZHA-lu-sta"
+   "answer": "Вот, пожалуйста.",
+   "review": "Handing over money: Вот, пожалуйста. → Here you are.",
+   "success": "Yes: Вот, пожалуйста. works both ways, for the assistant and for you.",
+   "retryFeedback": "You are giving something, not asking a question or leaving.",
+   "hint": "It is the same phrase the assistant used when handing you the bread."
+  },
+  {
+   "id": "type",
+   "kind": "typed",
+   "title": "Bread on the list.",
+   "instruction": "Type “bread” in Russian. The letter buttons are here if you need them.",
+   "prompt": "хлеб",
+   "translation": "bread",
+   "letters": [
+    "е",
+    "б",
+    "х",
+    "л"
+   ],
+   "answer": "хлеб",
+   "review": "хлеб → bread",
+   "success": "Yes: хлеб means “bread”. A useful word for this story.",
+   "retryFeedback": "This is the short word for bread. Check the breathy first letter.",
+   "hint": "Four letters: the first sound is the breathy kh."
   }
  ],
- "summary": "You asked a price, requested bread, and confirmed your purchase politely.",
+ "summary": "You asked a price, ordered bread, and paid politely with Вот, пожалуйста.",
  "completionTip": "At a counter, name an item and add пожалуйста."
 };

@@ -14,7 +14,9 @@ export function matchValue(matched:readonly string[],exercise:Exercise){return (
 export const MAX_HEARTS=3;
 export type Progress = { index:number; attempts:number; results:boolean[]; feedback:'correct'|'incorrect'|null; complete:boolean; hearts:number; combo:number; bestCombo:number; failed:boolean };
 export const initialProgress = (): Progress => ({ index:0, attempts:0, results:[], feedback:null, complete:false,hearts:MAX_HEARTS,combo:0,bestCombo:0,failed:false });
-export function lessonXp(progress:Pick<Progress,'failed'|'hearts'|'bestCombo'>,steps:number){return progress.failed?0:10+Math.min(Math.max(0,progress.hearts),MAX_HEARTS)+(steps>0&&progress.bestCombo>0&&progress.bestCombo<=steps?Math.ceil(5*progress.bestCombo/steps):0);}
+// One XP per answer in the best first-try combo, so longer lessons can earn more.
+export function comboXp(progress:Pick<Progress,'bestCombo'>,steps:number){return progress.bestCombo>0&&progress.bestCombo<=steps?progress.bestCombo:0;}
+export function lessonXp(progress:Pick<Progress,'failed'|'hearts'|'bestCombo'>,steps:number){return progress.failed?0:10+Math.min(Math.max(0,progress.hearts),MAX_HEARTS)+comboXp(progress,steps);}
 
 // Assessment prompts never carry solutions. An explicit hint or a correct
 // submission is the only way to reveal one on the companion.

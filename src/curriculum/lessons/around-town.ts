@@ -9,6 +9,7 @@ export const lesson:LessonDefinition={
   "Travel"
  ],
  "skills": [
+  "get attention politely",
   "ask where",
   "understand direction"
  ],
@@ -16,6 +17,13 @@ export const lesson:LessonDefinition={
   "introductions"
  ],
  "words": [
+  {
+   "id": "excuse",
+   "text": "Извините!",
+   "stressed": "Извини́те!",
+   "pronunciation": "iz-vi-NEE-te",
+   "meaning": "Excuse me!"
+  },
   {
    "id": "where",
    "text": "Где метро?",
@@ -57,8 +65,8 @@ export const lesson:LessonDefinition={
    "id": "discover",
    "kind": "vocabulary",
    "title": "A station around the corner.",
-   "instruction": "Find the metro with help from a passer-by. Explore these five expressions before you try them.",
-   "prompt": "Где метро?",
+   "instruction": "Find the metro with help from a passer-by. Explore these six expressions before you try them.",
+   "prompt": "Извините!",
    "answer": "ready",
    "review": "Around town expressions",
    "success": "You have the expressions for this visit. Let’s put them to use."
@@ -100,22 +108,58 @@ export const lesson:LessonDefinition={
    "hint": "Listen for the middle of the word: -пра- or -ле-?"
   },
   {
+   "id": "match",
+   "kind": "match",
+   "title": "Every direction.",
+   "instruction": "Match each Russian expression with its meaning.",
+   "prompt": "Match the pairs",
+   "pairs": [
+    ["Где метро?", "Where is the metro?"],
+    ["Направо.", "To the right."],
+    ["Прямо.", "Straight ahead."],
+    ["Налево.", "To the left."]
+   ],
+   "answer": "matched",
+   "review": "Где метро? → Where is the metro? · Направо. → To the right. · Прямо. → Straight ahead. · Налево. → To the left.",
+   "success": "All matched: your question and all three directions.",
+   "retryFeedback": "Check the pairs that didn't lock in.",
+   "hint": "Направо and Налево differ in the middle: -пра- or -ле-."
+  },
+  {
+   "id": "polite",
+   "kind": "choice",
+   "title": "Stop a stranger politely.",
+   "instruction": "You need directions from someone you don’t know. How do you start?",
+   "prompt": "Извините!",
+   "choices": [
+    "Привет!",
+    "Извините!",
+    "Пока!"
+   ],
+   "answer": "Извините!",
+   "review": "To a stranger: Извините! → Excuse me!",
+   "success": "Yes: Извините! politely gets a stranger’s attention.",
+   "retryFeedback": "Привет! and Пока! are friendly words for people you know. A stranger needs a polite opener.",
+   "hint": "Choose the polite way to get someone’s attention."
+  },
+  {
    "id": "sentence",
    "kind": "sentence",
    "title": "Ask for the metro.",
-   "instruction": "Build “Where is the metro?”",
-   "prompt": "Где метро",
-   "translation": "Where is the metro?",
+   "instruction": "Build “Excuse me, where is the metro?”",
+   "prompt": "Извините, где метро",
+   "translation": "Excuse me, where is the metro?",
    "tokens": [
-    "метро",
-    "Где"
+    "где",
+    "Извините,",
+    "метро"
    ],
-   "answer": "Где метро",
-   "review": "Где метро → Where is the metro?",
-   "success": "That works: Где метро. Where is the metro?",
+   "answer": "Извините, где метро",
+   "review": "Извините, где метро → Excuse me, where is the metro?",
+   "success": "That works: Извините, где метро? Polite and clear.",
    "retryFeedback": "The words are right; try a different order for this message.",
-   "hint": "Ask where first, then name the place.",
-   "pronunciationGuide": "Где · gde / метро́ · mi-TRO"
+   "hint": "Get their attention first, then ask where.",
+   "pronunciationGuide": "Извини́те · iz-vi-NEE-te / где · gde / метро́ · mi-TRO"
   },
   {
    "id": "exchange",
@@ -160,6 +204,6 @@ export const lesson:LessonDefinition={
    "hint": "Remember the direction that takes you ahead, without turning."
   }
  ],
- "summary": "You asked where the metro is, recognized three directions, and thanked a passer-by.",
+ "summary": "You stopped a stranger politely, asked where the metro is, understood three directions, and said thank you.",
  "completionTip": "Try Где…? with a place you need to find."
 };

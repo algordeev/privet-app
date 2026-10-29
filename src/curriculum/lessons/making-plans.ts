@@ -101,6 +101,24 @@ export const lesson:LessonDefinition={
    "hint": "Look at the word in the first step and connect it to this situation."
   },
   {
+   "id": "listen",
+   "kind": "listen",
+   "wordId": "meet",
+   "title": "Before you go.",
+   "instruction": "Alex is leaving. Listen, then choose what you heard.",
+   "prompt": "До завтра!",
+   "choices": [
+    "Давай гулять!",
+    "До завтра!",
+    "Давай!"
+   ],
+   "answer": "До завтра!",
+   "review": "До завтра! → See you tomorrow!",
+   "success": "Yes: До завтра! means “See you tomorrow!”",
+   "retryFeedback": "Replay it: Alex is saying goodbye, not making a plan.",
+   "hint": "Listen for завтра at the end."
+  },
+  {
    "id": "exchange",
    "kind": "choice",
    "title": "Alex has an idea.",
@@ -145,6 +163,29 @@ export const lesson:LessonDefinition={
    "pronunciationGuide": "Дава́й · da-VAI / гуля́ть · gu-LYAT / за́втра · ZAF-tra"
   },
   {
+   "id": "bye",
+   "kind": "choice",
+   "title": "A friendly goodbye.",
+   "instruction": "Alex says goodbye until tomorrow. Reply the way friends do.",
+   "prompt": "До завтра!",
+   "exchange": {
+    "speaker": "ALEX",
+    "text": "До завтра!",
+    "meaning": "See you tomorrow!"
+   },
+   "translation": "Bye!",
+   "choices": [
+    "Сколько стоит?",
+    "Пока!",
+    "Меня зовут Анна."
+   ],
+   "answer": "Пока!",
+   "review": "До завтра! → Пока!",
+   "success": "Yes: Пока! is the easy goodbye between friends.",
+   "retryFeedback": "Alex is leaving. Choose a goodbye.",
+   "hint": "With a friend, the short goodbye from Lesson 2 fits."
+  },
+  {
    "id": "type",
    "kind": "typed",
    "title": "Keep the date.",
@@ -165,6 +206,6 @@ export const lesson:LessonDefinition={
    "hint": "Not today: the next day. It starts with a z sound."
   }
  ],
- "summary": "You invited a friend for a walk, accepted a plan, and said see you tomorrow.",
+ "summary": "You invited Alex for a walk, agreed on tomorrow, and said a friendly goodbye.",
  "completionTip": "Use Давай… with a friend or peer; it is informal."
 };
