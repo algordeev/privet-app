@@ -2,6 +2,7 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 import {Capacitor} from '@capacitor/core';
 import {App} from '@capacitor/app';
 import {createSpeechController,type SpeechController,type SpeechSnapshot} from './speechController';
+import {stressText} from './stress';
 
 export function useSpeech(enabled=true) {
  const controller=useRef<SpeechController|null>(null);
@@ -9,7 +10,9 @@ export function useSpeech(enabled=true) {
  useEffect(()=>{
   if(!enabled||!('speechSynthesis' in window)||!('SpeechSynthesisUtterance' in window))return;
   const audio=createSpeechController({
-   synth:window.speechSynthesis,utterance:text=>new SpeechSynthesisUtterance(text),
+   synth:window.speechSynthesis,
+   // The stress mark (U+0301) steers iOS voices away from wrong stress, e.g. стои́т for сто́ит.
+   utterance:text=>new SpeechSynthesisUtterance(stressText(text)),
    now:()=>Date.now(),setTimer:(fn,ms)=>setTimeout(fn,ms),clearTimer:timer=>clearTimeout(timer),
   },setState);
   controller.current=audio;
