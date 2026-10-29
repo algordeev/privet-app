@@ -20,14 +20,14 @@ export const lesson:LessonDefinition={
    "id": "price",
    "text": "Сколько стоит?",
    "stressed": "Ско́лько сто́ит?",
-   "pronunciation": "SKOL-ka STO-eet",
+   "pronunciation": "SKOL-ka STO-it",
    "meaning": "How much does it cost?"
   },
   {
    "id": "bread",
    "text": "хлеб",
    "stressed": "хлеб",
-   "pronunciation": "khlyep",
+   "pronunciation": "hlep",
    "meaning": "bread"
   },
   {
@@ -138,7 +138,7 @@ export const lesson:LessonDefinition={
    "success": "That works: Хлеб, пожалуйста. Bread, please.",
    "retryFeedback": "The words are right; try a different order for this message.",
    "hint": "Name what you want, then add the polite word.",
-   "pronunciationGuide": "Хлеб · khlyep / пожа́луйста · pa-ZHA-lu-sta"
+   "pronunciationGuide": "Хлеб · hlep / пожа́луйста · pa-ZHA-lu-sta"
   }
  ],
  "summary": "You asked a price, requested bread, and confirmed your purchase politely.",

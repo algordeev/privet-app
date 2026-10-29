@@ -22,21 +22,21 @@ export const lesson:LessonDefinition={
    "id": "museum",
    "text": "музей",
    "stressed": "музе́й",
-   "pronunciation": "mu-ZYEY",
+   "pronunciation": "mu-ZEY",
    "meaning": "museum"
   },
   {
    "id": "interesting",
    "text": "Интересно!",
    "stressed": "Интере́сно!",
-   "pronunciation": "een-tee-RYES-na",
+   "pronunciation": "in-ti-RES-na",
    "meaning": "Interesting!"
   },
   {
    "id": "invite",
    "text": "Давай в музей!",
    "stressed": "Дава́й в музе́й!",
-   "pronunciation": "da-VAI v mu-ZYEY",
+   "pronunciation": "da-VAI v mu-ZEY",
    "meaning": "Let’s go to the museum! (informal)"
   },
   {
@@ -124,7 +124,7 @@ export const lesson:LessonDefinition={
    "success": "That works: Давай в музей завтра. Let’s go to the museum tomorrow!",
    "retryFeedback": "The words are right; try a different order for this message.",
    "hint": "Begin with the invitation; keep в directly before the place.",
-   "pronunciationGuide": "Дава́й · da-VAI / в музе́й · v mu-ZYEY / за́втра · ZAF-tra"
+   "pronunciationGuide": "Дава́й · da-VAI / в музе́й · v mu-ZEY / за́втра · ZAF-tra"
   },
   {
    "id": "exchange",

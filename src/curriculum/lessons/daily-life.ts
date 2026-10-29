@@ -20,21 +20,21 @@ export const lesson:LessonDefinition={
    "id": "morning",
    "text": "утром",
    "stressed": "у́тром",
-   "pronunciation": "OO-tram",
+   "pronunciation": "U-tram",
    "meaning": "in the morning"
   },
   {
    "id": "evening",
    "text": "вечером",
    "stressed": "ве́чером",
-   "pronunciation": "VYE-che-ram",
+   "pronunciation": "VE-che-ram",
    "meaning": "in the evening"
   },
   {
    "id": "drink",
    "text": "Я пью кофе.",
    "stressed": "Я пью ко́фе.",
-   "pronunciation": "ya pyoo KO-fyeh",
+   "pronunciation": "ya pyu KO-fe",
    "meaning": "I drink coffee."
   },
   {
@@ -48,7 +48,7 @@ export const lesson:LessonDefinition={
    "id": "rest",
    "text": "Я отдыхаю.",
    "stressed": "Я отдыха́ю.",
-   "pronunciation": "ya at-dy-KHA-yu",
+   "pronunciation": "ya at-di-HA-yu",
    "meaning": "I relax."
   }
  ],
@@ -81,7 +81,7 @@ export const lesson:LessonDefinition={
    "success": "That works: Утром я пью кофе. In the morning I drink coffee.",
    "retryFeedback": "The words are right; try a different order for this message.",
    "hint": "Start with when, then who, then the action and drink.",
-   "pronunciationGuide": "У́тром · OO-tram / я · ya / пью · pyoo / ко́фе · KO-fyeh"
+   "pronunciationGuide": "У́тром · U-tram / я · ya / пью · pyu / ко́фе · KO-fe"
   },
   {
    "id": "meaning",
