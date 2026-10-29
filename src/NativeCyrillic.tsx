@@ -7,6 +7,7 @@ import type {CyrillicController} from './useCyrillicProgress';
 import {NativeSheet} from './NativeSheet';
 import {SoundIcon} from './Icons';
 import {russianReading} from './pronunciation';
+import {Sparkles} from './FirstRunArt';
 import type {Word} from './curriculum/types';
 
 type Speech=LessonController['speech'];
@@ -45,6 +46,8 @@ const titles=['A few familiar faces.','Same shape. New sound.','A few new friend
 export function NativeCyrillicQuickStart({onboarding,speech,onClose,onLesson,onListen,onListenEnd}:{onboarding:CyrillicController;speech:Speech;onClose:()=>void;onLesson:()=>void;onListen?:()=>void;onListenEnd?:()=>void}){
  const [page,setPage]=useState(onboarding.state.status==='completed'?0:onboarding.state.page);
  const [finished,setFinished]=useState(false);
+ // Pages slide in from the side they come from; the scroll re-keys per page to replay its entrance.
+ const [direction,setDirection]=useState<'forward'|'back'>('forward');
  const listening=useRef(false);
  const [revealed,setRevealed]=useState<string[]>([]);
  const heading=useRef<HTMLHeadingElement>(null),scroll=useRef<HTMLDivElement>(null);
@@ -53,12 +56,13 @@ export function NativeCyrillicQuickStart({onboarding,speech,onClose,onLesson,onL
  function finishListening(){if(!listening.current)return;listening.current=false;onListenEnd?.();}
  function stopListening(){speech.stop();finishListening();}
  function listen(text:string){if(!speech.available)return;listening.current=true;onListen?.();speech.speak(text,finishListening);}
- function move(next:number){stopListening();setPage(next);onboarding.dispatch({type:'page',page:next});}
+ function move(next:number){stopListening();setDirection(next<page?'back':'forward');setPage(next);onboarding.dispatch({type:'page',page:next});}
  const letters=page<3?QUICK_LETTERS[page].map(upper=>CYRILLIC.find(item=>item.upper===upper)!):[];
  return <div className="native-quick-screen">
   <header className="native-profile-navigation"><button className="app-icon-button" aria-label="Back to home" onClick={onClose}><BackChevron/></button><span>Cyrillic quick start</span><span aria-hidden="true"/></header>
   <p className="native-quick-progress" role="status">{finished?'Quick start complete':`Page ${page+1} of 4`}</p>
-  <div ref={scroll} className="native-quick-scroll">
+  <div ref={scroll} className="native-quick-scroll" key={finished?'finished':page} data-direction={direction}>
+   {finished&&<div className="first-sparkles"><Sparkles/></div>}
    <h1 ref={heading} tabIndex={-1}>{finished?'A little more familiar.':titles[page]}</h1>
    {finished?<p>You don’t need to memorize everything. The alphabet guide stays available during lessons.</p>:<>
     <p>{page===0?'Some Russian letters already look and sound familiar.':page===1?'These look familiar to English readers, but their sounds are different. Take your time with them.':page===2?'Meet a few more useful Russian letters. You can look them up any time.':'Try reading each word, then tap to reveal its meaning. No scores, no wrong answers.'}</p>
@@ -66,6 +70,6 @@ export function NativeCyrillicQuickStart({onboarding,speech,onClose,onLesson,onL
     <AudioNote speech={speech}/>
    </>}
   </div>
-  <div className={`native-quick-actions ${finished?'is-finished':''}`}>{finished?<><button className="button teal" onClick={onLesson}>Start Lesson 1 <span aria-hidden="true">→</span></button><button className="native-text-button" onClick={onClose}>Go back home</button></>:<>{page>0&&<button className="button native-secondary" onClick={()=>move(page-1)}><BackChevron/>Previous</button>}<button className="button teal" onClick={()=>{if(page<3)move(page+1);else{stopListening();onboarding.dispatch({type:'complete'});setFinished(true);}}}>{page<3?'Continue':'Finish quick start'} <span aria-hidden="true">→</span></button></>}</div>
+  <div className={`native-quick-actions ${finished?'is-finished':''}`}>{finished?<><button className="button teal" onClick={onLesson}>Start Lesson 1 <span aria-hidden="true">→</span></button><button className="native-text-button" onClick={onClose}>Go back home</button></>:<>{page>0&&<button className="button native-secondary" onClick={()=>move(page-1)}><BackChevron/>Previous</button>}<button className="button teal" onClick={()=>{if(page<3)move(page+1);else{stopListening();setDirection('forward');onboarding.dispatch({type:'complete'});setFinished(true);}}}>{page<3?'Continue':'Finish quick start'} <span aria-hidden="true">→</span></button></>}</div>
  </div>;
 }

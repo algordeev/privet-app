@@ -19,6 +19,9 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
   color: #25372d;
   font: 16px/1.5 -apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
   -webkit-text-size-adjust: 100%;
+  /* Shared motion tokens (same curves as onboarding). */
+  --ease: cubic-bezier(.2,.8,.2,1);
+  --spring: cubic-bezier(.34,1.56,.64,1);
 }
 .native-app[data-keyboard=true] { padding-bottom: 0; }
 .native-app h1,.native-app h2,.native-app h3 { font-family: inherit; color: #25372d; }
@@ -50,7 +53,8 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-lesson-card h2 { margin-top: 18px; font-size: 27px; font-weight: 600; letter-spacing: -.8px; }
 .native-lesson-card > p { margin-top: 10px; font-size: 15px; line-height: 1.65; color: #627657; }
 .native-card-progress { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 24px; font-size: 11px; color: #5b714e; }
-.native-lesson-card progress { display: block; appearance: none; width: 100%; height: 5px; margin: 9px 0 24px; border: 0; border-radius: 5px; background: #cedbbe; accent-color: #38724d; overflow: hidden; }
+.native-card-bar { display: block; position: relative; margin: 9px 0 24px; }
+.native-lesson-card progress { display: block; appearance: none; width: 100%; height: 5px; margin: 0; border: 0; border-radius: 5px; background: #cedbbe; accent-color: #38724d; overflow: hidden; }
 .native-lesson-card progress::-webkit-progress-bar { background: #cedbbe; }
 .native-lesson-card progress::-webkit-progress-value { background: #38724d; border-radius: 5px; }
 .native-lesson-card .button { width: 100%; justify-content: space-between; }
@@ -388,10 +392,12 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .app-navigation > div { flex: 1; min-width: 0; }
 .native-app .app-navigation strong { font-size: 15px; white-space: normal; line-height: 1.25; }
 /* A definite viewport-sized shell avoids WebKit's auto-height dialog clipping. */
-.native-app .native-sheet { position: fixed; top: var(--sheet-viewport-top,0px); left: 0; right: auto; bottom: auto; margin: 0; width: 100%; max-width: none; height: var(--sheet-viewport-height,100dvh); max-height: none; padding: max(12px,env(safe-area-inset-top,0px)) env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px); border: 0; background: transparent; color: #25372d; overflow: hidden; box-sizing: border-box; }
+.native-app .native-sheet { position: fixed; top: var(--sheet-viewport-top,0px); left: 0; right: auto; bottom: auto; margin: 0; width: 100%; max-width: none; height: var(--sheet-viewport-height,100dvh); max-height: none; padding: max(12px,env(safe-area-inset-top,0px)) env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px); border: 0; background: transparent; color: #25372d; overflow: hidden; overflow: clip; box-sizing: border-box; }
+/* The panel starts a full screen below the shell; clip (unlike hidden) stops WebKit from scrolling the shell
+   to the focused heading meanwhile, which would leave the sheet shifted up after the slide. */
 .native-app .native-sheet[open] { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
 .native-app .native-sheet::backdrop { background: #25372d70; }
-.native-app .native-sheet-panel { display: flex; flex-direction: column; flex: 0 1 auto; min-height: 0; width: min(100%,540px); max-height: 100%; padding-bottom: max(18px,env(safe-area-inset-bottom,0px)); border: 1px solid #d3dec7; border-bottom: 0; border-radius: 24px 24px 0 0; background: #f8f6f0; box-shadow: 0 -8px 40px #25372d20; overflow: hidden; animation: native-sheet-in .18s ease-out; }
+.native-app .native-sheet-panel { display: flex; flex-direction: column; flex: 0 1 auto; min-height: 0; width: min(100%,540px); max-height: 100%; padding-bottom: max(18px,env(safe-area-inset-bottom,0px)); border: 1px solid #d3dec7; border-bottom: 0; border-radius: 24px 24px 0 0; background: #f8f6f0; box-shadow: 0 -8px 40px #25372d20; overflow: hidden; animation: native-sheet-in 420ms cubic-bezier(.32,.72,0,1); }
 .native-app .native-sheet-panel[data-size=reference] { height: 100%; }
 .native-app .native-sheet-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 18px 10px; flex-shrink: 0; }
 .native-app .native-sheet-heading h2 { font-size: 22px; line-height: 1.25; letter-spacing: -.4px; outline: none; }
@@ -439,8 +445,15 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-reading-reveal { flex: 1; text-align: left; padding: 10px; min-height: 66px; background: transparent; color: #31513a; }
 .native-app .native-reading-reveal strong { font-size: 26px; display: block; }
 .native-app .native-reading-reveal > span { font-size: 14px; display: block; margin-top: 5px; }
-@keyframes native-sheet-in { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-@media (prefers-reduced-motion: reduce) { .native-app .native-sheet-panel { animation: none; } }
+@keyframes native-sheet-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes native-sheet-out { from { transform: translateY(0); } to { transform: translateY(100%); } }
+@keyframes native-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+/* iOS-like sheet curve in; a quicker accelerating curve out (NativeSheet CLOSE_MS matches). */
+.native-app .native-sheet[open]::backdrop { animation: native-backdrop-in 320ms ease-out both; }
+.native-app .native-sheet[data-closing=true]::backdrop { animation: native-backdrop-in 260ms ease-in reverse both; }
+.native-app .native-sheet[data-closing=true] .native-sheet-panel { animation: native-sheet-out 260ms cubic-bezier(.4,0,1,1) both; }
+.native-app .native-sheet[data-closing=true] { pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .native-app .native-sheet-panel, .native-app .native-sheet::backdrop { animation: none !important; } }
 
 .native-app .native-quick-card.is-collapsed { display: flex; align-items: center; gap: 10px; padding: 14px; border-top-width: 1px; border-color: #d6d9c9; }
 .native-app .native-quick-monogram { display: grid; place-items: center; width: 38px; height: 42px; flex-shrink: 0; border-radius: 10px; background: #e9efdf; color: #246653; font-size: 21px; }
@@ -505,3 +518,126 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .match-item .native-russian-reading { margin-top: 2px; }
 .native-app .match-item.matched, .native-app .match-item.matched:disabled { background: #dcf0d2; border-color: #4f9a52; box-shadow: 0 0 0 1px #4f9a52; color: #1d5a30; opacity: 1; }
 .native-app .match-item.matched .native-russian-reading { color: #2f6a3a; }
+
+/* Home motion: plays once each time home mounts. Rest state is the normal layout. */
+.native-app .button { transition: background .2s, transform 120ms var(--ease); }
+.native-app .button:active:not(:disabled) { transform: scale(.98); }
+.native-home-scroll > *, .native-lesson-list > .native-lesson-card { animation: app-rise-in 340ms var(--ease) both; animation-delay: calc(var(--i,0) * 50ms); }
+.native-home-scroll > .native-lesson-list { animation: none; }
+.native-home-scroll > :nth-child(2) { --i: 1; }
+.native-home-scroll > :nth-child(3) { --i: 2; }
+.native-home-scroll > :nth-child(4) { --i: 3; }
+.native-home-scroll > :nth-child(5) { --i: 4; }
+.native-home-scroll > .native-home-footer { --i: 8; }
+.native-card-bar::after { content: ''; position: absolute; inset: 0; border-radius: 5px; background: #cedbbe; transform: scaleX(0); transform-origin: right; animation: app-bar-reveal 650ms var(--ease) both; animation-delay: calc(var(--i,0) * 50ms + 220ms); }
+.native-lesson-card.is-up-next .native-path-state { animation: app-glow 1.6s ease-out 1 both; animation-delay: calc(var(--i,0) * 50ms + 350ms); }
+.native-lesson-card.is-up-next .button > span { animation: app-nudge 700ms var(--ease) 1 both; animation-delay: calc(var(--i,0) * 50ms + 600ms); }
+.native-streak-badge.is-bumped svg, .native-gems-pill.is-bumped { animation: app-pop 420ms var(--spring) 380ms both; }
+@keyframes app-rise-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes app-bar-reveal { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes app-glow { 0% { box-shadow: inset 0 0 0 1px #a8bea0, 0 0 0 0 #24665366; } 70% { box-shadow: inset 0 0 0 1px #a8bea0, 0 0 0 7px #24665300; } 100% { box-shadow: inset 0 0 0 1px #a8bea0, 0 0 0 0 #24665300; } }
+@keyframes app-nudge { 0%,100% { transform: none; } 40% { transform: translateX(5px); } 70% { transform: translateX(-1px); } }
+@keyframes app-pop { 0% { transform: scale(1); } 45% { transform: scale(1.22); } 100% { transform: scale(1); } }
+
+/* Lesson motion: each step (the scroll re-keys per exercise) slides in, its parts staggered. */
+.native-app .lesson-scroll > * { animation: app-step-in 300ms var(--ease) both; animation-delay: calc(var(--i,0) * 45ms); }
+.native-app .lesson-scroll > :nth-child(2) { --i: 1; }
+.native-app .lesson-scroll > :nth-child(3) { --i: 2; }
+.native-app .lesson-scroll > :nth-child(n+4) { --i: 3; }
+/* A finished segment fills left to right; the new current one breathes once. */
+.native-app .app-progress-track > span { position: relative; overflow: hidden; }
+.native-app .app-progress-track > .done { background: #97af83; }
+.native-app .app-progress-track > span::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: #3c7652; transform: scaleX(0); transform-origin: left; transition: transform 450ms var(--ease); }
+.native-app .app-progress-track > .done::after { transform: scaleX(1); }
+.native-app .app-progress-track > .current { animation: app-breathe 900ms ease-in-out 200ms 1 both; }
+/* Hearts: the lost heart falls away and the count pops; the combo pops at each increase. */
+.lesson-vitals b { font-weight: inherit; }
+.lesson-heart { position: relative; display: inline-block; }
+.lesson-heart-drop { position: absolute; inset: 0; font-style: normal; opacity: 0; pointer-events: none; animation: app-heart-drop 650ms cubic-bezier(.2,.8,.2,1) both; }
+.lesson-vital-pop { display: inline-block; animation: app-pop 380ms cubic-bezier(.34,1.56,.64,1) 120ms both; }
+.native-app .lesson-combo { animation: app-pop 380ms var(--spring) both; }
+/* Vocabulary reveal: the meaning fades in and the plus turns into a check. */
+.native-app .vocab-card { transition: background .25s, border-color .25s; }
+.native-app .vocab-card.revealed .word-meaning { animation: app-rise-in 260ms var(--ease) both; }
+.native-app .vocab-card.revealed .vocab-row-check { animation: app-check-in 360ms var(--spring) both; }
+@keyframes app-step-in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+@keyframes app-breathe { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+@keyframes app-heart-drop { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(14px) scale(.6) rotate(-18deg); } }
+@keyframes app-check-in { from { opacity: 0; transform: rotate(-90deg) scale(.5); } to { opacity: 1; transform: none; } }
+
+/* Answer feedback. Rest states are the normal feedback styles; motion only plays on arrival. */
+.native-app .choice, .native-app .translation-input { transition: background .25s, border-color .25s, box-shadow .25s; }
+.native-app .choice.answer-correct { background: #eaf3e2; border-color: #4f9a52; box-shadow: 0 0 0 1px #4f9a52; animation: app-pop-soft 420ms var(--spring) both; }
+.native-app .choice.answer-correct .selection-indicator { animation: app-pop 380ms var(--spring) 80ms both; }
+.native-app .choice.answer-incorrect, .native-app .translation-input.is-incorrect { animation: app-shake 380ms ease-in-out both; }
+.native-app .translation-input.is-correct { border-color: #4f9a52; box-shadow: 0 0 0 1px #4f9a52; background: #f1f7ec; }
+.native-app .translation-input.is-incorrect { border-color: #ae7852; box-shadow: 0 0 0 1px #ae7852; }
+/* The panel keeps its place and tints; its contents (robot, message) rise in. */
+.native-app .feedback { transition: background .3s, color .3s; }
+.native-app .feedback.correct > *, .native-app .feedback.incorrect > * { animation: app-rise-in 280ms var(--ease) both; }
+.native-app .feedback.correct > :nth-child(2), .native-app .feedback.incorrect > :nth-child(2) { animation-delay: 60ms; }
+.native-app .feedback.correct > :nth-child(3), .native-app .feedback.incorrect > :nth-child(3) { animation-delay: 120ms; }
+.native-app .lesson-bottom .button.is-continue { animation: app-pop-soft 420ms var(--spring) 150ms both; }
+/* Sentence builder: a chosen word settles into the answer row. */
+.native-app .sentence-answer button[data-word] { animation: app-chip-in 260ms var(--spring); }
+.native-app .word-bank button { transition: opacity .2s, background .2s; }
+@keyframes app-pop-soft { 0%,100% { transform: none; } 45% { transform: scale(1.03); } }
+@keyframes app-shake { 0%,100% { transform: none; } 20% { transform: translateX(-6px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+@keyframes app-chip-in { from { opacity: 0; transform: translateY(6px) scale(.9); } to { opacity: 1; transform: none; } }
+
+/* Lesson complete: the card's parts arrive in turn, numbers count up, gems pop one by one. */
+.native-app .completion > * { animation: app-rise-in 380ms var(--ease) both; animation-delay: calc(var(--i,0) * 70ms + 80ms); }
+.native-app .completion > :nth-child(2) { --i: 1; }
+.native-app .completion > :nth-child(3) { --i: 2; }
+.native-app .completion > :nth-child(4) { --i: 3; }
+.native-app .completion > :nth-child(5) { --i: 4; }
+.native-app .completion > :nth-child(6) { --i: 5; }
+.native-app .completion > :nth-child(n+7) { --i: 6; }
+/* Inside .score/.xp-breakdown/stat cards, plain spans are styled as captions; the count keeps the number's own look. */
+.native-app .app-count { position: relative; display: inline-block; font: inherit; color: inherit; letter-spacing: inherit; font-variant-numeric: tabular-nums; }
+.native-app .app-count > span { font-size: inherit; color: inherit; }
+.native-app .app-count > .app-count-final { color: transparent; }
+.native-app .app-count .first-count-overlay { text-align: right; }
+.native-app .native-gem-award > span { animation: app-pop 420ms var(--spring) both; animation-delay: 650ms; }
+.native-app .native-gem-award > span:nth-child(2) { animation-delay: 760ms; }
+.native-app .native-gem-award > span:nth-child(3) { animation-delay: 870ms; }
+.native-app .native-completion-companion { position: relative; }
+.native-app .native-completion-companion .first-sparkles { position: absolute; top: 0; left: 0; right: 0; }
+.native-app .native-completion-companion .first-sparkles-art { top: 4px; width: 190px; }
+
+/* Profile, gems and settings: the header stays put; the content below rises in, staggered. */
+.native-profile-scroll > :not(.native-profile-navigation) { animation: app-rise-in 340ms var(--ease) both; animation-delay: calc(var(--i,1) * 55ms); }
+.native-profile-scroll > :nth-child(3) { --i: 2; }
+.native-profile-scroll > :nth-child(4) { --i: 3; }
+.native-profile-scroll > :nth-child(5) { --i: 4; }
+.native-profile-scroll > :nth-child(6) { --i: 5; }
+.native-profile-scroll > :nth-child(n+7) { --i: 6; }
+.native-stat-grid > div { animation: app-chip-in 340ms var(--spring) both; animation-delay: calc(var(--n,0) * 50ms + 220ms); }
+.native-stat-grid > div:nth-child(2) { --n: 1; }
+.native-stat-grid > div:nth-child(3) { --n: 2; }
+.native-stat-grid > div:nth-child(4) { --n: 3; }
+.native-stat-grid > div:nth-child(5) { --n: 4; }
+/* The week fills in day by day; practised days draw their check, today gets one soft ring. */
+.native-profile-week li { animation: app-chip-in 300ms var(--spring) both; animation-delay: calc(var(--d,0) * 45ms + 380ms); }
+.native-profile-week li:nth-child(2) { --d: 1; } .native-profile-week li:nth-child(3) { --d: 2; } .native-profile-week li:nth-child(4) { --d: 3; }
+.native-profile-week li:nth-child(5) { --d: 4; } .native-profile-week li:nth-child(6) { --d: 5; } .native-profile-week li:nth-child(7) { --d: 6; }
+.native-profile-week .practised svg path { animation: app-draw-check 420ms var(--ease) both; animation-delay: calc(var(--d,0) * 45ms + 560ms); }
+.native-profile-week .today i { animation: app-ring 1.4s ease-out 900ms 1 both; }
+/* Gems: the balance gem pops in (and again whenever the balance changes) while the number counts. */
+.native-gems-icon { display: inline-block; animation: app-gem-in 520ms var(--spring) 120ms both; }
+/* Quick start: each page slides in from the side it comes from; cards follow one by one. */
+.native-app .native-quick-scroll > * { animation: app-step-in 300ms var(--ease) both; animation-delay: calc(var(--i,0) * 50ms); }
+.native-app .native-quick-scroll[data-direction=back] > * { animation-name: app-step-back; }
+.native-app .native-quick-scroll > :nth-child(2) { --i: 1; }
+.native-app .native-quick-scroll > :nth-child(n+3) { --i: 2; }
+.native-app .native-quick-scroll .native-letter-card, .native-app .native-quick-scroll .native-reading-card { animation: app-chip-in 300ms var(--spring) both; animation-delay: calc(var(--c,0) * 55ms + 160ms); }
+.native-app .native-quick-scroll :is(.native-letter-card,.native-reading-card):nth-child(2) { --c: 1; }
+.native-app .native-quick-scroll :is(.native-letter-card,.native-reading-card):nth-child(3) { --c: 2; }
+.native-app .native-quick-scroll :is(.native-letter-card,.native-reading-card):nth-child(4) { --c: 3; }
+.native-app .native-quick-scroll :is(.native-letter-card,.native-reading-card):nth-child(n+5) { --c: 4; }
+.native-app .native-reading-reveal[aria-expanded=true] > span:last-child { animation: app-rise-in 260ms var(--ease) both; }
+.native-app .native-quick-scroll .first-sparkles-art { top: -6px; }
+@keyframes app-step-back { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+@keyframes app-draw-check { from { stroke-dasharray: 15; stroke-dashoffset: 15; } to { stroke-dasharray: 15; stroke-dashoffset: 0; } }
+@keyframes app-ring { 0% { box-shadow: 0 0 0 0 #62815166; } 70% { box-shadow: 0 0 0 7px #62815100; } 100% { box-shadow: 0 0 0 0 #62815100; } }
+@keyframes app-gem-in { 0% { opacity: 0; transform: scale(.4) rotate(-45deg); } 100% { opacity: 1; transform: none; } }
