@@ -5,7 +5,13 @@ import type {SubscriptionController} from './useSubscription';
 
 export function ProfileIcon(){return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg>;}
 export function StreakIcon(){return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M13 3c1 5-4 6-3 10 1-1 2-2 2-4 4 2 6 5 5 8a6 6 0 0 1-11-4c0-4 4-6 7-10Z"/></svg>;}
-function displayDate(day:string,options:Intl.DateTimeFormatOptions){return new Intl.DateTimeFormat('en',options).format(new Date(`${day}T12:00:00`));}
+// Building a formatter is slow (the week strip used ~15 per render), so each options set gets one.
+const formatters=new Map<string,Intl.DateTimeFormat>();
+function displayDate(day:string,options:Intl.DateTimeFormatOptions){
+ const key=JSON.stringify(options);let format=formatters.get(key);
+ if(!format){format=new Intl.DateTimeFormat('en',options);formatters.set(key,format);}
+ return format.format(new Date(`${day}T12:00:00`));
+}
 export function NativeProfile({activity,subscription,onPlus,onClose}:{activity:NativeStatsController;subscription:SubscriptionController;onPlus:()=>void;onClose:()=>void}){
  const {stats,summary,persistent}=activity;
  return <div className="native-profile-scroll">
