@@ -42,6 +42,8 @@ test('lesson XP follows lesson, remaining hearts and best combo formula',()=>{
  assert.equal(lessonXp({...initialProgress(),hearts:2,bestCombo:4},5),16);
  assert.equal(lessonXp({...initialProgress(),hearts:1,bestCombo:1},5),12);
  assert.equal(lessonXp({...initialProgress(),failed:true},5),0);
+ assert.equal(lessonXp({...initialProgress(),bestCombo:8},8),21);
+ assert.equal(lessonXp({...initialProgress(),bestCombo:9},8),13);
 });
 test('unlimited hearts keep hearts full after mistakes and never fail',()=>{
  let s=initialProgress();

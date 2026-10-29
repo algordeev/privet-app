@@ -177,3 +177,9 @@ test('existing v3 awards migrate without inventing a latest-attempt reward or ch
  assert.deepEqual(restoreStats(JSON.stringify(erased)),erased);assert.equal(recordFinish(erased,results,date(17)).gems.balance,10);
  assert.deepEqual(restoreStats(JSON.stringify({...s,latest:{...s.latest,gemAward:{finish:500,perfect:0,streakWeek:0}}})),emptyStats());
 });
+test('a perfect 10-item review earns one combo XP per answer, without gems',()=>{
+ const changes:NativeStats[]=[];const tracker=createStatsTracker(emptyStats(),s=>changes.push(s),()=>date(17));
+ const done={...initialProgress(),index:10,results:Array(10).fill(true),complete:true,combo:10,bestCombo:10};
+ tracker.transition({...done,complete:false,index:9},done,{type:'continue'},'review:2026-10-17');
+ assert.equal(changes.at(-1)?.xp[localDay(date(17))],23);assert.equal(changes.at(-1)?.gems.balance,0);
+});

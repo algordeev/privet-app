@@ -12,7 +12,7 @@ const curriculumStress=lookup(nativeLessons.flatMap(lesson=>lesson.words));
 const matchCase=(source:string,stressed:string)=>source.length>1&&source===source.toUpperCase()?stressed.toUpperCase()
  :source[0]===source[0].toUpperCase()?stressed[0].toUpperCase()+stressed.slice(1):stressed;
 // Stresses every Russian word in any display string: current lesson first, then any lesson's vocabulary.
-// Display only; answers, speech and companion text keep the canonical spelling.
+// Used for display and speech; answers and companion text keep the canonical spelling.
 export function stressText(text:string,words:readonly Word[]=[]):string{
  const lesson=lookup(words);
  return text.replace(/[а-яё́]+/giu,token=>{

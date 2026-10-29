@@ -47,7 +47,7 @@ function App(){
       <div className="mini-progress"><i/></div>
       <div className="preview-title">Small words.<br/>Big beginnings.</div><span className="preview-subtitle">Let’s order something warm.</span>
       <div className="tea-illustration"><svg viewBox="0 0 140 110" aria-hidden="true"><path className="steam" d="M55 30q-12-12 0-25M77 28q-12-12 0-25" fill="none" stroke="#a1b5a9" strokeWidth="3" strokeLinecap="round"/><ellipse cx="66" cy="94" rx="47" ry="7" fill="#c6d9cb"/><path d="M98 49h9c28 0 22 34-4 32" fill="none" stroke="#286654" strokeWidth="8"/><path d="M29 44h72v27q0 26-36 26T29 71Z" fill="#43816b"/><ellipse cx="65" cy="45" rx="36" ry="8" fill="#2a5e4c"/><ellipse cx="65" cy="45" rx="30" ry="5" fill="#b98452"/></svg></div>
-      <div className="preview-word" lang="ru">Я хочу́ чай.</div><div className="preview-pronunciation">ya kha-CHOO chai</div><div className="preview-meaning">I want tea.</div>
+      <div className="preview-word" lang="ru">Я хочу́ чай.</div><div className="preview-pronunciation">ya ha-CHU chai</div><div className="preview-meaning">I want tea.</div>
       <button className="preview-listen" onClick={()=>speech.available?speech.speak('Я хочу чай.'):setNotice('Russian browser audio is unavailable. Every lesson works with text.')}><SoundIcon/> {speech.available?'Hear it in Russian':'Explore with text'} <span>↗</span></button>
       <div className="phone-home"/>
      </div>

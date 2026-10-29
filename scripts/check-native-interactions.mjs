@@ -47,7 +47,7 @@ server.middlewares.use('/__privet_native_checks',(req,res)=>{
  window.Date=class extends window.__realDate{constructor(...args){super(...(args.length?args:[window.__now]));}static now(){return window.__now;}};
  ${reset?`localStorage.clear();for(const [key,value] of Object.entries(${JSON.stringify(seed)}))localStorage.setItem(key,JSON.stringify(value));`:''}
  window.SpeechSynthesisUtterance=class{constructor(text){this.text=text;}};
- Object.defineProperty(window,'speechSynthesis',{value:{getVoices:()=>[{lang:window.__russianAudio?'ru-RU':'en-US',name:'Test voice'}],addEventListener:(_event,fn)=>window.__voiceListeners.add(fn),removeEventListener:(_event,fn)=>window.__voiceListeners.delete(fn),cancel:()=>{},speak:utterance=>{window.__speechTaps.push(utterance.text);window.__utterances.push(utterance);if(!window.__holdSpeech)queueMicrotask(()=>{utterance.onstart?.();utterance.onend?.();});}}});
+ Object.defineProperty(window,'speechSynthesis',{value:{getVoices:()=>[{lang:window.__russianAudio?'ru-RU':'en-US',name:'Test voice'}],addEventListener:(_event,fn)=>window.__voiceListeners.add(fn),removeEventListener:(_event,fn)=>window.__voiceListeners.delete(fn),cancel:()=>{},speak:utterance=>{window.__speechTaps.push(utterance.text.replace(/\u0301/g,''));window.__utterances.push(utterance);if(!window.__holdSpeech)queueMicrotask(()=>{utterance.onstart?.();utterance.onend?.();});}}});
  ${repeatedSentence?`const {cafeLesson}=await import('/src/lessons.ts');cafeLesson.exercises=cafeLesson.exercises.map((exercise,index)=>index===2?{...exercise,tokens:['я','знаю','что','я'],answer:'я знаю что я'}:exercise);`:''}
  await import('/src/main.tsx');
  </script></body></html>`);
@@ -270,7 +270,7 @@ try{
   await call('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:true});
   const exchange=freshSession();exchange.progress.index=3;exchange.progress.results=[true,true,true];
   await open({[NATIVE_SESSION_KEY]:exchange});await startCafe();
-  assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.native-russian-reading')].map(node=>node.textContent)),['vash chai','spa-SEE-ba','pree-VYET','ya kha-CHOO chai']);
+  assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.native-russian-reading')].map(node=>node.textContent)),['vash chai','spa-SEE-ba','pri-VET','ya ha-CHU chai']);
   await capture(`latin-exchange-${viewport.width}`);
   await click('.choice','1Спасибо!');const before=await stored(NATIVE_SESSION_KEY);
   await click('[aria-label="Lesson display settings"]');await click('[aria-label="Pronunciation help"]');await click('[aria-label="Lesson display settings"]');
@@ -863,10 +863,10 @@ try{
   await click('#native-card-around-town ~ .button');await until(()=>window.__cards.at(-1)?.primary==='Listen on phone');
   const listenStart=await evaluate(()=>window.__cards.length);
   assert.ok(await evaluate(()=>!document.querySelector('.question-word')&&!!document.querySelector('.listen-play')&&!document.querySelector('.choices .native-russian-reading')),'Listening shows a player, no written word and no option readings');
-  await click('.listen-play');await until(()=>window.__speechTaps.at(-1)==='Налево.');assert.equal(await evaluate(()=>window.__utterances.at(-1).rate),.8);
+  await click('.listen-play');await until(()=>window.__speechTaps.at(-1)==='Налево.');assert.equal(await evaluate(()=>window.__utterances.at(-1).rate),.8);assert.equal(await evaluate(()=>window.__utterances.at(-1).text),'Нале́во.','The voice gets the stress mark');
   await until(()=>window.__bleCommands.includes(5));
   await click('.listen-slow');await until(()=>window.__utterances.at(-1).rate===.3);
-  await click('.listen-skip');assert.ok(await evaluate(()=>document.querySelector('.listen-fallback')?.textContent.includes('na-LYE-va')&&!document.querySelector('.listen-play')),'Can’t listen now shows the written sound guide');
+  await click('.listen-skip');assert.ok(await evaluate(()=>document.querySelector('.listen-fallback')?.textContent.includes('na-LE-va')&&!document.querySelector('.listen-play')),'Can’t listen now shows the written sound guide');
   await click('.choice','3Прямо.');await click('.lesson-bottom .button','Check answer');await until(()=>window.__bleCommands.at(-1)===2);
   await click('.lesson-bottom .button','Try again');await click('.lesson-hint-button');await click('.choice','2Налево.');await click('.lesson-bottom .button','Check answer');
   await until(()=>window.__cards.at(-1)?.mode===5);assert.deepEqual(await evaluate(()=>{const c=window.__cards.at(-1);return [c.primary,c.secondary];}),['Налево.','To the left.']);
@@ -900,10 +900,38 @@ try{
   // Without a Russian voice, the listening question is still fully answerable from the written sound guide.
   learningCards=false;russianAudio=false;await open({[sessionKey(town)]:at(town,'listen')});await click('#native-card-around-town ~ .button');
   await until(()=>!!document.querySelector('.listen-fallback'));
-  assert.ok(await evaluate(()=>document.querySelector('.listen-fallback').textContent.includes('Audio isn’t available')&&document.querySelector('.listen-fallback').textContent.includes('na-LYE-va')&&!document.querySelector('.listen-play')));
+  assert.ok(await evaluate(()=>document.querySelector('.listen-fallback').textContent.includes('Audio isn’t available')&&document.querySelector('.listen-fallback').textContent.includes('na-LE-va')&&!document.querySelector('.listen-play')));
   await click('.choice','2Налево.');await click('.lesson-bottom .button','Check answer');await until(()=>!!document.querySelector('.feedback.correct'));
   await assertNativeLayout();
   console.log('PASS: listen-and-choose plays at normal/slow rate, falls back without a voice or on request, and keeps the word off the OLED until graded; match pairs grade per pair, show progress-only cards, cost no heart for a slip and auto-submit.');
+ }
+ // Lessons 3–8 can be played start to finish on the smallest phone, every step answered the way a learner would.
+ {
+  await call('Emulation.setDeviceMetricsOverride',{width:320,height:568,deviceScaleFactor:1,mobile:true});
+  learningCards=false;russianAudio=true;await open();
+  const answer=async e=>{
+   if(e.kind==='vocabulary'){await evaluate(()=>document.querySelectorAll('.vocab-reveal').forEach(b=>b.click()));}
+   else if(e.kind==='choice'||e.kind==='listen'){await evaluate(text=>{[...document.querySelectorAll('.choice')].find(b=>b.querySelector('.native-choice-copy > span').textContent===text).click();},e.answer);}
+   else if(e.kind==='sentence'){for(const word of e.answer.split(' '))await evaluate(word=>{[...document.querySelectorAll('.word-bank button')].find(b=>!b.disabled&&b.textContent===word).click();},word);}
+   else if(e.kind==='typed'){await evaluate(text=>{const input=document.querySelector('#translation');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,text);input.dispatchEvent(new Event('input',{bubbles:true}));},e.answer);}
+   else if(e.kind==='match'){const tap=text=>evaluate(text=>{[...document.querySelectorAll('.match-item')].find(b=>!b.disabled&&(b.querySelector('span')?.textContent??b.textContent)===text).click();},text);for(const [ru,en] of e.pairs){await tap(ru);await pause(40);await tap(en);await pause(40);}}
+   await pause(60);await assertNativeLayout();
+   if(e.kind!=='match')await click('.lesson-bottom .button','Check answer');
+   await until(()=>!!document.querySelector('.feedback.correct'));
+   await click('.lesson-bottom .button','Continue');
+  };
+  for(const lesson of nativeLessons.slice(2)){
+   await click(`#native-card-${lesson.id} ~ .button`);
+   for(const [index,e] of lesson.exercises.entries()){
+    await until(n=>document.querySelector('.lesson-step-count')?.textContent.startsWith(`STEP ${n}`),index+1);
+    if(process.env.PRIVET_PLAY_DEBUG)console.log(`PLAY ${lesson.id} ${index+1} ${e.kind} ${e.id}`);await answer(e);
+   }
+   await until(()=>!!document.querySelector('.completion'));
+   assert.equal(await evaluate(()=>document.querySelector('.score strong').textContent.replace(/\s/g,'')),`${lesson.exercises.length}/${lesson.exercises.length}`,`${lesson.id}: every step correct on the first try`);
+   await assertNativeLayout();
+   await click('[aria-label="Return to app home"]');
+  }
+  console.log('PASS 320×568: lessons 3–8 play start to finish (vocabulary, choice, listening, matching, building, typing), all first-try correct, with no horizontal overflow at any step.');
  }
  // Spaced review: a lesson passed before review existed is scheduled on load; its mistake is due today.
  {

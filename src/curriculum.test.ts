@@ -20,7 +20,7 @@ test('eight unique ordered lessons have valid acyclic prerequisites and metadata
 });
 test('all curriculum exercises validate vocabulary, canonical answers and display aids',()=>{
  for(const l of nativeLessons){
-  assert.ok(l.exercises.length>=5&&l.exercises.length<=6);assert.equal(new Set(l.exercises.map(e=>e.id)).size,l.exercises.length);
+  assert.ok(l.exercises.length>=5&&l.exercises.length<=9);assert.equal(new Set(l.exercises.map(e=>e.id)).size,l.exercises.length);
   assert.equal(new Set(l.words.map(w=>w.id)).size,l.words.length);
   for(const w of l.words){assert.ok(w.meaning&&w.pronunciation);assert.equal(normalizeAnswer(w.text),normalizeAnswer(w.stressed));}
   for(const [i,e] of l.exercises.entries()){
