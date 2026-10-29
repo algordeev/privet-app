@@ -6,7 +6,7 @@ import {Capacitor} from '@capacitor/core';
 import {useFirstRun} from './useFirstRun';
 import {NativeFirstRun} from './NativeFirstRun';
 import {initialProgress,type Progress} from './engine';
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useRef,useState,type CSSProperties} from 'react';
 import {PhysicalCompanionSettings,PhysicalCompanionHomeStatus,PhysicalCompanionChip} from './PhysicalCompanionSettings';
 import {usePhysicalCompanion,type PhysicalCompanionController} from './usePhysicalCompanion';
 import {NativeProfile,ProfileIcon,StreakIcon} from './NativeProfile';
@@ -30,11 +30,16 @@ import {useReview,type ReviewController} from './useReview';
 import {NativeReviewSession,ReviewHomeCard} from './NativeReview';
 import type {ReviewSession} from './review';
 
+// Survives NativeHome remounts, so the badges only pop when a number grew since the last home visit.
+const seenHomeStats={streak:-1,gems:-1};
 export function NativeHome({controller,controllers,companion,activity,plus,onStart,onProfile,onGems,physical,onPhysical,onboarding,onQuickStart,onSettings,review,onReview}:{review?:ReviewController;onReview?:()=>void;onSettings?:()=>void;physical:PhysicalCompanionController;onPhysical:()=>void;onboarding:CyrillicController;onQuickStart:()=>void;controller:LessonController;controllers:LessonController[];companion:NativeCompanionController;activity:NativeStatsController;plus:boolean;onStart:(id:string)=>void;onProfile:()=>void;onGems:()=>void}) {
  const midLesson=lessonStarted(controller)&&!controller.progress.complete;
  const greeting=companion.view.scope==='home'&&companion.view.message?companion.view.message:review?.due&&!midLesson?`Привет! ${review.due} to review today. Shall we?`:homeGreeting(controller,controller.definition.title);
+ const {current:streak,gems}=activity.summary;
+ const [bumped]=useState(()=>({streak:seenHomeStats.streak>=0&&streak>seenHomeStats.streak,gems:seenHomeStats.gems>=0&&gems>seenHomeStats.gems}));
+ useEffect(()=>{seenHomeStats.streak=streak;seenHomeStats.gems=gems;},[streak,gems]);
  return <div className="native-home-scroll">
-  <header className="native-home-header"><div className="wordmark"><span className="brand-icon" aria-hidden="true"><i/><i/></span>{PRODUCT.name}<span className="brand-dot">.</span></div><div className="native-home-tools"><span className="native-streak-badge" role="img" aria-label={`${activity.summary.current}-day learning streak`}><StreakIcon/><span>{activity.summary.current}</span><span className="native-streak-unit">{activity.summary.current===1?'day':'days'}</span></span><button id="native-gems-open" className="native-gems-pill" onClick={onGems} aria-label={`${activity.summary.gems} gems; open gems`}><span aria-hidden="true">◆</span> {activity.summary.gems}</button><button id="native-profile-open" className={`native-profile-open ${plus?'is-plus':''}`} onClick={onProfile} aria-label="Open your profile and statistics" aria-describedby={plus?'native-profile-plus-status':undefined}><ProfileIcon/>{plus&&<span className="native-profile-plus-tag" aria-hidden="true">PLUS</span>}</button>{plus&&<span id="native-profile-plus-status" className="native-sr-only">Plus demo active</span>}</div></header>
+  <header className="native-home-header"><div className="wordmark"><span className="brand-icon" aria-hidden="true"><i/><i/></span>{PRODUCT.name}<span className="brand-dot">.</span></div><div className="native-home-tools"><span className={`native-streak-badge${bumped.streak?' is-bumped':''}`} role="img" aria-label={`${activity.summary.current}-day learning streak`}><StreakIcon/><span>{activity.summary.current}</span><span className="native-streak-unit">{activity.summary.current===1?'day':'days'}</span></span><button id="native-gems-open" className={`native-gems-pill${bumped.gems?' is-bumped':''}`} onClick={onGems} aria-label={`${activity.summary.gems} gems; open gems`}><span aria-hidden="true">◆</span> {activity.summary.gems}</button><button id="native-profile-open" className={`native-profile-open ${plus?'is-plus':''}`} onClick={onProfile} aria-label="Open your profile and statistics" aria-describedby={plus?'native-profile-plus-status':undefined}><ProfileIcon/>{plus&&<span className="native-profile-plus-tag" aria-hidden="true">PLUS</span>}</button>{plus&&<span id="native-profile-plus-status" className="native-sr-only">Plus demo active</span>}</div></header>
   <section className="native-welcome" aria-labelledby="native-home-title"><h1 id="native-home-title" tabIndex={-1}>Your next little win.</h1></section>
   <section className="native-companion-greeting" aria-label="Your virtual companion"><div className="native-greeting-row"><NativeRobot companion={companion} size="greeting"/><PhysicalCompanionChip controller={physical} onOpen={onPhysical} greeting={greeting}/></div></section>
   <CyrillicQuickCard onboarding={onboarding} onStart={onQuickStart}/>
@@ -42,11 +47,11 @@ export function NativeHome({controller,controllers,companion,activity,plus,onSta
   <div className="native-lesson-list">{controllers.map((item,index)=>{
    const {progress,definition,passed,saved}=item;const started=lessonStarted(item);const total=definition.exercises.length;
    const pathState=passed?'Passed':controllers.slice(0,index).every(candidate=>candidate.passed)?'Up next':'Available';
-   return <section className={`native-lesson-card ${pathState!=='Up next'?'native-lesson-compact':''}`} aria-labelledby={`native-card-${definition.id}`} key={definition.id}>
+   return <section className={`native-lesson-card ${pathState!=='Up next'?'native-lesson-compact':'is-up-next'}`} style={{'--i':Math.min(index+4,8)} as CSSProperties} aria-labelledby={`native-card-${definition.id}`} key={definition.id}>
     <div className="native-card-top"><span className="native-cup" aria-hidden="true">{definition.icon}</span><span className="native-lesson-meta">LESSON {definition.number} · ABOUT 3 MIN</span><span className={`native-path-state ${passed?'passed':pathState==='Up next'?'up-next':''}`}>{pathState}</span></div>
     <h2 id={`native-card-${definition.id}`}>{definition.title}</h2><p>{definition.description}</p>
     <div className="native-card-progress"><span>{passed?(progress.complete?'Lesson complete':`Practice · Step ${progress.index+1} of ${total}`):started?`Step ${progress.index+1} of ${total}`:`${total} small steps`}</span>{(started||passed)&&<span>{passed?`Best: ${Math.max(saved.bestFirstTry??saved.completion?.results.filter(Boolean).length??0,progress.complete?progress.results.filter(Boolean).length:0)}/${total}`:'Progress saved'}</span>}</div>
-    <progress max={total} value={passed?total:progress.index} aria-label={`${definition.title} lesson progress`}/>
+    <span className="native-card-bar"><progress max={total} value={passed?total:progress.index} aria-label={`${definition.title} lesson progress`}/></span>
     <button className="button teal" onClick={()=>onStart(definition.id)}>{progress.complete?'See your results':passed?'Continue practice':started?'Continue lesson':'Start lesson'}<span aria-hidden="true">→</span></button>
    </section>;
   })}</div>
