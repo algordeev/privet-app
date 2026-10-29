@@ -84,6 +84,24 @@ export const lesson:LessonDefinition={
    "pronunciationGuide": "У́тром · U-tram / я · ya / пью · pyu / ко́фе · KO-fe"
   },
   {
+   "id": "listen",
+   "kind": "listen",
+   "wordId": "work",
+   "title": "What does Anna do?",
+   "instruction": "Anna tells you what she does. Listen, then choose what you heard.",
+   "prompt": "Я работаю.",
+   "choices": [
+    "Я отдыхаю.",
+    "Я пью кофе.",
+    "Я работаю."
+   ],
+   "answer": "Я работаю.",
+   "review": "Я работаю. → I work.",
+   "success": "Yes: Я работаю. means “I work.”",
+   "retryFeedback": "Replay it: listen for the word after я.",
+   "hint": "This one is about her job."
+  },
+  {
    "id": "meaning",
    "kind": "choice",
    "wordId": "evening",
@@ -102,24 +120,47 @@ export const lesson:LessonDefinition={
    "hint": "Look at the word in the first step and connect it to this situation."
   },
   {
-   "id": "type",
-   "kind": "typed",
-   "title": "An early start.",
-   "instruction": "Type “in the morning” in Russian. The letter buttons are here if you need them.",
-   "prompt": "утром",
-   "translation": "in the morning",
-   "letters": [
-    "р",
-    "м",
-    "у",
-    "о",
-    "т"
+   "id": "match",
+   "kind": "match",
+   "title": "Your day, piece by piece.",
+   "instruction": "Match each Russian expression with its meaning.",
+   "prompt": "Match the pairs",
+   "pairs": [
+    ["утром", "in the morning"],
+    ["Я пью кофе.", "I drink coffee."],
+    ["вечером", "in the evening"],
+    ["Я отдыхаю.", "I relax."],
+    ["Я работаю.", "I work."]
    ],
-   "answer": "утром",
-   "review": "утром → in the morning",
-   "success": "Yes: утром means “in the morning”. A useful word for this story.",
-   "retryFeedback": "Think about the morning word from the first step. Check its ending.",
-   "hint": "Think of the time of day when your first coffee usually happens."
+   "answer": "matched",
+   "review": "утром → in the morning · Я пью кофе. → I drink coffee. · вечером → in the evening · Я отдыхаю. → I relax. · Я работаю. → I work.",
+   "success": "All matched: two times of day and three things you do.",
+   "retryFeedback": "Check the pairs that didn't lock in.",
+   "hint": "утром and вечером end the same way; listen to how they start."
+  },
+  {
+   "id": "evening",
+   "kind": "sentence",
+   "title": "Same pattern, new time.",
+   "instruction": "Build “In the evening I drink tea.”",
+   "prompt": "Вечером я пью чай",
+   "translation": "In the evening I drink tea.",
+   "tokens": [
+    "чай",
+    "я",
+    "Вечером",
+    "пью"
+   ],
+   "answer": "Вечером я пью чай",
+   "alsoAccepted": [
+    "я Вечером пью чай",
+    "я пью чай Вечером"
+   ],
+   "review": "Вечером я пью чай → In the evening I drink tea.",
+   "success": "That works: Вечером я пью чай. The same pattern as your morning coffee.",
+   "retryFeedback": "Start with the time, then say what you do.",
+   "hint": "With я, these verbs end in -ю: пью, работаю, отдыхаю.",
+   "pronunciationGuide": "Ве́чером · VE-che-ram / я · ya / пью · pyu / чай · chai"
   },
   {
    "id": "exchange",
@@ -142,8 +183,28 @@ export const lesson:LessonDefinition={
    "success": "Anna asks about your evening. Tell her you relax. Я отдыхаю.",
    "retryFeedback": "Anna asks about your evening activity, not your name or location.",
    "hint": "Choose a reply that fits the invitation or question, rather than starting a new topic."
+  },
+  {
+   "id": "type",
+   "kind": "typed",
+   "title": "An early start.",
+   "instruction": "Type “in the morning” in Russian. The letter buttons are here if you need them.",
+   "prompt": "утром",
+   "translation": "in the morning",
+   "letters": [
+    "р",
+    "м",
+    "у",
+    "о",
+    "т"
+   ],
+   "answer": "утром",
+   "review": "утром → in the morning",
+   "success": "Yes: утром means “in the morning”. A useful word for this story.",
+   "retryFeedback": "Think about the morning word from the first step. Check its ending.",
+   "hint": "Think of the time of day when your first coffee usually happens."
   }
  ],
- "summary": "You described a morning coffee, work, and relaxing in the evening.",
+ "summary": "You described your morning coffee, your work, an evening tea, and a quiet evening rest.",
  "completionTip": "Try Утром я… to describe one thing you do each morning."
 };

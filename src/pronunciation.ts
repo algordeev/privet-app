@@ -30,6 +30,7 @@ const examples:Readonly<Record<string,string>>={
  'а я работаю':'a ya ra-BO-ta-yu',
  'хлеб пожалуйста':'hlep pa-ZHA-lu-sta',
  'привет давай в музей потом чай':'pri-VET! da-VAI v mu-ZEY! pa-TOM chai?',
+ 'да очень интересно':'da O-chin in-ti-RES-na',
 };
 const lessonReadings=new Map(nativeLessons.flatMap(lesson=>lesson.words.map(word=>[key(word.text),word.pronunciation] as const)));
 export function russianReading(text:string,words:readonly Word[]=[]):string|undefined{

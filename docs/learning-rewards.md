@@ -6,7 +6,7 @@ Privet’s native iPhone app has two bundled beginner Russian lessons. The websi
 
 Each lesson attempt starts with three hearts. An incorrect check uses one heart and resets its combo. A zero-heart attempt pauses; the learner can restart for free, spend **20 gems** to refill and continue, or activate the local Plus demo. Retrying a mistake does not restore a first-attempt result. Both lessons remain accessible.
 
-A completed lesson earns 10 base XP, up to three remaining-heart bonus XP, and a best first-try combo bonus of up to five XP. Failed attempts earn no completion XP. Replays can earn XP and count as finishes; only one practice day is recorded per local calendar day.
+A completed lesson earns 10 base XP, up to three remaining-heart bonus XP, and one bonus XP for each answer in the best first-try combo (up to the number of steps). Failed attempts earn no completion XP. Replays can earn XP and count as finishes; only one practice day is recorded per local calendar day.
 
 ## Gems and freezes
 

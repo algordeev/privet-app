@@ -905,6 +905,34 @@ try{
   await assertNativeLayout();
   console.log('PASS: listen-and-choose plays at normal/slow rate, falls back without a voice or on request, and keeps the word off the OLED until graded; match pairs grade per pair, show progress-only cards, cost no heart for a slip and auto-submit.');
  }
+ // Lessons 3–8 can be played start to finish on the smallest phone, every step answered the way a learner would.
+ {
+  await call('Emulation.setDeviceMetricsOverride',{width:320,height:568,deviceScaleFactor:1,mobile:true});
+  learningCards=false;russianAudio=true;await open();
+  const answer=async e=>{
+   if(e.kind==='vocabulary'){await evaluate(()=>document.querySelectorAll('.vocab-reveal').forEach(b=>b.click()));}
+   else if(e.kind==='choice'||e.kind==='listen'){await evaluate(text=>{[...document.querySelectorAll('.choice')].find(b=>b.querySelector('.native-choice-copy > span').textContent===text).click();},e.answer);}
+   else if(e.kind==='sentence'){for(const word of e.answer.split(' '))await evaluate(word=>{[...document.querySelectorAll('.word-bank button')].find(b=>!b.disabled&&b.textContent===word).click();},word);}
+   else if(e.kind==='typed'){await evaluate(text=>{const input=document.querySelector('#translation');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,text);input.dispatchEvent(new Event('input',{bubbles:true}));},e.answer);}
+   else if(e.kind==='match'){const tap=text=>evaluate(text=>{[...document.querySelectorAll('.match-item')].find(b=>!b.disabled&&(b.querySelector('span')?.textContent??b.textContent)===text).click();},text);for(const [ru,en] of e.pairs){await tap(ru);await pause(40);await tap(en);await pause(40);}}
+   await pause(60);await assertNativeLayout();
+   if(e.kind!=='match')await click('.lesson-bottom .button','Check answer');
+   await until(()=>!!document.querySelector('.feedback.correct'));
+   await click('.lesson-bottom .button','Continue');
+  };
+  for(const lesson of nativeLessons.slice(2)){
+   await click(`#native-card-${lesson.id} ~ .button`);
+   for(const [index,e] of lesson.exercises.entries()){
+    await until(n=>document.querySelector('.lesson-step-count')?.textContent.startsWith(`STEP ${n}`),index+1);
+    if(process.env.PRIVET_PLAY_DEBUG)console.log(`PLAY ${lesson.id} ${index+1} ${e.kind} ${e.id}`);await answer(e);
+   }
+   await until(()=>!!document.querySelector('.completion'));
+   assert.equal(await evaluate(()=>document.querySelector('.score strong').textContent.replace(/\s/g,'')),`${lesson.exercises.length}/${lesson.exercises.length}`,`${lesson.id}: every step correct on the first try`);
+   await assertNativeLayout();
+   await click('[aria-label="Return to app home"]');
+  }
+  console.log('PASS 320×568: lessons 3–8 play start to finish (vocabulary, choice, listening, matching, building, typing), all first-try correct, with no horizontal overflow at any step.');
+ }
  // Spaced review: a lesson passed before review existed is scheduled on load; its mistake is due today.
  {
   const {REVIEW_KEY}=await server.ssrLoadModule('/src/review.ts');
