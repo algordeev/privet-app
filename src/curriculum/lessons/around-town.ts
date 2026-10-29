@@ -20,7 +20,7 @@ export const lesson:LessonDefinition={
    "id": "where",
    "text": "Где метро?",
    "stressed": "Где метро́?",
-   "pronunciation": "gdye meet-RO",
+   "pronunciation": "gde mi-TRO",
    "meaning": "Where is the metro?"
   },
   {
@@ -34,7 +34,7 @@ export const lesson:LessonDefinition={
    "id": "left",
    "text": "Налево.",
    "stressed": "Нале́во.",
-   "pronunciation": "na-LYE-va",
+   "pronunciation": "na-LE-va",
    "meaning": "To the left."
   },
   {
@@ -115,7 +115,7 @@ export const lesson:LessonDefinition={
    "success": "That works: Где метро. Where is the metro?",
    "retryFeedback": "The words are right; try a different order for this message.",
    "hint": "Ask where first, then name the place.",
-   "pronunciationGuide": "Где · gdye / метро́ · meet-RO"
+   "pronunciationGuide": "Где · gde / метро́ · mi-TRO"
   },
   {
    "id": "exchange",

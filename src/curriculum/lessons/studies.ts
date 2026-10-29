@@ -21,21 +21,21 @@ export const lesson:LessonDefinition={
    "id": "study",
    "text": "Я учусь.",
    "stressed": "Я учу́сь.",
-   "pronunciation": "ya u-CHOOS",
+   "pronunciation": "ya u-CHUS",
    "meaning": "I study."
   },
   {
    "id": "university",
    "text": "в университете",
    "stressed": "в университе́те",
-   "pronunciation": "v u-nee-ver-see-TYE-te",
+   "pronunciation": "v u-ni-ver-si-TE-te",
    "meaning": "at university"
   },
   {
    "id": "work",
    "text": "Где ты работаешь?",
    "stressed": "Где ты рабо́таешь?",
-   "pronunciation": "gdye ty ra-BO-ta-yesh",
+   "pronunciation": "gde ti ra-BO-ta-yesh",
    "meaning": "Where do you work? (informal)"
   },
   {
@@ -49,7 +49,7 @@ export const lesson:LessonDefinition={
    "id": "you",
    "text": "А ты?",
    "stressed": "А ты?",
-   "pronunciation": "a ty",
+   "pronunciation": "a ti",
    "meaning": "And you? (informal)"
   }
  ],
@@ -100,7 +100,7 @@ export const lesson:LessonDefinition={
    "success": "That works: Я учусь в университете. I study at university.",
    "retryFeedback": "The words are right; try a different order for this message.",
    "hint": "Say who, then the action, then the two-word place phrase.",
-   "pronunciationGuide": "Я · ya / учу́сь · u-CHOOS / в университе́те · v u-nee-ver-see-TYE-te"
+   "pronunciationGuide": "Я · ya / учу́сь · u-CHUS / в университе́те · v u-ni-ver-si-TE-te"
   },
   {
    "id": "type",

@@ -270,7 +270,7 @@ try{
   await call('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:true});
   const exchange=freshSession();exchange.progress.index=3;exchange.progress.results=[true,true,true];
   await open({[NATIVE_SESSION_KEY]:exchange});await startCafe();
-  assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.native-russian-reading')].map(node=>node.textContent)),['vash chai','spa-SEE-ba','pree-VYET','ya kha-CHOO chai']);
+  assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.native-russian-reading')].map(node=>node.textContent)),['vash chai','spa-SEE-ba','pri-VET','ya ha-CHU chai']);
   await capture(`latin-exchange-${viewport.width}`);
   await click('.choice','1Спасибо!');const before=await stored(NATIVE_SESSION_KEY);
   await click('[aria-label="Lesson display settings"]');await click('[aria-label="Pronunciation help"]');await click('[aria-label="Lesson display settings"]');
@@ -866,7 +866,7 @@ try{
   await click('.listen-play');await until(()=>window.__speechTaps.at(-1)==='Налево.');assert.equal(await evaluate(()=>window.__utterances.at(-1).rate),.8);
   await until(()=>window.__bleCommands.includes(5));
   await click('.listen-slow');await until(()=>window.__utterances.at(-1).rate===.3);
-  await click('.listen-skip');assert.ok(await evaluate(()=>document.querySelector('.listen-fallback')?.textContent.includes('na-LYE-va')&&!document.querySelector('.listen-play')),'Can’t listen now shows the written sound guide');
+  await click('.listen-skip');assert.ok(await evaluate(()=>document.querySelector('.listen-fallback')?.textContent.includes('na-LE-va')&&!document.querySelector('.listen-play')),'Can’t listen now shows the written sound guide');
   await click('.choice','3Прямо.');await click('.lesson-bottom .button','Check answer');await until(()=>window.__bleCommands.at(-1)===2);
   await click('.lesson-bottom .button','Try again');await click('.lesson-hint-button');await click('.choice','2Налево.');await click('.lesson-bottom .button','Check answer');
   await until(()=>window.__cards.at(-1)?.mode===5);assert.deepEqual(await evaluate(()=>{const c=window.__cards.at(-1);return [c.primary,c.secondary];}),['Налево.','To the left.']);
@@ -900,7 +900,7 @@ try{
   // Without a Russian voice, the listening question is still fully answerable from the written sound guide.
   learningCards=false;russianAudio=false;await open({[sessionKey(town)]:at(town,'listen')});await click('#native-card-around-town ~ .button');
   await until(()=>!!document.querySelector('.listen-fallback'));
-  assert.ok(await evaluate(()=>document.querySelector('.listen-fallback').textContent.includes('Audio isn’t available')&&document.querySelector('.listen-fallback').textContent.includes('na-LYE-va')&&!document.querySelector('.listen-play')));
+  assert.ok(await evaluate(()=>document.querySelector('.listen-fallback').textContent.includes('Audio isn’t available')&&document.querySelector('.listen-fallback').textContent.includes('na-LE-va')&&!document.querySelector('.listen-play')));
   await click('.choice','2Налево.');await click('.lesson-bottom .button','Check answer');await until(()=>!!document.querySelector('.feedback.correct'));
   await assertNativeLayout();
   console.log('PASS: listen-and-choose plays at normal/slow rate, falls back without a voice or on request, and keeps the word off the OLED until graded; match pairs grade per pair, show progress-only cards, cost no heart for a slip and auto-submit.');

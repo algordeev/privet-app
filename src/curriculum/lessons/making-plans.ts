@@ -21,7 +21,7 @@ export const lesson:LessonDefinition={
    "id": "today",
    "text": "сегодня",
    "stressed": "сего́дня",
-   "pronunciation": "see-VOD-nya",
+   "pronunciation": "si-VOD-nya",
    "meaning": "today"
   },
   {
