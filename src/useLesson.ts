@@ -4,6 +4,8 @@ import {cafeLesson,type LessonDefinition} from './lessons';
 import {companionReaction,isPair,lessonCompanionEvent,matchValue,progressReducer,type Action,type Progress} from './engine';
 import {loadSession,sessionKey,savedKey,readSaved,lessonPassed,recordLessonCompletion,type Preferences} from './session';
 import {useSpeech} from './useSpeech';
+import {hapticFor} from './haptics';
+import {playHaptic} from './nativeHaptics';
 
 export function useLesson({persistSession=false,saveResults=true,definition=cafeLesson,sharedPreferences,sharedSpeech,onTransition,unlimitedHearts=false}:{persistSession?:boolean;saveResults?:boolean;definition?:LessonDefinition;sharedSpeech?:ReturnType<typeof useSpeech>;sharedPreferences?:{value:Preferences;set:Dispatch<SetStateAction<Preferences>>};onTransition?:(previous:Progress,next:Progress,action:Action)=>void;unlimitedHearts?:boolean}={}) {
  const {exercises:lesson,words}=definition;
@@ -30,7 +32,12 @@ export function useLesson({persistSession=false,saveResults=true,definition=cafe
  const previousStep=useRef(progress.index);
  const localSpeech=useSpeech(!sharedSpeech);
  const speech=sharedSpeech??localSpeech;
- function dispatch(action:Action){speech.stop();onTransition?.(progress,progressReducer(progress,action,lesson,{unlimitedHearts}),action);reduce(action);}
+ function dispatch(action:Action){
+  const next=progressReducer(progress,action,lesson,{unlimitedHearts});
+  // Haptic first, so the tap is felt before the heavier work of the transition.
+  playHaptic(hapticFor(progress,next,action));
+  speech.stop();onTransition?.(progress,next,action);reduce(action);
+ }
  useEffect(()=>{speech.stop();},[progress.index,progress.complete,progress.failed,speech.stop]);
  const exercise=lesson[Math.min(progress.index,lesson.length-1)];
  const hintRequested=hintAt===progress.index;
@@ -59,8 +66,10 @@ export function useLesson({persistSession=false,saveResults=true,definition=cafe
  // the last correct pair submits the exercise. Returns the matched count after this pair.
  function matchPair(ru:string,en:string):{correct:boolean;matched:number}{
   if(exercise.kind!=='match'||progress.feedback||matches.includes(ru))return {correct:false,matched:matches.length};
-  if(!isPair(exercise,ru,en)){setSlipAt(progress.index);return {correct:false,matched:matches.length};}
+  if(!isPair(exercise,ru,en)){setSlipAt(progress.index);playHaptic('incorrect');return {correct:false,matched:matches.length};}
   const next=[...matches,ru];setMatches(next);
+  // The last pair submits the exercise, whose check gives the answer haptic instead.
+  if(next.length<exercise.pairs!.length)playHaptic('pair');
   if(next.length===exercise.pairs!.length)dispatch({type:'check',value:matchValue(next,exercise),slipped:slipAt===progress.index});
   return {correct:true,matched:next.length};
  }
