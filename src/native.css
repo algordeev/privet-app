@@ -535,6 +535,7 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-lesson-card.is-up-next .native-path-state { animation: app-glow 1.6s ease-out 1 backwards; animation-delay: calc(var(--i,0) * 50ms + 350ms); }
 .native-lesson-card.is-up-next .button > span { animation: app-nudge 700ms var(--ease) 1 backwards; animation-delay: calc(var(--i,0) * 50ms + 600ms); }
 .native-streak-badge.is-bumped svg, .native-gems-pill.is-bumped { animation: app-pop 420ms var(--spring) 380ms backwards; }
+@keyframes app-fade-in { from { opacity: 0; } }
 @keyframes app-rise-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes app-bar-reveal { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 @keyframes app-glow { 0% { box-shadow: inset 0 0 0 1px #a8bea0, 0 0 0 0 #24665366; } 70% { box-shadow: inset 0 0 0 1px #a8bea0, 0 0 0 7px #24665300; } 100% { box-shadow: inset 0 0 0 1px #a8bea0, 0 0 0 0 #24665300; } }
@@ -687,7 +688,9 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-sheet[data-variant=card] .native-sheet-heading .app-icon-button { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; min-width: 32px; min-height: 32px; font-size: 22px; line-height: 1; color: #5d6b58; background: #ecefe6; }
 .companion-found { display: grid; padding: 0 20px; }
 .companion-found-stage { position: relative; height: min(40vh,290px); margin: 2px -20px 0; }
-.companion-found-stage .robot-3d { display: block; width: 100%; height: 100%; animation: app-rise-in 500ms var(--ease) backwards; }
+.companion-found-stage .robot-3d { display: block; width: 100%; height: 100%; opacity: 0; }
+/* Shown from its first rendered frame; the scene's own entrance (rise and turn-in) starts there too. */
+.companion-found-stage .robot-3d[data-ready=true] { opacity: 1; animation: app-fade-in 450ms var(--ease) backwards; }
 .oled-face { display: grid; place-items: center; height: 100%; }
 .oled-face canvas { width: min(62%,240px); aspect-ratio: 2; padding: 10px; border: 10px solid #d8684f; border-radius: 26px; background: #000; image-rendering: pixelated; }
 .native-app .companion-found-status { min-height: 46px; margin: 0 0 16px; text-align: center; color: #56664f; font-size: 15px; line-height: 1.5; }

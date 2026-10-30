@@ -483,3 +483,14 @@ test('an open card holds the scan window; cancelling ends quietly or with a plai
  const q=harness();const idle=q.state.message;await q.actor.discover();q.found();q.actor.holdScan();q.actor.cancelScan();assert.equal(q.state.message,idle);
  const ready=harness();await ready.ready();ready.actor.cancelScan();ready.actor.holdScan();assert.equal(ready.state.phase,'connected');ready.actor.dispose();
 });
+test('home discovery also resumes after an error or with Bluetooth off, but never after a permission denial',async()=>{
+ let fail=true;const h=harness({async initialize(){if(fail)throw new Error('Something odd');}});
+ await h.actor.scan();await flush();assert.equal(h.state.phase,'error');
+ fail=false;await h.actor.discover();assert.equal(h.state.phase,'scanning');assert.equal(h.state.quiet,true);
+ let on=false;const off=harness({async isEnabled(){return on;}});
+ await off.actor.scan();await flush();assert.equal(off.state.phase,'unavailable');
+ on=true;await off.actor.discover();assert.equal(off.state.phase,'scanning');
+ const denied=harness({async initialize(){throw new Error('BLE permission denied');}});
+ await denied.actor.scan();await flush();assert.equal(denied.state.phase,'permission-denied');
+ const before=denied.initializations;await denied.actor.discover();assert.equal(denied.state.phase,'permission-denied');assert.equal(denied.initializations,before);
+});

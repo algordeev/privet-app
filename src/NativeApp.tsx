@@ -26,7 +26,7 @@ import {useCyrillicProgress,type CyrillicController} from './useCyrillicProgress
 import {recommendCyrillic} from './cyrillicProgress';
 import {CyrillicQuickCard,NativeCyrillicQuickStart} from './NativeCyrillic';
 import {NativeSheet} from './NativeSheet';
-import {CompanionFoundCard} from './CompanionFoundCard';
+import {CompanionFoundCard,preloadCompanionRobot} from './CompanionFoundCard';
 import {useReview,type ReviewController} from './useReview';
 import {NativeReviewSession,ReviewHomeCard} from './NativeReview';
 import type {ReviewSession} from './review';
@@ -94,12 +94,10 @@ function NativeAppContent({controllers,physical,onboarding,companion,activity,su
  useNativeViewport(root);
  useNativeFocus(root);
  useEffect(()=>{
-  // Home quietly looks for a powered-on companion (only once Bluetooth was used before), also on return to the app.
-  if(view!=='home'||firstRunActive)return;
-  physical.discover();
-  const visible=()=>{if(!document.hidden)physical.discover();};
-  document.addEventListener('visibilitychange',visible);
-  return ()=>document.removeEventListener('visibilitychange',visible);
+  // While home is open it keeps quietly looking for a powered-on companion (only once Bluetooth was used before).
+  if(firstRunActive)return;
+  if(view==='home'||view==='physical')preloadCompanionRobot();
+  if(view==='home')return physical.discover();
  },[view,firstRunActive,physical.discover]);
  useEffect(()=>{
   // Recovery follows the selected lesson and entitlement, not the upgrade route.

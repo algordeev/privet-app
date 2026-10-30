@@ -15,7 +15,9 @@ import {PRODUCT} from './config';
 // Set once a connection has succeeded, so iOS has already granted Bluetooth: only then may the app
 // look for the companion by itself ("companion found"). Never a device ID; no automatic connection.
 export const BLE_USED_KEY=`${PRODUCT.storageKey}-ble-used`;
-const DISCOVERY_COOLDOWN_MS=30000;
+// While home is open the app keeps looking: each quiet scan runs its normal window, and a new one
+// starts within this delay after it ends, so a companion switched on later is still found.
+const DISCOVERY_RETRY_MS=4000;
 function bluetoothUsed(){try{return appStorage.getItem(BLE_USED_KEY)==='1';}catch{return false;}}
 
 export function usePhysicalCompanion(){
@@ -43,19 +45,25 @@ export function usePhysicalCompanion(){
  // The card that describes the current state; restored after a pronunciation.
  const contextCard=useRef<LearningCard|undefined>(undefined);
  const lessonEvents=useRef<ReturnType<typeof createPhysicalLessonEvents>|null>(null);
- // Home's quiet look for a nearby, powered-on companion. "Not now" ends it for this app session.
- // Home mounts before the root's effect creates the transport, so an early request waits for it.
- const discovery=useRef<{dismissed:boolean;lastAt:number;waiting:boolean;on?:BleTransport}>({dismissed:false,lastAt:-Infinity,waiting:false});
- const discover=useCallback(()=>{
-  const d=discovery.current;
-  if(d.dismissed||!bluetoothUsed()||Date.now()-d.lastAt<DISCOVERY_COOLDOWN_MS)return;
-  if(!transport.current){d.waiting=true;return;}
-  d.waiting=false;d.lastAt=Date.now();d.on=transport.current;void transport.current.discover();
+ // Home's quiet look for a nearby, powered-on companion, repeated while home is open. "Not now" (or an
+ // explicit disconnect) ends it for this app session. discover() returns the function that stops it.
+ const discovery=useRef<{dismissed:boolean;wanted:boolean;timer?:ReturnType<typeof setTimeout>}>({dismissed:false,wanted:false});
+ const lookAgain=useCallback(()=>{
+  const d=discovery.current;clearTimeout(d.timer);d.timer=undefined;
+  if(!d.wanted||d.dismissed||!bluetoothUsed())return;
+  // A no-op while a scan, connection or cleanup is under way; the next round tries again.
+  void transport.current?.discover();
+  d.timer=setTimeout(lookAgain,DISCOVERY_RETRY_MS);
  },[]);
+ const discover=useCallback(()=>{
+  const d=discovery.current;d.wanted=true;lookAgain();
+  return ()=>{d.wanted=false;clearTimeout(d.timer);d.timer=undefined;};
+ },[lookAgain]);
  useEffect(()=>{
   const actor=createBleTransport(createNativeBleDriver(),setState,{supported:()=>Capacitor.isNativePlatform()&&Capacitor.getPlatform()==='ios'&&Capacitor.isPluginAvailable('BluetoothLe')});
   transport.current=actor;
-  if(discovery.current.waiting)discover();
+  // Home mounts before this effect creates the transport: start a discovery it asked for.
+  if(discovery.current.wanted)lookAgain();
   lessonEvents.current=createPhysicalLessonEvents((command,next,id)=>{
    const current=context.current;if(!current||current.definition.id!==id)return;
    revision.current++;current.progress=next;
@@ -79,22 +87,21 @@ export function usePhysicalCompanion(){
   }).catch(()=>{/* Web/shell previews use document visibility. */});
   return ()=>{
    alive=false;transport.current=null;lessonEvents.current=null;actor.dispose();
-   // A remount (StrictMode) gets a fresh transport: repeat a discovery this one took with it, and drop its last state.
-   const d=discovery.current;if(d.on===actor){d.on=undefined;d.lastAt=-Infinity;d.waiting=true;}
+   // A remount (StrictMode) gets a fresh transport: drop this one's last state (e.g. a quiet scan).
    setState(initialBleState());
    document.removeEventListener('visibilitychange',visibility);
    window.removeEventListener('pagehide',pagehide);
    window.removeEventListener('pageshow',visibility);
    void listener?.then(handle=>handle.remove()).catch(()=>{});
   };
- },[discover]);
+ },[lookAgain]);
  const scan=useCallback(()=>{void transport.current?.scan();},[]);
  const dismissDiscovery=useCallback(()=>{discovery.current.dismissed=true;transport.current?.cancelScan();},[]);
  const holdScan=useCallback(()=>{transport.current?.holdScan();},[]);
  const cancelScan=useCallback(()=>{transport.current?.cancelScan();},[]);
  const connect=useCallback((id:string)=>{void transport.current?.connect(id);},[]);
  const testHappy=useCallback(()=>{void transport.current?.testHappy();},[]);
- const disconnect=useCallback(()=>{revision.current++;transport.current?.disconnect();},[]);
+ const disconnect=useCallback(()=>{revision.current++;discovery.current.dismissed=true;transport.current?.disconnect();},[]);
  const navigate=useCallback((screen:'home'|'profile'|'lesson'|'physical',homeCard?:LearningCard)=>{revision.current++;context.current=null;contextCard.current=undefined;transport.current?.navigate(screen,homeCard);},[]);
  const greet=useCallback(()=>{transport.current?.request(COMMAND.HAPPY);},[]);
  // Puts back what the robot showed before a pronunciation: THINKING while the
