@@ -15,7 +15,9 @@ export interface BleDriver {
  cleanup(id?:string):Promise<void>;
 }
 export type BlePhase='disconnected'|'suspended'|'reconciling'|'scanning'|'connecting'|'connected'|'unavailable'|'permission-denied'|'error';
-export type BleState={phase:BlePhase;message:string;devices:PhysicalDevice[];device?:PhysicalDevice;ready:boolean;pending:boolean;busy:boolean;notice?:string};
+// quiet: a background discovery scan on home. It keeps the ordinary disconnected message and status
+// (no "Scanning" anywhere), ends silently, and only fills `devices` for the "companion found" card.
+export type BleState={phase:BlePhase;message:string;devices:PhysicalDevice[];device?:PhysicalDevice;ready:boolean;pending:boolean;busy:boolean;notice?:string;quiet?:boolean};
 export const initialBleState=():BleState=>({phase:'disconnected',message:'Not connected. The virtual companion works independently.',devices:[],ready:false,pending:false,busy:false});
 export const BLE_TIMEOUTS={initialize:15000,scan:12000,connect:10000,subscribe:5000,write:4000,ack:5000};
 type Clock={now?:()=>number;set:(fn:()=>void,ms:number)=>ReturnType<typeof setTimeout>;clear:(id:ReturnType<typeof setTimeout>)=>void};
@@ -108,7 +110,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
   if(flight){flight.obsolete=true;flight.ack('cancelled');flight.reply?.(null);}flight=undefined;
   for(const cancel of [...cancelWaits])cancel();
   const id=state.device?.deviceId;
-  update({phase,message,ready:false,pending:false,device:undefined,devices:[]});cleanup(id);
+  update({phase,message,ready:false,pending:false,device:undefined,devices:[],quiet:false});cleanup(id);
  }
  function failure(error:unknown,g:number){
   if(!current(g)||error instanceof Cancelled)return;
@@ -117,32 +119,43 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
   else if(/unsupported|unavailable|not enabled|powered off/i.test(message))invalidate('unavailable','Bluetooth is unavailable. Use a real iPhone with Bluetooth turned on.');
   else invalidate('error',(/timed out|too long|did not respond|No reply|Could not start scanning|Could not stop scanning/i.test(message))?message:'Could not reach the companion. Try connecting again.');
  }
- async function scan(){
+ async function scan(quiet=false){
   if(!alive||!active||state.busy||state.phase==='scanning'||state.phase==='connecting'||state.phase==='connected'||state.phase==='suspended'||state.phase==='reconciling')return;
-  if(options.supported&&!options.supported()){update({phase:'unavailable',message:'Physical Bluetooth is available only in the native iPhone app on a real device.'});return;}
-  const g=++generation;touched=true;update({phase:'scanning',message:'Preparing Bluetooth…',devices:[],ready:false,notice:undefined});
+  if(options.supported&&!options.supported()){if(!quiet)update({phase:'unavailable',message:'Physical Bluetooth is available only in the native iPhone app on a real device.'});return;}
+  // A quiet discovery never surfaces its own errors or end: it just returns to the ordinary disconnected state.
+  const idle=initialBleState().message;
+  const stop=(phase:BlePhase,message:string)=>quiet?invalidate('disconnected',idle):invalidate(phase,message);
+  const g=++generation;touched=true;update({phase:'scanning',message:quiet?idle:'Preparing Bluetooth…',devices:[],ready:false,notice:undefined,quiet});
   try{
    await wait(raw(()=>driver.initialize()),g,time.initialize,'Bluetooth took too long. Try connecting again.');
    if(!current(g))return;
    const enabled=await wait(raw(()=>driver.isEnabled()),g,time.subscribe,'Bluetooth did not respond. Try again.');
    if(!current(g))return;
-   if(!enabled){invalidate('unavailable','Bluetooth is off. Turn it on in iPhone Settings, then connect again.');return;}
-   await wait(raw(()=>driver.watchEnabled(enabled=>{if(sameConnection(g)&&!enabled)invalidate('unavailable','Bluetooth is off or unavailable. Turn it on, then connect again.');})),g,time.subscribe,'Bluetooth did not respond. Try again.');
+   if(!enabled){stop('unavailable','Bluetooth is off. Turn it on in iPhone Settings, then connect again.');return;}
+   await wait(raw(()=>driver.watchEnabled(enabled=>{if(sameConnection(g)&&!enabled)stop('unavailable','Bluetooth is off or unavailable. Turn it on, then connect again.');})),g,time.subscribe,'Bluetooth did not respond. Try again.');
    if(!current(g))return;
-   update({message:'Scanning for companions… Choose a device below.'});
+   if(!quiet)update({message:'Scanning for companions… Choose a device below.'});
    // Both the scan window and the scan-start call are bounded.
-   scanTimer=timer.set(()=>{if(current(g))invalidate('disconnected','Scan finished. Tap Connect to scan again.');},time.scan);
+   scanTimer=timer.set(()=>{if(current(g))stop('disconnected','Scan finished. Tap Connect to scan again.');},time.scan);
    const started=raw(()=>driver.scan(BLE_SERVICE,device=>{
     if(!current(g)||state.phase!=='scanning')return;
     update({devices:[...state.devices.filter(d=>d.deviceId!==device.deviceId),device]});
    }));
    await wait(started,g,time.subscribe,'Could not start scanning. Try again.');
-  }catch(error){failure(error,g);}
+  }catch(error){if(quiet){if(current(g)&&!(error instanceof Cancelled))invalidate('disconnected',idle);}else failure(error,g);}
  }
+ // Background discovery for the "companion found" card: home only, never while anything else is under way.
+ // The caller decides whether Bluetooth permission was already granted; this never runs from mount alone.
+ function discover(){if(screen==='home'&&state.phase==='disconnected')return scan(true);return Promise.resolve();}
+ function stopDiscovery(){if(state.quiet&&state.phase==='scanning')invalidate('disconnected',initialBleState().message);}
+ // While the "companion found" card is showing, the scan window must not expire under it.
+ function holdScan(){if(state.phase==='scanning')clearScanTimer();}
+ // "Not now" on the card: end the scan without an error; a quiet one leaves no trace at all.
+ function cancelScan(){if(state.phase==='scanning')invalidate('disconnected',state.quiet?initialBleState().message:'Scan stopped. Tap Connect to scan again.');}
  async function connect(deviceId:string){
   if(!alive||!active||state.phase!=='scanning'||state.busy)return;
   const device=state.devices.find(d=>d.deviceId===deviceId);if(!device)return;
-  clearScanTimer();const g=generation;update({phase:'connecting',device,message:'Connecting and subscribing to status…',ready:false});
+  clearScanTimer();const g=generation;update({phase:'connecting',device,message:'Connecting and subscribing to status…',ready:false,quiet:false});
   try{
    await wait(raw(()=>driver.stopScan()),g,time.subscribe,'Could not stop scanning. Try again.');
    if(!current(g))return;
@@ -285,6 +298,8 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
  function navigate(next:typeof screen,homeCard?:LearningCard){
   if(next===screen)return;
   if(screen==='physical')leaveSettings();
+  // Discovery and a connection started from the home card both belong to home.
+  if(screen==='home'&&(state.quiet||state.phase==='connecting'))leaveSettings();
   screen=next;
   // Profile entry is silent: no face change or movement. Other navigation
   // establishes a neutral context. Code STREAK remains protocol-compatible only.
@@ -293,7 +308,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
  // Unlike ordinary same-screen navigation, direct lesson switches must replace
  // the old question context even while the lesson view is already open.
  function enterLesson(hasActiveQuestion:boolean,card?:LearningCard){
-  if(screen==='physical')leaveSettings();
+  if(screen==='physical'||screen==='home')leaveSettings();
   screen='lesson';
   return request(hasActiveQuestion?COMMAND.THINKING:COMMAND.IDLE,card);
  }
@@ -331,7 +346,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
    if(valid()&&!(error instanceof Cancelled))invalidate('error','Could not confirm the connection. Connect again.');
   }
  }
- return {scan,connect,testHappy,request,leaveSettings,navigate,enterLesson,getState:()=>state,connectionToken:()=>generation,
+ return {scan:()=>scan(),discover,stopDiscovery,holdScan,cancelScan,connect,testHappy,request,leaveSettings,navigate,enterLesson,getState:()=>state,connectionToken:()=>generation,
   disconnect:()=>invalidate('disconnected','Disconnected. No commands are queued.'),
   setActive(value:boolean){if(!alive||active===value)return;active=value;activityRevision++;if(!value)pause();else void reconcile();},
   dispose(){alive=false;active=false;invalidate('disconnected','Disconnected.');}

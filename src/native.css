@@ -678,3 +678,24 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 @keyframes app-dot-bounce { 0%,60%,100% { transform: none; opacity: .45; } 30% { transform: translateY(-4px); opacity: 1; } }
 @keyframes app-ripple { from { opacity: .55; transform: scale(.7); } to { opacity: 0; transform: scale(1.7); } }
 @keyframes app-ripple-dot { from { opacity: .6; transform: scale(1); } to { opacity: 0; transform: scale(2.6); } }
+
+/* "Companion found": a floating card (NativeSheet variant=card) with the 3D robot. */
+.native-app .native-sheet[data-variant=card][open] { padding-inline: 10px; padding-bottom: max(10px,env(safe-area-inset-bottom,0px)); }
+.native-app .native-sheet[data-variant=card] .native-sheet-panel { width: min(100%,420px); padding-bottom: 22px; border: 0; border-radius: 34px; background: #fbfaf6; box-shadow: 0 20px 60px #25372d45; }
+.native-app .native-sheet[data-variant=card] .native-sheet-heading { position: relative; justify-content: center; padding: 20px 56px 0; }
+.native-app .native-sheet[data-variant=card] .native-sheet-heading h2 { font-size: 21px; text-align: center; }
+.native-app .native-sheet[data-variant=card] .native-sheet-heading .app-icon-button { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; min-width: 32px; min-height: 32px; font-size: 22px; line-height: 1; color: #5d6b58; background: #ecefe6; }
+.companion-found { display: grid; padding: 0 20px; }
+.companion-found-stage { position: relative; height: min(40vh,290px); margin: 2px -20px 0; }
+.companion-found-stage .robot-3d { display: block; width: 100%; height: 100%; animation: app-rise-in 500ms var(--ease) backwards; }
+.oled-face { display: grid; place-items: center; height: 100%; }
+.oled-face canvas { width: min(62%,240px); aspect-ratio: 2; padding: 10px; border: 10px solid #d8684f; border-radius: 26px; background: #000; image-rendering: pixelated; }
+.native-app .companion-found-status { min-height: 46px; margin: 0 0 16px; text-align: center; color: #56664f; font-size: 15px; line-height: 1.5; }
+.companion-found-actions { display: grid; gap: 2px; }
+.native-app .companion-found-actions .button { width: 100%; justify-content: center; gap: 10px; }
+.native-app .companion-found-actions .native-text-button { margin-top: 2px; }
+.companion-found-spinner { width: 18px; height: 18px; border: 2.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: app-spin 800ms linear infinite; }
+.native-app .companion-found-done { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; margin: 0; color: #246653; font-size: 18px; font-weight: 650; }
+.companion-found-done > span { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #246653; color: #fff; animation: app-pop 460ms var(--spring) backwards; }
+.companion-found-done svg { width: 20px; height: 20px; }
+@keyframes app-spin { to { transform: rotate(360deg); } }
