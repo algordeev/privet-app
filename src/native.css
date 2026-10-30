@@ -291,7 +291,7 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-physical-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px 22px 30px; }
 .native-app .native-physical-intro { margin-block: 28px 24px; }
 .native-app .native-physical-intro h2 { margin-top: 10px; font-size: 29px; line-height: 1.2; letter-spacing: -.8px; font-weight: 650; }
-.native-app .native-physical-intro p,.native-app .native-physical-note { font-size: 14px; line-height: 1.65; color: #627458; margin-top: 14px; }
+.native-app .native-physical-intro p { font-size: 14px; line-height: 1.65; color: #627458; margin-top: 14px; }
 .native-app .native-physical-card { padding: 20px; border: 1px solid #d3dec7; background: #edf1e6; border-radius: 20px; }
 .native-physical-status { min-height: 118px; overflow-wrap: anywhere; }
 .native-physical-status strong { display: block; font-size: 18px; }

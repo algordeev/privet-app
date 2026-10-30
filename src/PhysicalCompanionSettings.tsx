@@ -17,8 +17,6 @@ export function PhysicalCompanionSettings({controller,onClose,backLabel='Back to
    <div className="native-physical-actions">{inSession?<button className="native-physical-disconnect" onClick={disconnect}>{state.phase==='scanning'?'Stop scanning':state.phase==='connecting'?'Cancel connection':'Disconnect'}</button>:<button className="button teal" onClick={scan} disabled={state.busy}>Connect <span aria-hidden="true">→</span></button>}
    <button className="button teal" onClick={testHappy} disabled={!state.ready||state.pending||state.busy}>{state.pending?'Sending reaction…':'Test happy reaction'}</button></div>
   </section>
-  <p className="native-physical-note">An established connection can stay while your phone is locked. iOS or loss of range may interrupt it. Privet checks the connection when you return. Leaving this screen stops an unfinished connection.</p>
-  <p className="native-physical-note">The virtual companion and pronunciation audio work independently.</p>
  </div>;
 }
 
