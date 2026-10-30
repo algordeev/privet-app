@@ -9,6 +9,14 @@ import {createPhysicalLessonEvents} from './physicalLessonEvents';
 import type {Action,Progress} from './engine';
 import {createNativeBleDriver} from './bleDriver';
 import {createBleTransport,initialBleState,type BleState,type BleTransport} from './bleTransport';
+import {appStorage} from './previewStorage';
+import {PRODUCT} from './config';
+
+// Set once a connection has succeeded, so iOS has already granted Bluetooth: only then may the app
+// look for the companion by itself ("companion found"). Never a device ID; no automatic connection.
+export const BLE_USED_KEY=`${PRODUCT.storageKey}-ble-used`;
+const DISCOVERY_COOLDOWN_MS=30000;
+function bluetoothUsed(){try{return appStorage.getItem(BLE_USED_KEY)==='1';}catch{return false;}}
 
 export function usePhysicalCompanion(){
  // BLE state (connection phase, busy/pending flags, card-transfer progress)
@@ -25,6 +33,7 @@ export function usePhysicalCompanion(){
   return ()=>{store.current!.listeners.delete(listener);};
  },[]);
  const setState=useCallback((next:BleState)=>{
+  if(next.phase==='connected'&&next.ready&&!bluetoothUsed()){try{appStorage.setItem(BLE_USED_KEY,'1');}catch{/* Discovery just stays off. */}}
   store.current!.state=next;
   for(const listener of store.current!.listeners)listener();
  },[]);
@@ -34,9 +43,19 @@ export function usePhysicalCompanion(){
  // The card that describes the current state; restored after a pronunciation.
  const contextCard=useRef<LearningCard|undefined>(undefined);
  const lessonEvents=useRef<ReturnType<typeof createPhysicalLessonEvents>|null>(null);
+ // Home's quiet look for a nearby, powered-on companion. "Not now" ends it for this app session.
+ // Home mounts before the root's effect creates the transport, so an early request waits for it.
+ const discovery=useRef<{dismissed:boolean;lastAt:number;waiting:boolean;on?:BleTransport}>({dismissed:false,lastAt:-Infinity,waiting:false});
+ const discover=useCallback(()=>{
+  const d=discovery.current;
+  if(d.dismissed||!bluetoothUsed()||Date.now()-d.lastAt<DISCOVERY_COOLDOWN_MS)return;
+  if(!transport.current){d.waiting=true;return;}
+  d.waiting=false;d.lastAt=Date.now();d.on=transport.current;void transport.current.discover();
+ },[]);
  useEffect(()=>{
   const actor=createBleTransport(createNativeBleDriver(),setState,{supported:()=>Capacitor.isNativePlatform()&&Capacitor.getPlatform()==='ios'&&Capacitor.isPluginAvailable('BluetoothLe')});
   transport.current=actor;
+  if(discovery.current.waiting)discover();
   lessonEvents.current=createPhysicalLessonEvents((command,next,id)=>{
    const current=context.current;if(!current||current.definition.id!==id)return;
    revision.current++;current.progress=next;
@@ -60,13 +79,19 @@ export function usePhysicalCompanion(){
   }).catch(()=>{/* Web/shell previews use document visibility. */});
   return ()=>{
    alive=false;transport.current=null;lessonEvents.current=null;actor.dispose();
+   // A remount (StrictMode) gets a fresh transport: repeat a discovery this one took with it, and drop its last state.
+   const d=discovery.current;if(d.on===actor){d.on=undefined;d.lastAt=-Infinity;d.waiting=true;}
+   setState(initialBleState());
    document.removeEventListener('visibilitychange',visibility);
    window.removeEventListener('pagehide',pagehide);
    window.removeEventListener('pageshow',visibility);
    void listener?.then(handle=>handle.remove()).catch(()=>{});
   };
- },[]);
+ },[discover]);
  const scan=useCallback(()=>{void transport.current?.scan();},[]);
+ const dismissDiscovery=useCallback(()=>{discovery.current.dismissed=true;transport.current?.cancelScan();},[]);
+ const holdScan=useCallback(()=>{transport.current?.holdScan();},[]);
+ const cancelScan=useCallback(()=>{transport.current?.cancelScan();},[]);
  const connect=useCallback((id:string)=>{void transport.current?.connect(id);},[]);
  const testHappy=useCallback(()=>{void transport.current?.testHappy();},[]);
  const disconnect=useCallback(()=>{revision.current++;transport.current?.disconnect();},[]);
@@ -112,7 +137,7 @@ export function usePhysicalCompanion(){
   return transport.current?.enterLesson(hasActiveQuestion,contextCard.current);
  },[]);
  const onTransition=useCallback((previous:Progress,next:Progress,action:Action,lessonId='cafe')=>{lessonEvents.current?.(previous,next,action,lessonId);},[]);
- return {getState,subscribe,scan,connect,testHappy,disconnect,navigate,enterLesson,greet,onListen,onListenEnd,onQuickStartListenEnd,onHint,onReveal,onMatchPair,onTransition};
+ return {getState,subscribe,scan,discover,dismissDiscovery,holdScan,cancelScan,connect,testHappy,disconnect,navigate,enterLesson,greet,onListen,onListenEnd,onQuickStartListenEnd,onHint,onReveal,onMatchPair,onTransition};
 }
 export type PhysicalCompanionController=ReturnType<typeof usePhysicalCompanion>;
 // Fine-grained subscription: only the component calling this (e.g. the

@@ -32,7 +32,9 @@ export function PhysicalCompanionHomeStatus({controller,onOpen}:{controller:Phys
 // Only a real end of the session resets it; a reconcile on app return keeps the same connection.
 let connectionAnnounced=false;
 export function PhysicalCompanionChip({controller,onOpen,greeting}:{controller:PhysicalCompanionController;onOpen:()=>void;greeting?:string}){
- const state=useBleState(controller);
+ const ble=useBleState(controller);
+ // A quiet discovery scan is invisible here: the chip keeps its ordinary disconnected look.
+ const state=ble.quiet?{...ble,phase:'disconnected' as const}:ble;
  const connected=state.phase==='connected'&&state.ready;
  const inSession=searching(state.phase)||state.phase==='connected'||state.phase==='suspended';
  const [celebrate,setCelebrate]=useState(false);

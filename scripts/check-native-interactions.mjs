@@ -17,7 +17,7 @@ let seed={},initialTime=new Date(2026,9,17,12).getTime();
 const server=await createServer({plugins:[{name:'privet-test-ble-driver',enforce:'pre',transform(_source,id){
  if(!id.endsWith('/src/bleDriver.ts'))return;
  return `export function createNativeBleDriver(){let notify;return {
- async initialize(){},async isEnabled(){return true;},async connected(){return true;},async watchEnabled(){},
+ async initialize(){window.__bleInit=(window.__bleInit||0)+1;},async isEnabled(){return true;},async connected(){return true;},async watchEnabled(){},
  async scan(_service,found){found({deviceId:'test-companion',name:'Privet-ESP32'});},async stopScan(){},async connect(){},
  async subscribe(_id,callback){notify=callback;},async write(_id,packet){
  window.__bleFrames.push(Array.from(new Uint8Array(packet.buffer,packet.byteOffset,packet.byteLength)));
@@ -852,6 +852,37 @@ try{
  await click('[aria-label="Return to app home"]');assert.equal((await codes()).filter(code=>code===9).length,1);
  assert.ok((await evaluate(()=>window.__bleFrames)).every(p=>p.length<=20),'Every native card frame stays within conservative BLE payload');
  console.log('PASS: capable native companion negotiates after CONNECTED, shows explicitly discovered vocabulary, safe prompts/incorrect feedback, hint cue and correctly graded answer; v1 legacy tests remain independent.');
+ // "Companion found" card: explicit settings scan, quiet home discovery (only once Bluetooth was used), Not now.
+ {
+  const BLE_USED='privet-demo-v1-ble-used',idleChip='Have a physical companion? Let’s connect it.';
+  await open();await pause(500);
+  assert.equal(await evaluate(()=>window.__bleInit||0),0,'Home never starts Bluetooth before it was used');
+  assert.ok(await evaluate(()=>!document.querySelector('#companion-found')),'No card without discovery');
+  await openPhysicalSettings();await click('.native-physical-actions .button','Connect');
+  await until(()=>!!document.querySelector('#companion-found[open]'));
+  assert.equal(await evaluate(()=>document.querySelector('#companion-found-title').textContent),'Privet-ESP32');
+  assert.ok(await evaluate(()=>!!document.querySelector('.companion-found-stage canvas')),'The robot (3D, or the flat OLED face without WebGL) is drawn');
+  assert.equal(await evaluate(()=>(window.__bleCommands||[]).length),0,'Nothing is sent before Connect in the card');
+  await click('#companion-found .button','Connect');
+  await until(()=>document.querySelector('.companion-found-done')?.textContent.includes('Connected'));
+  await until(()=>!document.querySelector('#companion-found'),{},4000);
+  assert.equal(await evaluate(()=>document.querySelector('.native-physical-status strong').textContent),'Connected');
+  assert.deepEqual(await evaluate(()=>window.__bleCommands.slice(0,1)),[9],'The robot gets CONNECTED once, from the card');
+  assert.equal(await evaluate(key=>localStorage.getItem(key),BLE_USED),'1','A successful connection remembers that Bluetooth was used');
+  await open({[BLE_USED]:1});
+  await until(()=>!!document.querySelector('#companion-found[open]'));
+  assert.equal(await evaluate(()=>document.querySelector('#native-companion-chip [role=status]').textContent),idleChip,'Discovery stays quiet: no scanning status');
+  await click('#companion-found .native-text-button','Not now');
+  await until(()=>!document.querySelector('#companion-found'));
+  assert.equal(await evaluate(()=>document.querySelector('#native-companion-chip [role=status]').textContent),idleChip);
+  await click('#native-profile-open');await click('[aria-label="Back to home"]');await pause(600);
+  assert.ok(await evaluate(()=>!document.querySelector('#companion-found')),'Not now holds for the session');
+  await open({[BLE_USED]:1});
+  await until(()=>!!document.querySelector('#companion-found[open]'));await click('#companion-found .button','Connect');
+  await until(()=>document.querySelector('#native-companion-chip')?.dataset.connected==='true');
+  await until(()=>!document.querySelector('#companion-found'),{},4000);
+  console.log('PASS: companion-found card offers the robot after an explicit scan and, once Bluetooth was used, quietly on home; Not now holds for the session; Connect in the card connects and closes it.');
+ }
  // New exercise kinds with a capable companion: listening keeps the spoken word off the OLED until graded;
  // matching grades each pair at once, shows progress only, and a slip costs no heart but the first try.
  {

@@ -453,3 +453,33 @@ test('the ON_FIRE combo reaches extended firmware; a fallback HAPPY always carri
   h.actor.dispose();
  }
 });
+test('quiet discovery on home keeps the disconnected message, offers found devices and connects like a scan',async()=>{
+ const h=harness();const idle=h.state.message;await h.actor.discover();
+ assert.equal(h.state.phase,'scanning');assert.equal(h.state.quiet,true);assert.equal(h.state.message,idle);
+ h.found();assert.equal(h.state.devices.length,1);assert.equal(h.state.message,idle);
+ await h.actor.connect('device-a');await flush();
+ assert.equal(h.state.phase,'connected');assert.equal(h.state.quiet,false);assert.deepEqual(h.codes(),[COMMAND.CONNECTED]);h.actor.dispose();
+});
+test('quiet discovery ends silently: scan window, Bluetooth off, errors and stopDiscovery never show an error',async()=>{
+ const h=harness();const idle=h.state.message;await h.actor.discover();await h.tick(BLE_TIMEOUTS.scan);
+ assert.equal(h.state.phase,'disconnected');assert.equal(h.state.message,idle);assert.equal(h.state.quiet,false);assert.equal(h.timers.size,0);
+ const off=harness({async isEnabled(){return false;}});await off.actor.discover();assert.equal(off.state.phase,'disconnected');assert.equal(off.state.message,idle);
+ const broken=harness({async initialize(){throw new Error('BLE permission denied');}});await broken.actor.discover();await flush();assert.equal(broken.state.phase,'disconnected');
+ const unsupported=harness({},false);await unsupported.actor.discover();assert.equal(unsupported.state.phase,'disconnected');assert.equal(unsupported.initializations,0);
+ const stopped=harness();await stopped.actor.discover();stopped.actor.stopDiscovery();assert.equal(stopped.state.phase,'disconnected');assert.equal(stopped.state.quiet,false);
+ const disabled=harness();await disabled.actor.discover();disabled.disable();assert.equal(disabled.state.phase,'disconnected');assert.equal(disabled.state.message,idle);
+});
+test('discovery runs only on home while disconnected; leaving home cancels it and a card connection',async()=>{
+ const away=harness();away.actor.navigate('lesson');await away.actor.discover();assert.equal(away.initializations,0);
+ const h=harness();await h.actor.discover();h.actor.navigate('profile');await flush();assert.equal(h.state.phase,'disconnected');assert.equal(h.state.quiet,false);
+ const pending=deferred(),c=harness({connect:()=>pending.promise});await c.actor.discover();c.found();void c.actor.connect('device-a');await flush();
+ assert.equal(c.state.phase,'connecting');c.actor.enterLesson(true);await flush();assert.equal(c.state.phase,'disconnected');pending.resolve();await flush();assert.equal(c.state.ready,false);
+ const ready=harness();await ready.ready();const initialized=ready.initializations;ready.actor.navigate('home');await ready.actor.discover();assert.equal(ready.state.phase,'connected');assert.equal(ready.initializations,initialized);ready.actor.dispose();
+});
+test('an open card holds the scan window; cancelling ends quietly or with a plain stopped message',async()=>{
+ const h=harness();await h.actor.scan();h.found();h.actor.holdScan();await h.tick(BLE_TIMEOUTS.scan*3);
+ assert.equal(h.state.phase,'scanning');assert.equal(h.state.devices.length,1);
+ h.actor.cancelScan();assert.equal(h.state.phase,'disconnected');assert.match(h.state.message,/Scan stopped/);
+ const q=harness();const idle=q.state.message;await q.actor.discover();q.found();q.actor.holdScan();q.actor.cancelScan();assert.equal(q.state.message,idle);
+ const ready=harness();await ready.ready();ready.actor.cancelScan();ready.actor.holdScan();assert.equal(ready.state.phase,'connected');ready.actor.dispose();
+});

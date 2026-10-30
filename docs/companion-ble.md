@@ -1,6 +1,6 @@
 # Privet ESP32 OLED/servo companion — protocol and lifecycle
 
-Native iOS BLE central using `@capacitor-community/bluetooth-le` 8.3.0 with Capacitor 8 and Swift Package Manager. The native app root owns one transport across home, profile, lessons and companion settings. Website behavior, speech, saved progress, statistics and the virtual companion remain independent of hardware. There is no backend, saved device ID, offline queue or automatic reconnect. iOS declares `bluetooth-central` to allow the established native link to remain while the app is inactive; lesson commands remain foreground-only.
+Native iOS BLE central using `@capacitor-community/bluetooth-le` 8.3.0 with Capacitor 8 and Swift Package Manager. The native app root owns one transport across home, profile, lessons and companion settings. Website behavior, speech, saved progress, statistics and the virtual companion remain independent of hardware. There is no backend, saved device ID, offline queue or automatic reconnect; the only stored Bluetooth fact is a yes/no flag that a connection once succeeded (see *Companion found* below). iOS declares `bluetooth-central` to allow the established native link to remain while the app is inactive; lesson commands remain foreground-only.
 
 ## Implementation and setup
 
@@ -9,6 +9,14 @@ Current firmware: [PrivetBLE_Servo_New_Emotions_v2](../firmware/PrivetBLE_Servo_
 The phone owns lessons, checking, progress and pronunciation. Firmware owns OLED faces, text layout, transitions, durations and servo gestures. THINKING persists until replaced. The HINT face lasts 2600 ms (1500 ms on the S3 firmware); an available hint card then shows for 2000 ms before THINKING, unless superseded. LISTENING carries no card and lasts exactly as long as the phone's audio: when speech finishes, the app restores what the companion showed before, THINKING while the question is open or IDLE once it is answered or finished, with the last context card (the question, a revealed word, match progress or the graded answer). LISTENING keeps a firmware safety limit (2600 ms on older firmware, 15 s on the S3) in case no completion arrives. Its request-scoped callback is invalidated by replacement, cancellation, submission, navigation, error, timeout, background or disposal. No duration guessing or app animation timer is used. Cyrillic quick-start pronunciation buttons also request LISTENING; successful speech completion, page changes during playback, and leaving the quick start restore IDLE because this is not an assessed question. They use the same speech cancellation safeguards. LISTENING/THINKING are servo-quiet, apart from returning an already displaced head toward center.
 
 The current source is implemented, but the additional states and latest return-to-thinking changes have not been reported as uploaded/hardware-tested. Earlier user reports cover commands 1–4, servo movement and lock/background retention. Enclosure illustrations remain concepts.
+
+## Companion found card
+
+When a companion is found, a floating card (`CompanionFoundCard`) slides up with a 3D model of the robot (three.js, loaded lazily; a flat OLED face without WebGL). Its OLED shows the firmware's own faces, ported pixel-for-pixel in `src/oledFaces.ts` (sleeping before connection; CONNECTED's opening eyes, smile and pulse; then IDLE), and its head follows the firmware's CONNECTED servo curve. Keep `oledFaces.ts` in sync when firmware faces change.
+
+- **Settings:** the explicit Connect scan shows the card when exactly one companion is found; several keep the plain list.
+- **Home:** a quiet discovery scan (`discover`, state `quiet`) runs when home shows or the app returns to it, but only after a connection has succeeded once (`privet-demo-v1-ble-used`), so it never triggers the iOS permission prompt. It keeps the ordinary disconnected status, ends silently after the scan window or on any error, stops when leaving home, and never connects by itself. *Not now* ends discovery for the app session; a 30 s cooldown separates attempts.
+- While the card is open the scan window is held (`holdScan`); closing it ends the scan (`cancelScan`) or cancels an unfinished connection. After connecting it closes itself about 3 s later.
 
 ## Peripheral contract (unchanged UUIDs)
 
