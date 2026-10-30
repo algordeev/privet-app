@@ -56,7 +56,8 @@ function servoAngle(age:number){
  return (pulse-1500)/1000*Math.PI/2;
 }
 
-export function createRobotScene(canvas:HTMLCanvasElement,{reducedMotion=false}:{reducedMotion?:boolean}={}):RobotScene{
+// onReady: called once the first frame is on the canvas; the entrance starts from that frame.
+export function createRobotScene(canvas:HTMLCanvasElement,{reducedMotion=false,onReady}:{reducedMotion?:boolean;onReady?:()=>void}={}):RobotScene{
  const renderer=new WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:'low-power'});
  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
  renderer.outputColorSpace=SRGBColorSpace;renderer.toneMapping=NeutralToneMapping;renderer.toneMappingExposure=.95;
@@ -121,10 +122,11 @@ export function createRobotScene(canvas:HTMLCanvasElement,{reducedMotion=false}:
   faceTexture.needsUpdate=true;
  }
 
- const start=performance.now();
- let mood:RobotMood='sleeping',moodAt=start,frame=0,disposed=false,yaw=0;
+ // Nothing is drawn until the canvas has its real size, so the first frame shown is the entrance's first.
+ let start=0,mood:RobotMood='sleeping',moodAt=0,frame=0,disposed=false,sized=false,yaw=0;
  const easeOut=(x:number)=>1-Math.pow(1-Math.min(1,Math.max(0,x)),3);
  function render(now=performance.now()){
+  const first=!start;if(first){start=now;moodAt=Math.max(moodAt,now);}
   const t=(now-start)/1000,since=now-moodAt;
   // Entrance: rise and turn in from the side, then a slow drift and float.
   const intro=reducedMotion?1:easeOut(t/1.6);
@@ -138,12 +140,13 @@ export function createRobotScene(canvas:HTMLCanvasElement,{reducedMotion=false}:
   const face:FirmwareFace=mood==='sleeping'?'sleeping':since<CONNECTED_FACE_MS?'connected':'idle';
   drawFace(face,face==='sleeping'?now-start:face==='connected'?since:since-CONNECTED_FACE_MS,now-start);
   renderer.render(scene,camera);
+  if(first)onReady?.();
  }
- function loop(now:number){if(disposed)return;if(!document.hidden)render(now);frame=requestAnimationFrame(loop);}
+ function loop(now:number){if(disposed)return;if(sized&&!document.hidden)render(now);frame=requestAnimationFrame(loop);}
  frame=requestAnimationFrame(loop);
  return {
   setMood(next){if(next===mood)return;mood=next;moodAt=performance.now();},
-  resize(width,height){renderer.setSize(width,height,false);camera.aspect=width/Math.max(1,height);camera.updateProjectionMatrix();render();},
+  resize(width,height){renderer.setSize(width,height,false);camera.aspect=width/Math.max(1,height);camera.updateProjectionMatrix();sized=true;render();},
   dispose(){
    disposed=true;cancelAnimationFrame(frame);
    scene.traverse(object=>{if(object instanceof Mesh){object.geometry.dispose();const materials:Material[]=Array.isArray(object.material)?object.material:[object.material];for(const material of materials){(material as MeshBasicMaterial).map?.dispose();material.dispose();}}});

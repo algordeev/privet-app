@@ -1,12 +1,14 @@
 import {lazy,Suspense,useEffect,useRef,useState} from 'react';
 import {NativeSheet} from './NativeSheet';
-import {OledFace} from './OledFace';
 import {BLE_NAME} from './bleProtocol';
 import {playHaptic} from './nativeHaptics';
 import type {PhysicalDevice} from './bleTransport';
 import {useBleState,type PhysicalCompanionController} from './usePhysicalCompanion';
 
-const Robot3D=lazy(()=>import('./Robot3D'));
+const loadRobot3D=()=>import('./Robot3D');
+const Robot3D=lazy(loadRobot3D);
+// Home and companion settings load the 3D code ahead, so the card opens straight onto the robot.
+export function preloadCompanionRobot(){void loadRobot3D().catch(()=>{/* The card loads it again when it opens. */});}
 type Stage='found'|'connecting'|'connected'|'failed'|'gone';
 const reducedMotion=()=>!!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -25,8 +27,9 @@ export function CompanionFoundCard({controller,where}:{controller:PhysicalCompan
  const stage:Stage|null=!card?null
   :state.phase==='connected'&&state.ready&&state.device?.deviceId===card.device.deviceId?'connected'
   :state.phase==='connecting'?'connecting'
-  :state.phase==='scanning'?'found'
-  :card.attempted?'failed':'gone';
+  // After a failed attempt the card keeps its message, even once home's discovery scans again.
+  :card.attempted?'failed'
+  :state.phase==='scanning'?'found':'gone';
  useEffect(()=>{if(stage==='gone'){dismissedScan.current=true;setCard(null);}},[stage]);
  useEffect(()=>{if(stage==='connected'&&!buzzed.current){buzzed.current=true;playHaptic('complete');}},[stage]);
  if(!card||!stage||stage==='gone')return null;
@@ -45,7 +48,7 @@ export function CompanionFoundCard({controller,where}:{controller:PhysicalCompan
  return <NativeSheet id="companion-found" variant="card" title={name} onClose={close}
   autoClose={leaving?0:stage==='connected'?(reducedMotion()?1200:3200):undefined}>
   <div className="companion-found" data-stage={stage}>
-   <div className="companion-found-stage"><Suspense fallback={<OledFace mood="sleeping"/>}><Robot3D mood={stage==='connected'?'connected':'sleeping'}/></Suspense></div>
+   <div className="companion-found-stage"><Suspense fallback={null}><Robot3D mood={stage==='connected'?'connected':'sleeping'}/></Suspense></div>
    <p className="companion-found-status" role="status" aria-live="polite">{message}</p>
    <div className="companion-found-actions">
     {stage==='found'&&<><button className="button teal" onClick={connect}>Connect</button><button className="native-text-button" onClick={()=>setLeaving(true)}>Not now</button></>}

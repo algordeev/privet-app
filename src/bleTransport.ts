@@ -146,7 +146,8 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
  }
  // Background discovery for the "companion found" card: home only, never while anything else is under way.
  // The caller decides whether Bluetooth permission was already granted; this never runs from mount alone.
- function discover(){if(screen==='home'&&state.phase==='disconnected')return scan(true);return Promise.resolve();}
+ // It also runs after an error or with Bluetooth off: a quiet scan ends silently, so home just keeps looking.
+ function discover(){if(screen==='home'&&['disconnected','error','unavailable'].includes(state.phase))return scan(true);return Promise.resolve();}
  function stopDiscovery(){if(state.quiet&&state.phase==='scanning')invalidate('disconnected',initialBleState().message);}
  // While the "companion found" card is showing, the scan window must not expire under it.
  function holdScan(){if(state.phase==='scanning')clearScanTimer();}

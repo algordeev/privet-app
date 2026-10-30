@@ -18,7 +18,7 @@ const server=await createServer({plugins:[{name:'privet-test-ble-driver',enforce
  if(!id.endsWith('/src/bleDriver.ts'))return;
  return `export function createNativeBleDriver(){let notify;return {
  async initialize(){window.__bleInit=(window.__bleInit||0)+1;},async isEnabled(){return true;},async connected(){return true;},async watchEnabled(){},
- async scan(_service,found){found({deviceId:'test-companion',name:'Privet-ESP32'});},async stopScan(){},async connect(){},
+ async scan(_service,found){window.__bleScans=(window.__bleScans||0)+1;const device={deviceId:'test-companion',name:'Privet-ESP32'};if(localStorage.getItem('test-robot-off')){window.__switchOn=()=>found(device);return;}found(device);},async stopScan(){},async connect(){},
  async subscribe(_id,callback){notify=callback;},async write(_id,packet){
  window.__bleFrames.push(Array.from(new Uint8Array(packet.buffer,packet.byteOffset,packet.byteLength)));
  if(packet.getUint8(0)===2){
@@ -861,7 +861,8 @@ try{
   await openPhysicalSettings();await click('.native-physical-actions .button','Connect');
   await until(()=>!!document.querySelector('#companion-found[open]'));
   assert.equal(await evaluate(()=>document.querySelector('#companion-found-title').textContent),'Privet-ESP32');
-  assert.ok(await evaluate(()=>!!document.querySelector('.companion-found-stage canvas')),'The robot (3D, or the flat OLED face without WebGL) is drawn');
+  await until(()=>!!document.querySelector('.companion-found-stage canvas'));
+  assert.ok(await evaluate(()=>!document.querySelector('.companion-found-stage .oled-face')||!document.querySelector('.robot-3d')),'The card opens straight onto the robot (3D, or the flat OLED face only without WebGL)');
   assert.equal(await evaluate(()=>(window.__bleCommands||[]).length),0,'Nothing is sent before Connect in the card');
   await click('#companion-found .button','Connect');
   await until(()=>document.querySelector('.companion-found-done')?.textContent.includes('Connected'));
@@ -881,7 +882,18 @@ try{
   await until(()=>!!document.querySelector('#companion-found[open]'));await click('#companion-found .button','Connect');
   await until(()=>document.querySelector('#native-companion-chip')?.dataset.connected==='true');
   await until(()=>!document.querySelector('#companion-found'),{},4000);
-  console.log('PASS: companion-found card offers the robot after an explicit scan and, once Bluetooth was used, quietly on home; Not now holds for the session; Connect in the card connects and closes it.');
+  // A robot switched on later while home stays open: discovery keeps looking with new scans.
+  await open({[BLE_USED]:1,'test-robot-off':1});
+  // The first quiet scan's 12 s window ends, then home starts another one.
+  for(let n=0;n<40&&!(await evaluate(()=>window.__bleScans>=2));n++)await pause(500);
+  assert.ok(await evaluate(()=>window.__bleScans>=2),'Home starts a new discovery scan after the first one ends');
+  assert.ok(await evaluate(()=>!document.querySelector('#companion-found')),'No card while the robot is off');
+  assert.equal(await evaluate(()=>document.querySelector('#native-companion-chip [role=status]').textContent),idleChip,'Repeated discovery stays quiet');
+  await evaluate(()=>{localStorage.removeItem('test-robot-off');window.__switchOn();});
+  await until(()=>!!document.querySelector('#companion-found[open]'));
+  await until(()=>document.querySelector('.companion-found-stage canvas')?.dataset.ready!=='false');
+  await click('#companion-found .native-text-button','Not now');
+  console.log('PASS: companion-found card offers the robot after an explicit scan and, once Bluetooth was used, quietly on home (also when it is switched on later); Not now holds for the session; Connect in the card connects and closes it.');
  }
  // New exercise kinds with a capable companion: listening keeps the spoken word off the OLED until graded;
  // matching grades each pair at once, shows progress only, and a slip costs no heart but the first try.
