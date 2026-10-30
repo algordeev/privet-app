@@ -18,8 +18,10 @@ export function NativeLessonTour({root,audio,onClose}:{root:RefObject<HTMLDivEle
    const safeTop=parseFloat(style?.paddingTop??'0')||0,safeBottom=parseFloat(style?.paddingBottom??'0')||0;
    setViewport({left:v?.offsetLeft??0,width:v?.width??window.innerWidth,height:Math.max(0,(v?.height??window.innerHeight)-safeTop-safeBottom),top:(v?.offsetTop??0)+safeTop});};
   measure();const observer=new ResizeObserver(measure);observer.observe(target);window.addEventListener('resize',measure);window.visualViewport?.addEventListener('resize',measure);window.visualViewport?.addEventListener('scroll',measure);container?.addEventListener('scroll',measure,true);
+  // Step entrance animations move the target without resizing it; re-measure once they settle.
+  container?.addEventListener('animationend',measure);
   next.current?.focus({preventScroll:true});
-  return ()=>{observer.disconnect();window.removeEventListener('resize',measure);window.visualViewport?.removeEventListener('resize',measure);window.visualViewport?.removeEventListener('scroll',measure);container?.removeEventListener('scroll',measure,true);};
+  return ()=>{observer.disconnect();window.removeEventListener('resize',measure);window.visualViewport?.removeEventListener('resize',measure);window.visualViewport?.removeEventListener('scroll',measure);container?.removeEventListener('scroll',measure,true);container?.removeEventListener('animationend',measure);};
  },[root,current.target,onClose]);
  useEffect(()=>{
   const element=card.current;if(!element)return;

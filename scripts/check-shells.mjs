@@ -71,7 +71,7 @@ try {
  const disconnectedPhysical=physical(initialBleState());
  assert.ok(disconnectedPhysical.includes('Physical companion'));
  assert.ok(!disconnectedPhysical.includes('STAGE 1'));
- assert.ok(disconnectedPhysical.includes('An established connection can stay while your phone is locked.'));
+ assert.ok(!disconnectedPhysical.includes('native-physical-note'));
  for(const phase of ['suspended','reconciling']){
   const checking=physical({...initialBleState(),phase,device:{deviceId:'test',name:'Privet-ESP32'}});
   assert.ok(checking.includes('>Disconnect</button>'));
