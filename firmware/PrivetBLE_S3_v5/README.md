@@ -219,7 +219,8 @@ Each gesture is a path of target pulses. A smooth follower moves the real pulse 
 limited speed and acceleration, braking in time so it never overshoots. A new reaction always starts from
 where the head actually is, so interrupting a gesture or switching reactions never snaps or reverses instantly.
 
-The servos are centred once at power-on. Each axis switches its PWM off 0.3 s after it reaches the end of a gesture
+At power-on the servos go straight to the sleeping pose (pan centred, tilt at `SLEEP_TILT_DEG`), because no phone
+is connected yet; the head then stays still until the phone wakes it. Each axis switches its PWM off 0.3 s after it reaches the end of a gesture
 and stays still, so idle servos are silent, and switches it back on at the last commanded pulse when the next gesture
 moves. Each servo keeps one LEDC channel for the whole run and "off" is duty 0, never a detach: with ESP32Servo,
 re-attaching could put both servos on the same MCPWM output, so the tilt copied the pan's pulse and the head

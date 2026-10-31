@@ -327,10 +327,12 @@ struct ServoAxis {
     writtenUs = -1;
   }
 
-  // Called once from setup(): the only intentional jump, to the resting pose at power-on.
-  void begin(uint32_t now) {
+  // Called once from setup(): the only intentional jump, at power-on, to
+  // startUs. That is the sleeping pose, since no phone is connected yet, so
+  // the head doesn't move again until the phone wakes it.
+  void begin(uint32_t now, int startUs) {
     follower.limits(axis);
-    follower.reset(PrivetMotion::home(axis));
+    follower.reset(startUs);
     if (!SERVO_ENABLED || !enabled) return;
     ready = ledcAttach(pin, SERVO_PWM_HZ, SERVO_PWM_BITS);
     if (!ready) {
@@ -1642,17 +1644,18 @@ void setup() {
   // always safe to call once the characteristic exists.
   bleNotifyMutex = xSemaphoreCreateMutex();
 
-  // Centre once at power-on, one servo at a time once the supply has settled;
+  // Straight to the sleeping pose at power-on (pan centred, tilt drooped),
+  // one servo at a time once the supply has settled;
   // PWM is released once still (SERVO_RELEASE_AFTER_MS).
   while (millis() < SERVO_POWER_ON_DELAY_MS) delay(10);
-  panServo.begin(millis());
+  panServo.begin(millis(), PrivetMotion::home(PrivetMotion::PAN));
   delay(SERVO_STAGGER_MS);
-  tiltServo.begin(millis());
+  tiltServo.begin(millis(), PrivetMotion::pulse(PrivetMotion::SLEEP_TILT_DEG));
   const uint32_t servosStarted = millis();
 
   Serial.println(
     "[SERVO] Pan GPIO4, tilt GPIO5, limits in ServoMotion.h; "
-    "center 1500 us. Smooth follower; PWM off when still."
+    "start in the sleeping pose. Smooth follower; PWM off when still."
   );
 
   // Pulled down so a missing or unplugged touch module never reads as a touch.
