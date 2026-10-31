@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {encodeHappy,encodeCommand,COMMAND,EXTENDED_FALLBACK,decodeAcknowledgement,nextRequestId} from './bleProtocol.ts';
+import {encodeHappy,encodeCommand,encodeVolume,COMMAND,SET_VOLUME,VOLUME_LEVELS,EXTENDED_FALLBACK,decodeAcknowledgement,nextRequestId} from './bleProtocol.ts';
 const bytes=(view:DataView)=>Array.from(new Uint8Array(view.buffer,view.byteOffset,view.byteLength));
 test('happy packet is exactly eight bytes with a little-endian unsigned request ID',()=>{
  assert.deepEqual(bytes(encodeHappy(0x12345678)),[1,1,0x78,0x56,0x34,0x12,1,0]);
@@ -36,4 +36,14 @@ test('all eleven reaction commands preserve version, eight-byte format and argum
  for(const code of [0,10,255,-1,1.5,NaN])assert.throws(()=>encodeCommand(1,code as never));
  assert.deepEqual(bytes(encodeCommand(1,COMMAND.ON_FIRE,7)),[1,1,1,0,0,0,12,7],'ON_FIRE carries its combo');
  for(const [command,argument] of [[COMMAND.HAPPY,1],[COMMAND.ON_FIRE,256],[COMMAND.ON_FIRE,-1],[COMMAND.ON_FIRE,1.5]] as const)assert.throws(()=>encodeCommand(1,command,argument));
+});
+
+test('SET_VOLUME is control code 13 with the level 0-4 and an optional preview bit, never a reaction',()=>{
+ assert.equal(SET_VOLUME,13);assert.deepEqual(VOLUME_LEVELS,['Off','Quiet','Medium','Loud','Max']);
+ assert.deepEqual(bytes(encodeVolume(0x12345678,3)),[1,1,0x78,0x56,0x34,0x12,13,3]);
+ assert.deepEqual(bytes(encodeVolume(1,0,true)),[1,1,1,0,0,0,13,0x80]);assert.deepEqual(bytes(encodeVolume(1,4,true)),[1,1,1,0,0,0,13,0x84]);
+ for(const level of [-1,5,1.5,NaN])assert.throws(()=>encodeVolume(1,level));
+ for(const id of [0,0x100000000])assert.throws(()=>encodeVolume(id,1));
+ assert.throws(()=>encodeCommand(1,13 as never),'not accepted as a reaction');
+ const ack=encodeVolume(1,2);ack.setUint8(1,2);ack.setUint8(7,0);assert.equal(decodeAcknowledgement(ack),null,'its ACK never matches a reaction');
 });

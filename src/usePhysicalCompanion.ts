@@ -4,7 +4,7 @@ import {Capacitor} from '@capacitor/core';
 import {companionDisplay} from './companionDisplay';
 import type {LessonDefinition} from './curriculum/types';
 import type {LearningCard} from './learningProtocol';
-import {COMMAND} from './bleProtocol';
+import {COMMAND,DEFAULT_VOLUME_LEVEL,VOLUME_LEVELS} from './bleProtocol';
 import {createPhysicalLessonEvents} from './physicalLessonEvents';
 import type {Action,Progress} from './engine';
 import {createNativeBleDriver} from './bleDriver';
@@ -19,6 +19,9 @@ export const BLE_USED_KEY=`${PRODUCT.storageKey}-ble-used`;
 // starts within this delay after it ends, so a companion switched on later is still found.
 const DISCOVERY_RETRY_MS=4000;
 function bluetoothUsed(){try{return appStorage.getItem(BLE_USED_KEY)==='1';}catch{return false;}}
+// The robot's sound level (0 Off … 4 Max). Saved here and sent on every connection; the robot also keeps it.
+export const VOLUME_KEY=`${PRODUCT.storageKey}-companion-volume`;
+function savedVolume(){try{const level=Number(appStorage.getItem(VOLUME_KEY)??DEFAULT_VOLUME_LEVEL);return Number.isInteger(level)&&level>=0&&level<VOLUME_LEVELS.length?level:DEFAULT_VOLUME_LEVEL;}catch{return DEFAULT_VOLUME_LEVEL;}}
 
 export function usePhysicalCompanion(){
  // BLE state (connection phase, busy/pending flags, card-transfer progress)
@@ -60,7 +63,7 @@ export function usePhysicalCompanion(){
   return ()=>{d.wanted=false;clearTimeout(d.timer);d.timer=undefined;};
  },[lookAgain]);
  useEffect(()=>{
-  const actor=createBleTransport(createNativeBleDriver(),setState,{supported:()=>Capacitor.isNativePlatform()&&Capacitor.getPlatform()==='ios'&&Capacitor.isPluginAvailable('BluetoothLe')});
+  const actor=createBleTransport(createNativeBleDriver(),setState,{supported:()=>Capacitor.isNativePlatform()&&Capacitor.getPlatform()==='ios'&&Capacitor.isPluginAvailable('BluetoothLe'),volume:savedVolume});
   transport.current=actor;
   // Home mounts before this effect creates the transport: start a discovery it asked for.
   if(discovery.current.wanted)lookAgain();
@@ -101,6 +104,7 @@ export function usePhysicalCompanion(){
  const cancelScan=useCallback(()=>{transport.current?.cancelScan();},[]);
  const connect=useCallback((id:string)=>{void transport.current?.connect(id);},[]);
  const testHappy=useCallback(()=>{void transport.current?.testHappy();},[]);
+ const setVolume=useCallback((level:number)=>{try{appStorage.setItem(VOLUME_KEY,String(level));}catch{/* Still sent for this connection. */}transport.current?.setVolume(level);},[]);
  const disconnect=useCallback(()=>{revision.current++;discovery.current.dismissed=true;transport.current?.disconnect();},[]);
  const navigate=useCallback((screen:'home'|'profile'|'lesson'|'physical',homeCard?:LearningCard)=>{revision.current++;context.current=null;contextCard.current=undefined;transport.current?.navigate(screen,homeCard);},[]);
  const greet=useCallback(()=>{transport.current?.request(COMMAND.HAPPY);},[]);
@@ -144,7 +148,7 @@ export function usePhysicalCompanion(){
   return transport.current?.enterLesson(hasActiveQuestion,contextCard.current);
  },[]);
  const onTransition=useCallback((previous:Progress,next:Progress,action:Action,lessonId='cafe')=>{lessonEvents.current?.(previous,next,action,lessonId);},[]);
- return {getState,subscribe,scan,discover,dismissDiscovery,holdScan,cancelScan,connect,testHappy,disconnect,navigate,enterLesson,greet,onListen,onListenEnd,onQuickStartListenEnd,onHint,onReveal,onMatchPair,onTransition};
+ return {getState,subscribe,scan,discover,dismissDiscovery,holdScan,cancelScan,connect,testHappy,volume:savedVolume,setVolume,disconnect,navigate,enterLesson,greet,onListen,onListenEnd,onQuickStartListenEnd,onHint,onReveal,onMatchPair,onTransition};
 }
 export type PhysicalCompanionController=ReturnType<typeof usePhysicalCompanion>;
 // Fine-grained subscription: only the component calling this (e.g. the

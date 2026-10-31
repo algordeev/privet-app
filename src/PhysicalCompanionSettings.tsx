@@ -1,12 +1,14 @@
 import {useEffect,useState} from 'react';
 import {useBleState,type PhysicalCompanionController} from './usePhysicalCompanion';
-import {BLE_NAME} from './bleProtocol';
+import {BLE_NAME,VOLUME_LEVELS} from './bleProtocol';
 // Phases where the app is still looking for (or re-checking) the companion; these get a gentle searching motion.
 const searching=(phase:string)=>phase==='scanning'||phase==='connecting'||phase==='reconciling';
 const phases={suspended:'Reactions paused',reconciling:'Checking connection',disconnected:'Disconnected',scanning:'Scanning',connecting:'Connecting',connected:'Connected',unavailable:'Bluetooth unavailable','permission-denied':'Permission denied',error:'Connection error'} as const;
 export function PhysicalCompanionSettings({controller,onClose,backLabel='Back to home'}:{controller:PhysicalCompanionController;onClose:()=>void;backLabel?:string}){
  const {scan,connect,disconnect,testHappy}=controller;
  const state=useBleState(controller);
+ const [volume,setVolume]=useState(controller.volume);
+ const chooseVolume=(level:number)=>{setVolume(level);controller.setVolume(level);};
  const inSession=state.phase==='scanning'||state.phase==='connecting'||state.phase==='connected'||state.phase==='suspended'||state.phase==='reconciling';
  return <div className="native-physical-scroll">
   <header className="native-profile-navigation"><button className="app-icon-button" onClick={onClose} aria-label={backLabel}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><h1 id="native-physical-title" tabIndex={-1}>Physical companion</h1><span aria-hidden="true"/></header>
@@ -17,6 +19,7 @@ export function PhysicalCompanionSettings({controller,onClose,backLabel='Back to
    <div className="native-physical-actions">{inSession?<button className="native-physical-disconnect" onClick={disconnect}>{state.phase==='scanning'?'Stop scanning':state.phase==='connecting'?'Cancel connection':'Disconnect'}</button>:<button className="button teal" onClick={scan} disabled={state.busy}>Connect <span aria-hidden="true">→</span></button>}
    <button className="button teal" onClick={testHappy} disabled={!state.ready||state.pending||state.busy}>{state.pending?'Sending reaction…':'Test happy reaction'}</button></div>
   </section>
+  {state.sound&&<fieldset className="native-physical-volume" disabled={!state.ready}><legend>Robot sound</legend><div>{VOLUME_LEVELS.map((label,level)=><button key={label} aria-pressed={volume===level} onClick={()=>chooseVolume(level)}>{label}</button>)}</div></fieldset>}
  </div>;
 }
 

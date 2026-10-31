@@ -6,7 +6,7 @@ import {encodeCommand,BLE_SERVICE,COMMAND,type CommandCode} from './bleProtocol.
 function deferred<T=void>(){let resolve!:(value:T)=>void,reject!:(error:Error)=>void;const promise=new Promise<T>((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};}
 const flush=()=>new Promise<void>(resolve=>setImmediate(resolve));
 function acknowledgement(id:number,result=0,command:CommandCode=COMMAND.HAPPY){const packet=encodeCommand(id,command);packet.setUint8(1,2);packet.setUint8(7,result);return packet;}
-function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0,capable:boolean|'silent'|'ack-only'|'malformed'|'extended'=false){
+function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0,capable:boolean|'silent'|'ack-only'|'malformed'|'extended'|'sound'=false,volume?:()=>number){
  let now=0,nextTimer=0,initializations=0,connections=0,cleanups=0,stopScans=0,syncing=false,activeWrites=0,maxWrites=0,subscriptions=0,watches=0,queries=0;
  let found!:(device:PhysicalDevice)=>void,notified!:(value:DataView)=>void,disconnected!:()=>void,enabled!:(value:boolean)=>void;
  const timers=new Map<number,{at:number;fn:()=>void}>(),writes:DataView[]=[],allWrites:DataView[]=[],snapshots:BleState[]=[];
@@ -23,7 +23,7 @@ function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0,ca
    allWrites.push(packet);
    if(packet.getUint8(0)===1&&packet.getUint8(6)===10){
     const ack=new DataView(packet.buffer.slice(0));ack.setUint8(1,2);ack.setUint8(7,capable?0:1);
-    if(capable===true||capable==='malformed'||capable==='extended'){const caps=new DataView(new ArrayBuffer(20));[2,0x80,0,0,0,0,capable==='extended'?15:7,20,96,0,64,32,77,0,0,0,0x88,0x13].forEach((v,i)=>caps.setUint8(i,v));caps.setUint32(2,packet.getUint32(2,true),true);if(capable==='malformed')caps.setUint8(10,65);notified(caps);}
+    if(capable===true||capable==='malformed'||capable==='extended'||capable==='sound'){const caps=new DataView(new ArrayBuffer(20));[2,0x80,0,0,0,0,capable==='extended'?15:capable==='sound'?31:7,20,96,0,64,32,77,0,0,0,0x88,0x13].forEach((v,i)=>caps.setUint8(i,v));caps.setUint32(2,packet.getUint32(2,true),true);if(capable==='malformed')caps.setUint8(10,65);notified(caps);}
     if(capable!=='silent')notified(ack);return;
    }
    writes.push(packet);activeWrites++;maxWrites=Math.max(maxWrites,activeWrites);
@@ -34,7 +34,7 @@ function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0,ca
   },
   async cleanup(id){cleanups++;await overrides.cleanup?.(id);}
  };
- const actor=createBleTransport(driver,s=>snapshots.push(s),{supported:()=>supported,clock:{
+ const actor=createBleTransport(driver,s=>snapshots.push(s),{supported:()=>supported,volume,clock:{
   now:()=>now,
   set(fn,ms){const id=++nextTimer;timers.set(id,{at:now+ms,fn});return id as unknown as ReturnType<typeof setTimeout>;},clear(id){timers.delete(id as unknown as number);}
  }});
@@ -493,4 +493,22 @@ test('home discovery also resumes after an error or with Bluetooth off, but neve
  const denied=harness({async initialize(){throw new Error('BLE permission denied');}});
  await denied.actor.scan();await flush();assert.equal(denied.state.phase,'permission-denied');
  const before=denied.initializations;await denied.actor.discover();assert.equal(denied.state.phase,'permission-denied');assert.equal(denied.initializations,before);
+});
+
+const volumes=(writes:DataView[])=>writes.filter(p=>p.getUint8(0)===1&&p.getUint8(6)===13).map(p=>p.getUint8(7));
+test('sound firmware gets the saved level once per connection, without a preview, after CONNECTED and negotiation',async()=>{
+ const h=harness({},true,0,'sound',()=>2);await h.ready(true);await flush();
+ assert.equal(h.state.sound,true);assert.deepEqual(h.codes(),[COMMAND.CONNECTED,13]);assert.deepEqual(volumes(h.writes),[2]);
+ h.actor.disconnect();assert.equal(h.state.sound,false);
+ for(const capable of [false,true,'extended'] as const){const old=harness({},true,0,capable,()=>2);await old.ready(true);await flush();assert.notEqual(old.state.sound,true);assert.deepEqual(volumes(old.writes),[]);assert.equal(old.actor.setVolume(1),false,'no volume for firmware without sound');old.actor.dispose();}
+});
+test('a picked level previews once; rapid picks keep only the latest; reactions never drop it or overlap its write',async()=>{
+ let release=deferred();const h=harness({write:async(_id,packet)=>{if(packet.getUint8(6)===13)await release.promise;}},true,0,'sound');await h.ready();await flush();h.writes.length=0;
+ assert.equal(h.actor.setVolume(4),true);await flush();assert.deepEqual(volumes(h.writes),[0x84]);
+ h.actor.setVolume(1);h.actor.setVolume(0);h.actor.request(COMMAND.HAPPY);await flush();assert.equal(h.writes.length,1,'one native write at a time');
+ release.resolve();release=deferred();await flush();assert.deepEqual(h.codes(),[13,COMMAND.HAPPY,13],'the reaction goes first; only the latest pick follows its write');
+ assert.deepEqual(volumes(h.writes),[0x84,0x80]);h.notify(acknowledgement(h.writes[1].getUint32(2,true)));release.resolve();await flush();
+ assert.equal(h.state.message,'Reaction accepted.');assert.equal(h.state.phase,'connected');assert.equal(h.maxWrites,1,'never two native writes at once');
+ for(const level of [-1,5,1.5])assert.equal(h.actor.setVolume(level),false);
+ h.actor.setActive(false);assert.equal(h.actor.setVolume(2),false,'nothing is kept while paused');h.actor.dispose();
 });

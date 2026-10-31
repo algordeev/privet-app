@@ -1,9 +1,9 @@
 # PrivetBLE_S3_v4: the ESP32-S3 companion with sound
 
 [PrivetBLE_S3](../PrivetBLE_S3/README.md) plus a DFPlayer Mini that plays a short sound for each reaction.
-Everything else is unchanged: the BLE protocol, device name (`Privet-ESP32`), reactions 1–9, 11 NOD and 12 ON_FIRE,
-learning cards, faces and servo motion. The app needs no update and sends no new commands; the firmware picks the
-sound from the reaction. PrivetBLE_S3 stays untouched in its own folder.
+Everything else is unchanged: device name (`Privet-ESP32`), reactions 1–9, 11 NOD and 12 ON_FIRE, learning cards,
+faces and servo motion. The firmware picks the sound from the reaction. The only protocol addition is control code
+13 `SET_VOLUME` for the app's volume setting (below). PrivetBLE_S3 stays untouched in its own folder.
 
 ## Sound
 
@@ -37,8 +37,16 @@ Behaviour:
 - Serial (115200) logs each track: `[SOUND] Playing /mp3/0004.mp3.`, `Finished`, `Stopped` and DFPlayer errors
   (error 6 means the file isn't in `/mp3`).
 
-**Volume:** set `SOUND_VOLUME` (0–30, default 18) near the top of the sketch. The speaker is only 0.5 W, so the
-sketch refuses to compile above 22.
+**Volume:** chosen in the app, on the companion settings screen under **Robot sound**: Off, Quiet, Medium, Loud or
+Max. The row appears only while a robot with working sound is connected. Each pick plays the happy chirp (0004) at
+the new level. The app sends the level with control code 13 `SET_VOLUME` (capability bit 16; see
+[docs/companion-ble.md](../../docs/companion-ble.md)); it never changes the face or the head. The robot saves it in
+flash (NVS, namespace `privet-sound`), so it survives power-off and the wake-up chirp already uses it.
+
+The levels map to DFPlayer volumes in `SOUND_LEVEL_VOLUMES` near the top of the sketch: 0, 8, 13, 18 and 22 out of
+30, default Loud (18). The speaker is only 0.5 W, so the sketch refuses to compile with any volume above 22.
+The sound check at start-up runs after BLE starts: a phone that connects within those first seconds gets no volume
+control until it reconnects.
 
 ## SD card
 
@@ -148,8 +156,8 @@ shot to its top position. There is no position feedback: if the head is pushed w
 next gesture starts.
 
 Compiles for ESP32S3 Dev Module (Arduino-ESP32 3.3.12, DFRobotDFPlayerMini 1.0.6) with the settings above:
-668,450 bytes of program storage (21%), 33,332 bytes of global variables (10%). Not yet uploaded or tested on hardware;
-PrivetBLE_S3, which v4 extends, runs on the owner's v2 hardware.
+669,602 bytes of program storage (21%), 33,348 bytes of global variables (10%). The owner has tested the reaction
+sounds on the v2 hardware; the app volume setting (code 13) is not yet tested on hardware.
 `ServoMotion.h` is an unchanged copy of PrivetBLE_S3's, which `npm test` checks in a host simulation
 (`scripts/test-servo-motion.cpp`): every gesture stays in range,
 finishes before its reaction ends, remains visible after smoothing, and returns to the resting pose (sleep rests drooped),

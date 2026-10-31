@@ -29,3 +29,17 @@ export function decodeAcknowledgement(packet:DataView):Acknowledgement|null {
  if(packet.byteLength!==8||packet.getUint8(0)!==1||packet.getUint8(1)!==2||!validCommands.has(packet.getUint8(6))||packet.getUint8(7)>2)return null;
  return {requestId:packet.getUint32(2,true),command:packet.getUint8(6) as CommandCode,result:packet.getUint8(7) as 0|1|2};
 }
+// Control code 13 sets the robot's sound level. Like code 10 it is not a reaction: it never changes the face
+// or the head. Sent only to firmware advertising sound (capability bit 16), which maps each level to a safe
+// speaker volume. Argument: the level 0-4, plus 0x80 to play a short preview chirp at the new level.
+export const SET_VOLUME=13 as const;
+export const VOLUME_LEVELS=['Off','Quiet','Medium','Loud','Max'] as const;
+export const DEFAULT_VOLUME_LEVEL=3;
+export const VOLUME_PREVIEW=0x80;
+export function encodeVolume(requestId:number,level:number,preview=false):DataView {
+ if(!Number.isInteger(level)||level<0||level>=VOLUME_LEVELS.length)throw new Error('Invalid volume level');
+ if(!Number.isInteger(requestId)||requestId<1||requestId>0xffffffff)throw new Error('Invalid request ID');
+ const packet=new DataView(new ArrayBuffer(8));
+ packet.setUint8(0,1);packet.setUint8(1,1);packet.setUint32(2,requestId,true);packet.setUint8(6,SET_VOLUME);packet.setUint8(7,level|(preview?VOLUME_PREVIEW:0));
+ return packet;
+}
