@@ -1,6 +1,7 @@
 # PrivetBLE_S3_v4: the ESP32-S3 companion with sound
 
-[PrivetBLE_S3](../PrivetBLE_S3/README.md) plus a DFPlayer Mini that plays a short sound for each reaction.
+[PrivetBLE_S3](../PrivetBLE_S3/README.md) plus a DFPlayer Mini that plays a short sound for each reaction, and a
+TTP223 touch pad on the head for pats.
 Everything else is unchanged: device name (`Privet-ESP32`), reactions 1–9, 11 NOD and 12 ON_FIRE, learning cards,
 faces and servo motion. The firmware picks the sound from the reaction. The only protocol addition is control code
 13 `SET_VOLUME` for the app's volume setting (below). PrivetBLE_S3 stays untouched in its own folder.
@@ -47,6 +48,27 @@ The levels map to DFPlayer volumes in `SOUND_LEVEL_VOLUMES` near the top of the 
 30, default Loud (18). The speaker is only 0.5 W, so the sketch refuses to compile with any volume above 22.
 The sound check at start-up runs after BLE starts: a phone that connects within those first seconds gets no volume
 control until it reconnects.
+
+## Touch
+
+A TTP223 module under the head shell, on GPIO6. Leave both of its solder jumpers (A and B) open: that is the default
+mode, HIGH while touched and momentary. The input is pulled down, so a missing module never reads as a touch.
+Touch is handled on the robot only; the app isn't told and the BLE protocol is unchanged.
+
+| Touch | Robot awake (face IDLE or THINKING) | Robot asleep (phone away) |
+| --- | --- | --- |
+| Pat (released within 0.8 s) | Giggle (0013), happy face and a small nod for 1.2 s | Drowsy stir for 2 s, with a quiet "mm-hm?" (0022) |
+| Hold (0.8 s or longer) | Purr (0014), repeating while held, happy eyes until you let go; the head stays still | Same stir |
+
+- **When touch is ignored:** while the phone is speaking (LISTENING) or another reaction plays (HAPPY, CELEBRATE, …).
+- **App commands win:** any command from the app ends a touch reaction at once. Afterwards the face, head and any
+  learning card return to what they were showing.
+- **The drowsy stir:** both eyes open slowly to heavy half-lids, blink once and sink shut again; the sleep bubbles
+  pause, the mouth becomes a small "o" and the head stays still. It happens at most once every 4 s, so a hand resting
+  on the head doesn't keep waking it. Its "mm-hm?" is the one sound allowed while asleep. Copy `0022.mp3` to the card.
+- **Sound level:** touch sounds follow the app's volume; at Off the faces still react, silently.
+- **Tuning:** `TOUCH_HOLD_MS`, the show times, the stir gap and the three tracks are constants under "Touch (v4)"
+  near the top of the sketch.
 
 ## SD card
 
@@ -108,9 +130,12 @@ were copied instead.
 | DFPlayer | TX | GPIO18 (ESP32 RX) |
 | DFPlayer | BUSY | GPIO16 (LOW while playing) |
 | DFPlayer | SPK1 / SPK2 | 0.5 W 8 Ω speaker |
+| TTP223 touch | VCC / GND | 3V3 / GND |
+| TTP223 touch | I/O (OUT) | GPIO6 (HIGH while touched) |
 
 The DFPlayer runs on UART1 at 9600 baud. Reserved for later, so keep them free: NeoPixel 15, MPU6050 SDA 8 / SCL 9 /
-INT 7, encoder 39/40/41, button 42, battery sense 1.
+INT 7, encoder 39/40/41, button 42, battery sense 1. Avoid GPIO45 and GPIO46 for inputs: they are strapping pins, and a
+HIGH level at power-on can stop the S3 from booting.
 
 Put a 1000 µF capacitor across each servo's + and − (stripe to −). Don't power the servos from 3V3.
 While USB is plugged in, don't also feed 5V into the DevKitC's 5V pin.
@@ -156,8 +181,8 @@ shot to its top position. There is no position feedback: if the head is pushed w
 next gesture starts.
 
 Compiles for ESP32S3 Dev Module (Arduino-ESP32 3.3.12, DFRobotDFPlayerMini 1.0.6) with the settings above:
-669,602 bytes of program storage (21%), 33,348 bytes of global variables (10%). The owner has tested the reaction
-sounds on the v2 hardware; the app volume setting (code 13) is not yet tested on hardware.
+670,690 bytes of program storage (21%), 33,372 bytes of global variables (10%). The owner has tested the reaction
+sounds on the v2 hardware; the app volume setting (code 13) and touch are not yet tested on hardware.
 `ServoMotion.h` is an unchanged copy of PrivetBLE_S3's, which `npm test` checks in a host simulation
 (`scripts/test-servo-motion.cpp`): every gesture stays in range,
 finishes before its reaction ends, remains visible after smoothing, and returns to the resting pose (sleep rests drooped),
