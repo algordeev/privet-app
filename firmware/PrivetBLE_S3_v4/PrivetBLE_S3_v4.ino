@@ -15,6 +15,8 @@
  * ACK result: 0 accepted, 1 unsupported command, 2 invalid argument.
  * Separate control code 10 negotiates bounded v2 cards; see LearningCards.h
  * and docs/companion-ble.md. No partial content is drawn.
+ * Control code 13 SET_VOLUME (advertised by capability bit 16 while sound
+ * works): argument = sound level 0-4, plus 0x80 for a preview chirp.
  */
 
 #include <Arduino.h>
@@ -26,6 +28,7 @@
 #include <SPI.h>
 #include <U8g2lib.h>
 #include <DFRobotDFPlayerMini.h>
+#include <Preferences.h>
 #include "LearningCards.h"
 #include "FacePresentation.h"
 #include "ServoMotion.h"
@@ -86,6 +89,10 @@ enum Reaction : uint8_t {
   NOD = 11,
   ON_FIRE = 12
 };
+// Control code 13 sets the sound level; like code 10 it is not a reaction and
+// never touches the face, the head or the cards.
+static constexpr uint8_t SET_VOLUME = 13;
+static constexpr uint8_t VOLUME_PREVIEW = 0x80;
 
 // ---- Sound (v4) ----
 // Which file in /mp3 on the SD card each reaction plays: 4 plays /mp3/0004.mp3.
@@ -104,9 +111,18 @@ static constexpr ReactionSound REACTION_SOUNDS[] = {
   {ON_FIRE,   10},  // excited warble and chime
 };
 
-// DFPlayer volume, 0-30. The speaker is only 0.5 W, so it never goes above 22.
-static constexpr uint8_t SOUND_VOLUME = 18;
-static_assert(SOUND_VOLUME <= 22, "SOUND_VOLUME above 22 overdrives the 0.5 W speaker");
+// The app's sound levels (0 Off, 1 Quiet, 2 Medium, 3 Loud, 4 Max) as DFPlayer
+// volumes, 0-30. The speaker is only 0.5 W, so none goes above 22. The robot
+// keeps the last level in flash, so it survives power-off.
+static constexpr uint8_t SOUND_LEVEL_VOLUMES[] = {0, 8, 13, 18, 22};
+static constexpr uint8_t SOUND_LEVELS = sizeof SOUND_LEVEL_VOLUMES;
+static constexpr bool safeVolumes(size_t i = 0) {
+  return i == SOUND_LEVELS || (SOUND_LEVEL_VOLUMES[i] <= 22 && safeVolumes(i + 1));
+}
+static_assert(safeVolumes(), "a volume above 22 overdrives the 0.5 W speaker");
+static constexpr uint8_t SOUND_DEFAULT_LEVEL = 3;  // Loud, volume 18
+// Played after the app changes the level, so you hear the new volume.
+static constexpr uint16_t SOUND_PREVIEW_TRACK = 4;  // happy chirp
 // A new sound replaces the one playing, but no sooner than this after the last
 // one started; a request inside the window waits for it (the latest one wins),
 // so rapid commands such as a NOD for every match pair don't stutter.
@@ -340,7 +356,13 @@ static void updateServo(uint32_t now) {
 // pauses 10 ms after sending each one.
 static HardwareSerial soundSerial(1);
 static DFRobotDFPlayerMini dfPlayer;
-static bool soundReady = false;
+// Read by the BLE callbacks (capabilities, SET_VOLUME) while setup() may still be starting the module.
+static std::atomic<bool> soundReady{false};
+static Preferences soundSettings;  // flash: the last sound level
+static uint8_t soundLevel = SOUND_DEFAULT_LEVEL;
+// SET_VOLUME from the BLE callback: low byte is the argument, upper bits a
+// revision, like faceMailbox. loop() applies it; 0 = nothing requested yet.
+static std::atomic<uint32_t> volumeMailbox{0};
 static uint16_t soundPending = 0;  // track waiting for the cooldown, 0 = none
 static uint16_t soundTrackPlaying = 0;
 static uint32_t soundStartedAt = 0;
@@ -372,7 +394,7 @@ static void stopSound(uint32_t now, const char *why) {
 // once, because the phone is about to speak; a reaction without a sound
 // cancels one still waiting for the cooldown but lets a playing one finish.
 static void requestSound(uint8_t reaction, uint32_t now) {
-  if (!soundReady) return;
+  if (!soundReady || !soundLevel) return;
   if (reaction == LISTENING) {
     stopSound(now, "phone speaking");
     return;
@@ -380,8 +402,10 @@ static void requestSound(uint8_t reaction, uint32_t now) {
   soundPending = reactionTrack(reaction);
 }
 
+static void updateVolume(uint32_t now);
 static void updateSound(uint32_t now) {
   if (!soundReady) return;
+  updateVolume(now);
   // Read the module's own messages without waiting; only errors matter.
   if (dfPlayer.available()) {
     const uint8_t type = dfPlayer.readType();
@@ -403,6 +427,29 @@ static void updateSound(uint32_t now) {
   soundTrackPlaying = soundPending;
   soundPending = 0;
   soundStartedAt = now ? now : 1;
+}
+
+static void requestVolume(uint8_t argument) {
+  const uint32_t previous = volumeMailbox.load();
+  volumeMailbox.store(((previous + 256U) & 0xFFFFFF00U) | argument);
+}
+
+// Applies a level from the app, saves it only when it changed, and plays the
+// preview chirp when asked; Off silences anything still playing.
+static void updateVolume(uint32_t now) {
+  static uint32_t seen = 0;
+  const uint32_t requested = volumeMailbox.load();
+  if (requested == seen || !soundReady) return;
+  seen = requested;
+  const uint8_t level = requested & 0x7F;
+  if (level != soundLevel) {
+    soundLevel = level;
+    dfPlayer.volume(SOUND_LEVEL_VOLUMES[level]);
+    soundSettings.putUChar("level", level);
+    Serial.printf("[SOUND] Level %u, volume %u/30.\n", unsigned(level), unsigned(SOUND_LEVEL_VOLUMES[level]));
+  }
+  if (!level) stopSound(now, "sound off");
+  else if (requested & VOLUME_PREVIEW) soundPending = SOUND_PREVIEW_TRACK;
 }
 
 // Runs once in setup(), after BLE is advertising, so the wait for the module
@@ -431,11 +478,15 @@ static void setupSound() {
       : "[SOUND] No reply from the DFPlayer (check power, GPIO17/18 wiring); sound disabled.");
     return;
   }
-  dfPlayer.volume(SOUND_VOLUME);
-  soundReady = true;
+  soundSettings.begin("privet-sound", false);
+  soundLevel = soundSettings.getUChar("level", SOUND_DEFAULT_LEVEL);
+  if (soundLevel >= SOUND_LEVELS) soundLevel = SOUND_DEFAULT_LEVEL;
+  const uint8_t volume = SOUND_LEVEL_VOLUMES[soundLevel];
+  dfPlayer.volume(volume);
   soundBusy = digitalRead(SOUND_BUSY_PIN) == LOW;
-  if (files > 0) Serial.printf("[SOUND] DFPlayer ready: %d files on the SD card, volume %u/30.\n", files, unsigned(SOUND_VOLUME));
-  else Serial.printf("[SOUND] DFPlayer ready, volume %u/30.\n", unsigned(SOUND_VOLUME));
+  soundReady.store(true);
+  if (files > 0) Serial.printf("[SOUND] DFPlayer ready: %d files on the SD card, level %u, volume %u/30.\n", files, unsigned(soundLevel), unsigned(volume));
+  else Serial.printf("[SOUND] DFPlayer ready, level %u, volume %u/30.\n", unsigned(soundLevel), unsigned(volume));
 }
 
 // Only send changed tile spans; static cards no longer rewrite all eight rows.
@@ -1214,8 +1265,9 @@ static void sendCapabilities(uint32_t requestId){
  uint8_t p[20]={2,0x80};
  for(int i=0;i<4;i++){p[i+2]=uint8_t(requestId>>(8*i));p[i+12]=uint8_t(connectionNonce>>(8*i));}
  // Bit 3 (8): reactions 11 NOD and 12 ON_FIRE are supported; the app sends
- // them only when this bit is set.
- p[6]=(oledReady?7:3)|8;p[7]=20;p[8]=96;p[10]=64;p[11]=32;p[16]=0x88;p[17]=0x13;
+ // them only when this bit is set. Bit 4 (16): sound works and code 13
+ // SET_VOLUME is accepted; the app shows its volume control only then.
+ p[6]=(oledReady?7:3)|8|(soundReady.load()?16:0);p[7]=20;p[8]=96;p[10]=64;p[11]=32;p[16]=0x88;p[17]=0x13;
  sendStatus(p,20);
 }
 class CommandCallbacks : public BLECharacteristicCallbacks {
@@ -1236,10 +1288,13 @@ class CommandCallbacks : public BLECharacteristicCallbacks {
    if(packet[6]==10&&lastAck[7]==0)sendCapabilities(requestId);
    return;
   }
-  // Only ON_FIRE carries an argument (its combo); every other command requires 0.
-  uint8_t result=packet[6]<1||packet[6]>ON_FIRE?1:packet[7]!=0&&packet[6]!=ON_FIRE?2:0;
+  // Only ON_FIRE (its combo) and SET_VOLUME (the level) carry an argument;
+  // every other command requires 0.
+  uint8_t result=packet[6]==SET_VOLUME?(!soundReady.load()?1:(packet[7]&~VOLUME_PREVIEW)>=SOUND_LEVELS?2:0)
+   :packet[6]<1||packet[6]>ON_FIRE?1:packet[7]!=0&&packet[6]!=ON_FIRE?2:0;
   uint8_t ack[8];memcpy(ack,packet,8);ack[1]=2;ack[7]=result;
-  if(!result&&packet[6]!=10){
+  if(!result&&packet[6]==SET_VOLUME)requestVolume(packet[7]);
+  else if(!result&&packet[6]!=10){
    // Fixed buffers only. All OLED/servo work stays in loop().
    if(packet[6]==ON_FIRE)fireCombo.store(packet[7]);
    portENTER_CRITICAL(&cardsMux);cards.face(requestId);portEXIT_CRITICAL(&cardsMux);

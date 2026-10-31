@@ -308,6 +308,12 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-physical-home-status i { width: 6px; height: 6px; border-radius: 50%; background: #78836e; }
 .native-physical-home-status i[data-connected=true] { background: #246653; }
 .native-physical-update { font-weight: 600; }
+.native-app .native-physical-volume { border: 0; margin: 22px 0 0; padding: 0; min-width: 0; }
+.native-app .native-physical-volume legend { padding: 0; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: #31543b; }
+.native-app .native-physical-volume div { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.native-app .native-physical-volume button { min-width: 0; min-height: 44px; padding: 0 2px; font-size: 13px; border: 1px solid #c6d4bc; border-radius: 11px; background: #fffdf7; color: #31513a; }
+.native-app .native-physical-volume [aria-pressed=true] { background: #246653; color: #fffdf7; border-color: #246653; }
+.native-app .native-physical-volume:disabled { opacity: .55; }
 
 /* Each native lesson keeps its own progress and reuses the same card. */
 .native-lesson-list { display: grid; gap: 18px; }

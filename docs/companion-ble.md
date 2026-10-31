@@ -56,6 +56,8 @@ Subscribe to Status before sending anything. Successful connection and subscript
 
 Code 10 is the separate capability control command below, not a reaction.
 
+Code 13 **SET_VOLUME** is also a control command, not a reaction: it never changes the face, head or cards. The app sends it only to firmware advertising capability bit 16 (sound works), currently [PrivetBLE_S3_v4](../firmware/PrivetBLE_S3_v4/README.md). The argument is the sound level 0–4 (Off, Quiet, Medium, Loud, Max), plus `0x80` to play a short preview chirp at the new level. The firmware maps each level to a safe speaker volume and keeps it in flash. Result 1 means sound is unavailable, 2 a level above 4. The app saves the level, sends it without a preview once per connection after negotiation, and with a preview when the user picks one on the settings screen. It has its own slot on the serialized writer: lesson reactions never replace it, only a newer level does, and its ACK is not awaited.
+
 An acknowledgement means **command accepted**, not that the animation finished, the display rendered successfully, or the servo reached a position. OLED initialization can fail while BLE continues accepting commands. Version 1 remains face-only. The negotiated extension below carries bounded app-selected learning text, never JSON, raw OLED drawing commands, raw servo instructions or BLE audio. Commands 5–9 require the owner-added new-emotions variant; no claim of their hardware verification is made. The existing emotion code selects any servo gesture locally.
 
 Hex examples use consecutive distinct IDs `0x12345678` through `0x12345680` (little-endian on the wire). Each ACK echoes its command's ID and code. Reaction commands remain exactly 1–9. Separate control code 10 probes capabilities with argument 0; legacy firmware rejects it safely.
@@ -116,7 +118,7 @@ All multibyte integers below are unsigned **little-endian**. Frame maximum is **
 | --- | --- |
 | 0 / 1 | `2` / `0x80` |
 | 2–5 | Capability request ID |
-| 6 | Flags: bit 0 UTF-8 cards, bit 1 Cyrillic, bit 2 OLED ready, all three required; bit 3 (8) extended reactions 11–12 (optional) |
+| 6 | Flags: bit 0 UTF-8 cards, bit 1 Cyrillic, bit 2 OLED ready, all three required; bit 3 (8) extended reactions 11–12 (optional); bit 4 (16) sound and code 13 SET_VOLUME (optional) |
 | 7 | Maximum frame size `20` |
 | 8–9 | Combined text limit `96` bytes |
 | 10 / 11 | Primary `64` / secondary `32` UTF-8 bytes |

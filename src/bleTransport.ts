@@ -1,5 +1,5 @@
 import {CAPABILITIES,CARD_LIMITS,encodeControl,decodeControlAck,decodeCapabilities,decodeContentAck,cardFrames,validateCard,type Capabilities,type LearningCard} from './learningProtocol.ts';
-import {BLE_SERVICE,COMMAND,EXTENDED_FALLBACK,decodeAcknowledgement,encodeCommand,nextRequestId,type CommandCode} from './bleProtocol.ts';
+import {BLE_SERVICE,COMMAND,EXTENDED_FALLBACK,VOLUME_LEVELS,decodeAcknowledgement,encodeCommand,encodeVolume,nextRequestId,type CommandCode} from './bleProtocol.ts';
 
 export type PhysicalDevice={deviceId:string;name?:string};
 export interface BleDriver {
@@ -17,14 +17,16 @@ export interface BleDriver {
 export type BlePhase='disconnected'|'suspended'|'reconciling'|'scanning'|'connecting'|'connected'|'unavailable'|'permission-denied'|'error';
 // quiet: a background discovery scan on home. It keeps the ordinary disconnected message and status
 // (no "Scanning" anywhere), ends silently, and only fills `devices` for the "companion found" card.
-export type BleState={phase:BlePhase;message:string;devices:PhysicalDevice[];device?:PhysicalDevice;ready:boolean;pending:boolean;busy:boolean;notice?:string;quiet?:boolean};
+// sound: the connected firmware has working sound and accepts a volume level (capability bit 16).
+export type BleState={phase:BlePhase;message:string;devices:PhysicalDevice[];device?:PhysicalDevice;ready:boolean;pending:boolean;busy:boolean;notice?:string;quiet?:boolean;sound?:boolean};
 export const initialBleState=():BleState=>({phase:'disconnected',message:'Not connected. The virtual companion works independently.',devices:[],ready:false,pending:false,busy:false});
 export const BLE_TIMEOUTS={initialize:15000,scan:12000,connect:10000,subscribe:5000,write:4000,ack:5000};
 type Clock={now?:()=>number;set:(fn:()=>void,ms:number)=>ReturnType<typeof setTimeout>;clear:(id:ReturnType<typeof setTimeout>)=>void};
 const clock:Clock={now:()=>performance.now(),set:(fn,ms)=>setTimeout(fn,ms),clear:id=>clearTimeout(id)};
 class Cancelled extends Error {}
 class TransferExpired extends Error {}
-export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,options:{supported?:()=>boolean;clock?:Clock;timeouts?:Partial<typeof BLE_TIMEOUTS>}={}){
+// volume: the saved sound level (0-4), sent once a connection advertises sound.
+export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,options:{supported?:()=>boolean;clock?:Clock;timeouts?:Partial<typeof BLE_TIMEOUTS>;volume?:()=>number}={}){
  const time={...BLE_TIMEOUTS,...options.timeouts},timer=options.clock??clock;
  let state=initialBleState(),generation=0,activityRevision=0,alive=true,active=true,touched=false,rawPending=0,cleaning=0;
  let scanTimer:ReturnType<typeof setTimeout>|undefined;
@@ -36,6 +38,9 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
  let capabilities:Capabilities|undefined;
  // Kept separately: a paused card transfer clears `capabilities`, not the firmware's reaction set.
  let extendedReactions=false;
+ // The sound level has its own slot, like the capability probe: lesson reactions never replace it, and it
+ // waits for them on the same native write slot. Only the latest level is kept.
+ let soundSupported=false,volumeJob:{level:number;preview:boolean}|undefined;
  type Probe={generation:number;revision:number;attempts:number;phase:'deferred'|'writing'|'waiting'|'ready'|'disabled';reply?:(packet:DataView)=>void;done:Promise<void>;finish:()=>void};
  let probe:Probe|undefined;
  function newProbe(attempts=0){let finish!:()=>void;const done=new Promise<void>(resolve=>{finish=resolve;});return {generation,revision:activityRevision,attempts,phase:'deferred' as const,done,finish};}
@@ -56,7 +61,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
      if(probe!==p||!current(g)||p.revision!==activityRevision)return;
      const ack=decodeControlAck(packet),caps=decodeCapabilities(packet);
      if(ack?.id===probeId){if(ack.result!==0){finish(undefined);return;}acked=true;}
-     if(caps?.id===probeId)offer={nonce:caps.nonce,reactions:caps.reactions};
+     if(caps?.id===probeId)offer={nonce:caps.nonce,reactions:caps.reactions,sound:caps.sound};
      if(acked&&offer)finish(offer);
     };
     const writing=raw(()=>driver.write(id,encodeControl(probeId,CAPABILITIES),time.write));
@@ -68,9 +73,28 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
     let accepted:Capabilities|undefined;
     try{accepted=await wait(response,g,CARD_LIMITS.ack,'Capability reply timed out.');}
     catch(error){if(error instanceof Cancelled)throw error;}
-    if(probe===p&&current(g)&&p.revision===activityRevision){capabilities=accepted;extendedReactions=!!accepted?.reactions;p.phase=accepted?'ready':'disabled';p.reply=undefined;p.finish();}
+    if(probe===p&&current(g)&&p.revision===activityRevision){
+     capabilities=accepted;extendedReactions=!!accepted?.reactions;p.phase=accepted?'ready':'disabled';p.reply=undefined;p.finish();
+     // Each connection gets the saved level, without a preview: the robot already played its wake-up chirp.
+     soundSupported=!!accepted?.sound;update({sound:soundSupported});
+     if(soundSupported&&options.volume)volumeJob={level:options.volume(),preview:false};
+     sendVolume();
+    }
    }catch(error){if(p.revision===activityRevision)failure(error,g);}
   })();
+ }
+ // The firmware's ACK is not awaited: a lost one changes nothing, and the write itself is with response.
+ function sendVolume(){
+  const job=volumeJob;
+  if(!job||!soundSupported||submittedWrite||latest||!active||!state.ready||!state.device)return;
+  volumeJob=undefined;
+  const g=generation,id=state.device.deviceId;
+  let requestId:number;
+  try{requestId=nextRequestId();}catch(error){failure(error,g);return;}
+  const writing=raw(()=>driver.write(id,encodeVolume(requestId,job.level,job.preview),time.write));
+  submittedWrite=writing;
+  void writing.then(()=>{if(submittedWrite===writing)submittedWrite=undefined;pump();},()=>{if(submittedWrite===writing)submittedWrite=undefined;});
+  void wait(writing,g,time.write,'Command timed out. Connect again to try later.').catch(error=>failure(error,g));
  }
  const now=()=>timer.now?.()??performance.now();
  let screen:'home'|'profile'|'lesson'|'physical'='home';
@@ -106,11 +130,11 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
   void driver.cleanup(id).catch(()=>{/* Already disconnected/unavailable. */}).finally(()=>{cleaning--;update();});
  }
  function invalidate(phase:BlePhase,message:string){
-  generation++;clearScanTimer();latest=undefined;capabilities=undefined;extendedReactions=false;stopProbe();
+  generation++;clearScanTimer();latest=undefined;capabilities=undefined;extendedReactions=false;soundSupported=false;volumeJob=undefined;stopProbe();
   if(flight){flight.obsolete=true;flight.ack('cancelled');flight.reply?.(null);}flight=undefined;
   for(const cancel of [...cancelWaits])cancel();
   const id=state.device?.deviceId;
-  update({phase,message,ready:false,pending:false,device:undefined,devices:[],quiet:false});cleanup(id);
+  update({phase,message,ready:false,pending:false,device:undefined,devices:[],quiet:false,sound:false});cleanup(id);
  }
  function failure(error:unknown,g:number){
   if(!current(g)||error instanceof Cancelled)return;
@@ -204,7 +228,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
   latest={command,card,argument};update({pending:true});pump();return true;
  }
  function pump(resume=false){
-  if(latest===undefined){startProbe();return;}
+  if(latest===undefined){startProbe();sendVolume();return;}
   if(flight||submittedWrite||(!state.ready&&!(resume&&state.phase==='reconciling'))||!state.device||!active||!alive)return;
   const {card}=latest;
   // Resolved at send time: firmware without the extended reactions gets their
@@ -292,6 +316,11 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
   if(state.pending||state.busy)return;
   request(COMMAND.HAPPY);
  }
+ // A level the user picked: the robot plays a short preview chirp at it.
+ function setVolume(level:number){
+  if(!Number.isInteger(level)||level<0||level>=VOLUME_LEVELS.length||!soundSupported||!alive||!active||!state.ready)return false;
+  volumeJob={level,preview:true};sendVolume();return true;
+ }
  function leaveSettings(){
   if(state.phase==='scanning'||state.phase==='connecting')invalidate('disconnected','Connection cancelled.');
  }
@@ -318,7 +347,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
    if(state.phase==='scanning'||state.phase==='connecting')invalidate('disconnected','Connection cancelled while Privet was inactive.');
    return;
   }
-  clearScanTimer();latest=undefined;
+  clearScanTimer();latest=undefined;volumeJob=undefined;
   if(probe&&['deferred','writing','waiting'].includes(probe.phase)){const attempts=probe.attempts;stopProbe();probe=newProbe(attempts);if(attempts>=2){probe.phase='disabled';probe.finish();}}
   if(flight){flight.obsolete=true;flight.ack('cancelled');flight.reply?.(null);}
   // Drop ACK waits and JS deadlines. The native write promise remains tracked.
@@ -347,7 +376,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
    if(valid()&&!(error instanceof Cancelled))invalidate('error','Could not confirm the connection. Connect again.');
   }
  }
- return {scan:()=>scan(),discover,stopDiscovery,holdScan,cancelScan,connect,testHappy,request,leaveSettings,navigate,enterLesson,getState:()=>state,connectionToken:()=>generation,
+ return {scan:()=>scan(),discover,stopDiscovery,holdScan,cancelScan,connect,testHappy,setVolume,request,leaveSettings,navigate,enterLesson,getState:()=>state,connectionToken:()=>generation,
   disconnect:()=>invalidate('disconnected','Disconnected. No commands are queued.'),
   setActive(value:boolean){if(!alive||active===value)return;active=value;activityRevision++;if(!value)pause();else void reconcile();},
   dispose(){alive=false;active=false;invalidate('disconnected','Disconnected.');}

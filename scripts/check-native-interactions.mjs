@@ -11,7 +11,7 @@ import {createServer} from 'vite';
 const executable=[process.env.PRIVET_CHROME_PATH,'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome','/usr/bin/chromium','/usr/bin/chromium-browser','/usr/bin/google-chrome',...[process.env.PROGRAMFILES,process.env['PROGRAMFILES(X86)'],process.env.LOCALAPPDATA].filter(Boolean).map(dir=>join(dir,'Google','Chrome','Application','chrome.exe'))].find(path=>path&&existsSync(path));
 assert.ok(executable,'Install Chrome/Chromium or set PRIVET_CHROME_PATH to run interaction checks.');
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-let browserPreview=false,russianAudio=false,skipQuickStart=true,repeatedSentence=false,firstTime=false,learningCards=false;
+let browserPreview=false,russianAudio=false,skipQuickStart=true,repeatedSentence=false,firstTime=false,learningCards=false,soundCompanion=false;
 let seed={},initialTime=new Date(2026,9,17,12).getTime();
 // Test-only driver substitution: exercise real root hook, scheduler and UI without radio.
 const server=await createServer({plugins:[{name:'privet-test-ble-driver',enforce:'pre',transform(_source,id){
@@ -32,7 +32,7 @@ const server=await createServer({plugins:[{name:'privet-test-ble-driver',enforce
  if(packet.getUint8(6)!==10)window.__bleCommands.push(packet.getUint8(6));
  const ack=new DataView(packet.buffer.slice(packet.byteOffset,packet.byteOffset+8));ack.setUint8(1,2);
  if(packet.getUint8(6)===10){ack.setUint8(7,window.__learningCards?0:1);
-  if(window.__learningCards){const caps=new DataView(new ArrayBuffer(20));[2,0x80,0,0,0,0,7,20,96,0,64,32,77,0,0,0,0x88,0x13].forEach((v,i)=>caps.setUint8(i,v));caps.setUint32(2,packet.getUint32(2,true),true);notify(caps);}}
+  if(window.__learningCards){const caps=new DataView(new ArrayBuffer(20));[2,0x80,0,0,0,0,window.__soundCompanion?23:7,20,96,0,64,32,77,0,0,0,0x88,0x13].forEach((v,i)=>caps.setUint8(i,v));caps.setUint32(2,packet.getUint32(2,true),true);notify(caps);}}
  notify(ack);},async cleanup(){}
 
  };}`;
@@ -42,7 +42,7 @@ server.middlewares.use('/__privet_native_checks',(req,res)=>{
  const reset=!req.url.includes('resume');
  res.end(`<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body><div id="root"></div><script type="module">
  ${browserPreview?'':`window.CapacitorCustomPlatform={name:'ios'};window.Capacitor={PluginHeaders:[{name:'BluetoothLe',methods:[]}]};`}
- window.__learningCards=${learningCards};window.__bleFrames=[];window.__cards=[];window.__bleCommands=[];window.__speechTaps=[];window.__utterances=[];window.__holdSpeech=false;window.__russianAudio=${russianAudio};window.__voiceListeners=new Set();window.__openCalls=[];window.open=(...args)=>{window.__openCalls.push(args);};
+ window.__learningCards=${learningCards};window.__soundCompanion=${soundCompanion};window.__bleFrames=[];window.__cards=[];window.__bleCommands=[];window.__speechTaps=[];window.__utterances=[];window.__holdSpeech=false;window.__russianAudio=${russianAudio};window.__voiceListeners=new Set();window.__openCalls=[];window.open=(...args)=>{window.__openCalls.push(args);};
  window.__realDate=Date;window.__now=${initialTime};
  window.Date=class extends window.__realDate{constructor(...args){super(...(args.length?args:[window.__now]));}static now(){return window.__now;}};
  ${reset?`localStorage.clear();for(const [key,value] of Object.entries(${JSON.stringify(seed)}))localStorage.setItem(key,JSON.stringify(value));`:''}
@@ -852,6 +852,32 @@ try{
  await click('[aria-label="Return to app home"]');assert.equal((await codes()).filter(code=>code===9).length,1);
  assert.ok((await evaluate(()=>window.__bleFrames)).every(p=>p.length<=20),'Every native card frame stays within conservative BLE payload');
  console.log('PASS: capable native companion negotiates after CONNECTED, shows explicitly discovered vocabulary, safe prompts/incorrect feedback, hint cue and correctly graded answer; v1 legacy tests remain independent.');
+ // Robot sound level: shown only for firmware advertising sound; sent once per connection, then on each pick with a preview.
+ {
+  const VOLUME_KEY='privet-demo-v1-companion-volume',volumeFrames=()=>evaluate(()=>window.__bleFrames.filter(p=>p[0]===1&&p[6]===13).map(p=>p[7]));
+  await open();await openPhysicalSettings();await click('.native-physical-actions .button','Connect');await click('.native-physical-devices button');
+  await until(()=>window.__bleFrames.some(p=>p[0]===1&&p[6]===10));await pause(150);
+  assert.ok(await evaluate(()=>!document.querySelector('.native-physical-volume')),'Firmware without sound shows no volume control');assert.deepEqual(await volumeFrames(),[]);
+  soundCompanion=true;
+  for(const viewport of [{width:320,height:568},{width:430,height:932}]){
+   await call('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:true});
+   await open();await openPhysicalSettings();await click('.native-physical-actions .button','Connect');await click('.native-physical-devices button');
+   await until(()=>!!document.querySelector('.native-physical-volume'));
+   assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.native-physical-volume button')].map(b=>[b.textContent,b.getAttribute('aria-pressed')])),[['Off','false'],['Quiet','false'],['Medium','false'],['Loud','true'],['Max','false']]);
+   assert.equal(await evaluate(()=>document.querySelector('.native-physical-volume legend').textContent),'Robot sound');
+   assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.native-physical-volume button')].filter(b=>{const r=b.getBoundingClientRect(),row=document.querySelector('.native-physical-volume').getBoundingClientRect();return r.height<44||b.scrollWidth>b.clientWidth||r.left<row.left||r.right>row.right||row.right>innerWidth;}).map(b=>`${b.textContent} ${b.scrollWidth}/${b.clientWidth}x${Math.round(b.getBoundingClientRect().height)}`)),[],'Five level buttons fit the screen with full touch targets');
+   await until(()=>window.__bleFrames.some(p=>p[0]===1&&p[6]===13));assert.deepEqual(await volumeFrames(),[3],'The saved level (default Loud) is sent once, without a preview');
+   await click('.native-physical-volume button','Quiet');await until(()=>window.__bleFrames.filter(p=>p[6]===13).length===2);
+   assert.deepEqual(await volumeFrames(),[3,0x81],'A pick sends its level with a preview');assert.equal(await stored(VOLUME_KEY),1);
+   assert.equal(await evaluate(()=>document.querySelector('.native-physical-volume [aria-pressed=true]').textContent),'Quiet');
+   await click('.native-physical-disconnect','Disconnect');assert.ok(await evaluate(()=>!document.querySelector('.native-physical-volume')),'Hidden once disconnected');
+   await click('.native-physical-actions .button','Connect');await click('.native-physical-devices button');await until(()=>!!document.querySelector('.native-physical-volume'));
+   await until(()=>window.__bleFrames.filter(p=>p[6]===13).length===3);assert.deepEqual((await volumeFrames()).at(-1),1,'A new connection gets the saved level');
+   assert.equal(await evaluate(()=>document.querySelector('.native-physical-volume [aria-pressed=true]').textContent),'Quiet');
+  }
+  soundCompanion=false;
+  console.log('PASS: robot sound levels appear only for sound firmware, fit at 320 and 430 wide, sync the saved level once per connection and preview each pick.');
+ }
  // "Companion found" card: explicit settings scan, quiet home discovery (only once Bluetooth was used), Not now.
  {
   const BLE_USED='privet-demo-v1-ble-used',idleChip='Have a physical companion? Let’s connect it.';
