@@ -17,6 +17,12 @@ test('S3 servo gestures stay in range, finish within each reaction, survive smoo
   const run=spawnSync(join(dir,'servo'),[],{encoding:'utf8'});assert.equal(run.status,0,run.stdout+run.stderr);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
+test('v5 motion sense detects lifts, set-downs, shakes, tipping and tilts, but not bumps, servo shake or a steady hand',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'privet-motion-'));try{
+  const compile=spawnSync('c++',['-std=c++17','-Wall','-Wextra','-Werror','-Ifirmware/PrivetBLE_S3_v5','scripts/test-motion-sense.cpp','-o',join(dir,'motion')],{encoding:'utf8'});assert.equal(compile.status,0,compile.stderr||String(compile.error));
+  const run=spawnSync(join(dir,'motion'),[],{encoding:'utf8'});assert.equal(run.status,0,run.stdout+run.stderr);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
 test('S3 servos use one fixed LEDC channel each and release by duty 0, never by detaching',()=>{
  const source=readFileSync('firmware/PrivetBLE_S3/PrivetBLE_S3.ino','utf8');
  assert.doesNotMatch(source,/#include <ESP32Servo\.h>|\.detach\(\)|\.attach\(/);
