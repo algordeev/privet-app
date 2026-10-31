@@ -1,0 +1,229 @@
+# PrivetBLE_S3_v5: the ESP32-S3 companion with sound, touch and motion
+
+[PrivetBLE_S3_v4](../PrivetBLE_S3_v4/README.md) plus an MPU6050 in the base: the robot reacts to being picked up,
+shaken, tipped over and gently tilted (see *Motion sensing*). v4 is [PrivetBLE_S3](../PrivetBLE_S3/README.md) plus a
+DFPlayer Mini that plays a short sound for each reaction, and a TTP223 touch pad on the head for pats.
+Everything else is unchanged: device name (`Privet-ESP32`), reactions 1–9, 11 NOD and 12 ON_FIRE, learning cards,
+faces and servo motion. The firmware picks the sound from the reaction. The only protocol addition is control code
+13 `SET_VOLUME` for the app's volume setting (below); motion, like touch, never sends anything to the app.
+PrivetBLE_S3 and PrivetBLE_S3_v4 stay untouched in their own folders.
+
+## Motion sensing
+
+An MPU6050 (accelerometer and gyroscope) in the base, read about 50 times a second over I2C. The detection logic is
+in `MotionSense.h`; the sketch only reads the sensor and shows the reactions.
+
+| Motion | Robot awake (face IDLE or THINKING) | Robot asleep (phone away) |
+| --- | --- | --- |
+| Picked up | Big shining eyes, open smile and sparkles for 2.5 s, with "whee!" (0015). Set down again, a small settle nod | Drowsy stir with "mm-hm?" (0022) |
+| Shaken | Dizzy spiral eyes that spin fast and slow to a stop, wobbly mouth, 2.5 s, with the dizzy wobble (0016) | Drowsy stir |
+| Tipped over (more than 60°) | "Oof" (0017) and slowly turning dizzy eyes for as long as it lies there, head still | Drowsy stir |
+| Set upright again (within 30°) | Relieved happy face and a nod, silent | Nothing |
+| Gently tilted (12–45°) | The idle eyes look down the slope, silently; the head stays put | Nothing |
+
+- **Same rules as touch:** reactions start only over a resting face (IDLE or THINKING), never while the phone speaks or
+  another reaction plays; any app command ends them at once. A tipped robot shows the dizzy face again whenever it
+  is back to a resting face. Asleep, motion shares the touch's drowsy stir and its once-per-4-s limit.
+- **Calibration:** at power-on the sensor takes the position it rests in (about half a second near 1 g) as upright,
+  and measures the gyro's bias at the same time. Switch the robot on standing upright and still; if it is moving,
+  calibration simply waits until it is still.
+- **No false alarms from the robot itself:** while the head servos move, and for 0.3 s after, the base vibration
+  doesn't count as a lift. A lift must also start from at least 1 s of rest, so a desk bump or the landing when
+  it's put down isn't one.
+- **Held or put down:** it counts as put down after 1.5 s still and upright. "Still" needs the gyroscope too, so a
+  steady hand (a few degrees per second of tremor) still counts as holding it.
+- **Tilt direction:** `MOTION_SIDE_AXIS` and `MOTION_SIDE_SIGN` (near the top of the sketch) say which sensor axis
+  points to the screen's right. Tilt the robot gently to one side and watch the eyes: if they look up the slope,
+  flip the sign; if a forward tilt moves them sideways, try another axis (0 x, 1 y, 2 z). Serial prints
+  `[MOTION] Tilt peek: side +0.62.` when a tilt starts.
+- **Tuning:** the reaction times and sounds are under "Motion (v5)" in the sketch; detection thresholds (lift force,
+  stillness, shake strength, tip angles) are at the top of `MotionSense.h`.
+- **Without the sensor:** Serial prints one `[MOTION]` line and everything else works as in v4.
+
+## Sound
+
+| Reaction | File | Sound |
+| --- | --- | --- |
+| CONNECTED | 0012 | Wake-up chirp |
+| HAPPY | 0004 | Happy chirp |
+| ENCOURAGE | 0005 | Soft "aww" with a hopeful lift |
+| CELEBRATE | 0006 | Jingle |
+| HINT | 0007 | "Aha!" |
+| STREAK | 0008 | Fanfare |
+| NOD | 0009 | Tiny tick |
+| ON_FIRE | 0010 | Excited warble and chime |
+| LISTENING, THINKING, IDLE | — | Silent |
+
+The files are the robot sounds from [firmware/sounds](../sounds/README.md). To change the mapping, edit
+`REACTION_SOUNDS` near the top of `PrivetBLE_S3_v4.ino`; a reaction left out of the table is silent.
+
+Behaviour:
+
+- **LISTENING** stops any robot sound at once: the phone is about to speak a Russian word.
+- **No sound while the phone is away** or the face is asleep; a sound still playing stops when the face falls asleep.
+- A new reaction's sound replaces the one playing, but no sooner than **250 ms** (`SOUND_COOLDOWN_MS`) after the last
+  one started. A request inside that window waits for it, and the latest one wins, so a NOD for every match pair
+  doesn't stutter. A silent reaction (THINKING, IDLE) cancels a waiting sound but lets a playing one finish.
+- The DFPlayer is driven only from `loop()`, like the servos and display; BLE callbacks never touch it. It runs
+  without ACKs, so no command waits for a reply (the library pauses 10 ms after sending each one).
+- At start-up the sketch starts BLE first, then waits until 1.5 s after power-on (`SOUND_POWER_UP_MS`) and resets the
+  DFPlayer. If the module doesn't answer or has no readable SD card, it prints one `[SOUND]` line and carries on with
+  sound disabled. This check takes up to about 4 s with the module missing, about 2–3 s otherwise.
+- Serial (115200) logs each track: `[SOUND] Playing /mp3/0004.mp3.`, `Finished`, `Stopped` and DFPlayer errors
+  (error 6 means the file isn't in `/mp3`).
+
+**Volume:** chosen in the app, on the companion settings screen under **Robot sound**: Off, Quiet, Medium, Loud or
+Max. The row appears only while a robot with working sound is connected. Each pick plays the happy chirp (0004) at
+the new level. The app sends the level with control code 13 `SET_VOLUME` (capability bit 16; see
+[docs/companion-ble.md](../../docs/companion-ble.md)); it never changes the face or the head. The robot saves it in
+flash (NVS, namespace `privet-sound`), so it survives power-off and the wake-up chirp already uses it.
+
+The levels map to DFPlayer volumes in `SOUND_LEVEL_VOLUMES` near the top of the sketch: 0, 8, 13, 18 and 22 out of
+30, default Loud (18). The speaker is only 0.5 W, so the sketch refuses to compile with any volume above 22.
+The sound check at start-up runs after BLE starts: a phone that connects within those first seconds gets no volume
+control until it reconnects.
+
+## Touch
+
+A TTP223 module under the head shell, on GPIO6. Leave both of its solder jumpers (A and B) open: that is the default
+mode, HIGH while touched and momentary. The input is pulled down, so a missing module never reads as a touch.
+Touch is handled on the robot only; the app isn't told and the BLE protocol is unchanged.
+
+| Touch | Robot awake (face IDLE or THINKING) | Robot asleep (phone away) |
+| --- | --- | --- |
+| Pat (released within 0.8 s) | Giggle (0013), happy face and a small nod for 1.2 s | Drowsy stir for 2 s, with a quiet "mm-hm?" (0022) |
+| Hold (0.8 s or longer) | Purr (0014), repeating while held, happy eyes until you let go; the head stays still | Same stir |
+
+- **When touch is ignored:** while the phone is speaking (LISTENING) or another reaction plays (HAPPY, CELEBRATE, …).
+- **App commands win:** any command from the app ends a touch reaction at once. Afterwards the face, head and any
+  learning card return to what they were showing.
+- **The drowsy stir:** both eyes open slowly to heavy half-lids, blink once and sink shut again; the sleep bubbles
+  pause, the mouth becomes a small "o" and the head stays still. It happens at most once every 4 s, so a hand resting
+  on the head doesn't keep waking it. Its "mm-hm?" is the one sound allowed while asleep. Copy `0022.mp3` to the card.
+- **Sound level:** touch sounds follow the app's volume; at Off the faces still react, silently.
+- **Tuning:** `TOUCH_HOLD_MS`, the show times, the stir gap and the three tracks are constants under "Touch (v4)"
+  near the top of the sketch.
+
+## SD card
+
+1. Format it as **FAT32** (32 GB or smaller works best).
+2. Copy `firmware/sounds/sd/mp3` to the card's root, so the files are `/mp3/0001.mp3`, `/mp3/0002.mp3`, …
+   A name may follow the number (`0004_happy.mp3`); the DFPlayer reads only the number.
+3. On a Mac, remove the hidden `._` files before ejecting: `dot_clean -m /Volumes/<CARD>`.
+
+The sketch plays files with `playMp3Folder(n)`, which finds them by name. `play(n)` would use the order the files
+were copied instead.
+
+## Hardware and head (as in PrivetBLE_S3)
+
+- **Board:** ESP32-S3-DevKitC-1 N16R8.
+- **Display:** 1.3" SH1106 over SPI instead of the 0.96" SSD1306 over I2C.
+- **Head:** pan plus tilt, with a gesture for each emotion. The head rests about 8° up (`TILT_HOME_DEG` in
+  `ServoMotion.h`), and vertical moves are large and quick (about 6–12° from rest), since tiny slow steps only
+  make loaded servos buzz:
+
+| Reaction | Head |
+| --- | --- |
+| HAPPY | Lifts and nods "yes, yes!" with a small side wiggle |
+| ENCOURAGE | Sympathetic droop to one side, slow lift, one small nod |
+| CELEBRATE | Bouncy side-to-side wiggle with up-bobs, then a proud head-up pose |
+| THINKING | Still: the head rests (no servo noise while you think) |
+| LISTENING | Still: the head rests; the listening face stays exactly as long as the phone speaks |
+| HINT | Quick "aha!" perk-up (1.5 s), then the hint card |
+| CONNECTED | Wake-up nod |
+| NOD (11) | One tiny nod per correct match pair |
+| ON_FIRE (12) | Head up with an excited shimmy, plus a flame and the combo ("x3") on the face, for each first try that extends a combo of two or more |
+| IDLE | For a minute after the last command, the head follows the eyes' side glances |
+| Phone away | The head slowly droops while the face sleeps; the wake-up nod lifts it |
+
+## Setup
+
+- Arduino IDE, **esp32 by Espressif** core 3.x, board **ESP32S3 Dev Module**.
+  Set USB CDC On Boot = Enabled, Flash Size = 16MB, PSRAM = OPI PSRAM.
+  Partition Scheme = 16M Flash (3MB APP/9.9MB FATFS); the BLE firmware does not fit the default 1.2MB app.
+  Plug the cable into the port labelled **USB** (native); with CDC On Boot enabled, Serial only appears there.
+- Libraries: **U8g2** and **DFRobotDFPlayerMini**. The MPU6050 is read with the core's `Wire` library, no extra library. The servos use the ESP32 core's LEDC PWM directly (no ESP32Servo; see the note in the sketch).
+- Serial Monitor: 115200 baud.
+
+## Wiring
+
+| Part | Pin | ESP32-S3 |
+| --- | --- | --- |
+| OLED | GND | GND |
+| OLED | VCC | 3V3 |
+| OLED | SCK | GPIO12 |
+| OLED | SDA (MOSI) | GPIO11 |
+| OLED | RES | GPIO14 |
+| OLED | DC | GPIO13 |
+| OLED | CS | GPIO10 |
+| Pan servo | signal | GPIO4 |
+| Tilt servo | signal | GPIO5 |
+| Servos | + and − | external ~5V supply, GND shared with the ESP32 |
+| DFPlayer | VCC / GND | 5V rail / GND |
+| DFPlayer | RX | GPIO17 (ESP32 TX), through ~1 kΩ (3 × 330 Ω in series) |
+| DFPlayer | TX | GPIO18 (ESP32 RX) |
+| DFPlayer | BUSY | GPIO16 (LOW while playing) |
+| DFPlayer | SPK1 / SPK2 | 0.5 W 8 Ω speaker |
+| TTP223 touch | VCC / GND | 3V3 / GND |
+| TTP223 touch | I/O (OUT) | GPIO6 (HIGH while touched) |
+| MPU6050 | VCC / GND | 3V3 / GND |
+| MPU6050 | SDA / SCL | GPIO8 / GPIO9 (I2C at 400 kHz; address 0x68, or 0x69 with AD0 high) |
+| MPU6050 | INT | GPIO7 (wired, not used yet) |
+
+The DFPlayer runs on UART1 at 9600 baud. Reserved for later, so keep them free: NeoPixel 15,
+encoder 39/40/41, button 42, battery sense 1. Avoid GPIO45 and GPIO46 for inputs: they are strapping pins, and a
+HIGH level at power-on can stop the S3 from booting.
+
+Put a 1000 µF capacitor across each servo's + and − (stripe to −). Don't power the servos from 3V3.
+While USB is plugged in, don't also feed 5V into the DevKitC's 5V pin.
+
+## Tuning
+
+Angles are in degrees (0 = straight ahead, + = head up / turned toward the eyes' look). They are approximate:
+the firmware converts them at about 11 µs per degree for an SG90.
+
+In the tuning block at the top of `ServoMotion.h`:
+
+- `TILT_HOME_DEG` (8): how far up the head rests. Tilt gestures are written relative to it, so they move with it.
+- `SLEEP_TILT_DEG` (−9): where the head droops while the phone is away.
+- `PAN_LIMIT_DEG` (±18), `TILT_MIN_DEG`/`TILT_MAX_DEG` (−18/+20): hard limits nothing can pass. Widen them only if the
+  head moves that far freely; a servo pressed against a stop buzzes and heats up. If a setting would push a gesture
+  past them, the sketch doesn't compile and the error says which setting to change.
+- The gestures themselves: keyframe lists of `{time ms, degrees}`.
+
+Near the top of the servo section in `PrivetBLE_S3.ino`:
+
+- `TILT_INVERTED` (default `true`, matching the owner's head): flip it if the head nods down when it should look up,
+  e.g. if it rises when going to sleep.
+- `PAN_INVERTED = true` if the head turns away from the side the eyes look to.
+- `TILT_ENABLED = false` to test with the pan servo only.
+- Use `U8G2_R2` in the `oled` constructor if the face is upside down.
+- Speed (°/s) and acceleration (°/s²) come in three styles: `SERVO_PERKY_*` (80, 540) for happy moments,
+  `SERVO_SPEED_DEG_S`/`SERVO_ACCEL_DEG_S2` (50, 225) for connecting, and `SERVO_GENTLE_*` (32, 180) for
+  encouragement, sleep and settling back to rest. Lower them for calmer motion.
+- `IDLE_GLANCE_DEG` (5): how far the head follows the eyes when idle.
+- Fit the horns while the servos sit at 0° (1500 µs) after a reset.
+
+## Motion
+
+Each gesture is a path of target pulses. A smooth follower moves the real pulse toward that path with
+limited speed and acceleration, braking in time so it never overshoots. A new reaction always starts from
+where the head actually is, so interrupting a gesture or switching reactions never snaps or reverses instantly.
+
+The servos are centred once at power-on. Each axis switches its PWM off 0.3 s after it reaches the end of a gesture
+and stays still, so idle servos are silent, and switches it back on at the last commanded pulse when the next gesture
+moves. Each servo keeps one LEDC channel for the whole run and "off" is duty 0, never a detach: with ESP32Servo,
+re-attaching could put both servos on the same MCPWM output, so the tilt copied the pan's pulse and the head
+shot to its top position. There is no position feedback: if the head is pushed while PWM is off, it returns to its last position when the
+next gesture starts.
+
+Compiles for ESP32S3 Dev Module (Arduino-ESP32 3.3.12, DFRobotDFPlayerMini 1.0.6) with the settings above:
+678,898 bytes of program storage (21%), 33,492 bytes of global variables (10%). Motion sensing is not yet tested on
+hardware. `npm test` runs `MotionSense.h` on synthetic 50 Hz sensor data (`scripts/test-motion-sense.cpp`): lifting
+and carrying, a steady hand, setting down with a landing bump, shaking, tipping over and back, gentle tilts both ways,
+desk bumps, servo vibration and ten quiet minutes.
+`ServoMotion.h` is an unchanged copy of PrivetBLE_S3's, which `npm test` checks in a host simulation
+(`scripts/test-servo-motion.cpp`): every gesture stays in range,
+finishes before its reaction ends, remains visible after smoothing, and returns to the resting pose (sleep rests drooped),
+plus 10 minutes of random, often interrupted reactions. It also requires every vertical gesture to move
+at least 6° after smoothing.
