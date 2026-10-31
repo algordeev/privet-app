@@ -41,7 +41,7 @@ hardware or app events that don't exist yet.
 | 0007 | hint | Reaction HINT: "aha!" | 0.5 s |
 | 0008 | streak | Reaction STREAK | 1.2 s |
 | 0009 | nod | Reaction NOD (match pair): a tiny tick, deliberately quiet | 0.1 s |
-| 0010 | on_fire | Reaction ON_FIRE: whoosh and zap | 0.7 s |
+| 0010 | on_fire | Reaction ON_FIRE: an excited warble landing on a chime | 0.7 s |
 | 0011 | sleep | Face falls asleep: a yawn | 1.2 s |
 | 0012 | wake | Face wakes up | 0.5 s |
 | 0013 | giggle | Touch pad: a pat on the head | 0.5 s |

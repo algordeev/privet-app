@@ -16,7 +16,7 @@ sound from the reaction. PrivetBLE_S3 stays untouched in its own folder.
 | HINT | 0007 | "Aha!" |
 | STREAK | 0008 | Fanfare |
 | NOD | 0009 | Tiny tick |
-| ON_FIRE | 0010 | Whoosh and zap |
+| ON_FIRE | 0010 | Excited warble and chime |
 | LISTENING, THINKING, IDLE | — | Silent |
 
 The files are the robot sounds from [firmware/sounds](../sounds/README.md). To change the mapping, edit

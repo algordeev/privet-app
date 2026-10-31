@@ -101,7 +101,7 @@ static constexpr ReactionSound REACTION_SOUNDS[] = {
   {HINT,       7},  // "aha!"
   {STREAK,     8},  // fanfare
   {NOD,        9},  // tiny tick
-  {ON_FIRE,   10},  // whoosh and zap
+  {ON_FIRE,   10},  // excited warble and chime
 };
 
 // DFPlayer volume, 0-30. The speaker is only 0.5 W, so it never goes above 22.

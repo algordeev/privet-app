@@ -167,9 +167,9 @@ def s_nod():
 
 
 def s_on_fire():
-    whoosh = env(noise(.4, 400, 5000, seed=12), attack=.15, release=.1)
-    zap = chirp(.28, 600, 2500, shape=BUZZ, gain=.6)
-    return cat(mix(whoosh, zap, at=.12), pluck('E7', .25, shape=SINE, decay=.07, gain=.5))
+    # An excited warble that climbs, then lands on a chime.
+    trill = env(osc(.35, 900, 1800, shape=SOFT, vib_rate=22, vib_depth=.06), attack=.02, release=.04)
+    return cat(trill, pluck('G6', .3, shape=BELL, decay=.1))
 
 
 def s_sleep():
@@ -234,7 +234,7 @@ EFFECTS = [
     (7, 'hint', s_hint, -1),
     (8, 'streak', s_streak, 0),
     (9, 'nod', s_nod, -6),
-    (10, 'on_fire', s_on_fire, 0),
+    (10, 'on_fire', s_on_fire, -2),
     (11, 'sleep', s_sleep, -4),
     (12, 'wake', s_wake, -2),
     (13, 'giggle', s_giggle, 0),
