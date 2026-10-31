@@ -17,6 +17,7 @@
  * and docs/companion-ble.md. No partial content is drawn.
  * Control code 13 SET_VOLUME (advertised by capability bit 16 while sound
  * works): argument = sound level 0-4, plus 0x80 for a preview chirp.
+ * TTP223 touch module on GPIO6: local pat/hold/stir reactions, no BLE messages.
  */
 
 #include <Arduino.h>
@@ -36,6 +37,9 @@
 #include "DisplayRefresh.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
+
+// Defined before any function: the Arduino build declares readTouch() near the top.
+enum TouchEvent : uint8_t { TOUCH_NONE, TOUCH_PAT, TOUCH_HOLD_START, TOUCH_HOLD_END };
 
 // OLED wiring (7-pin SH1106 SPI): GND, VCC -> 3V3, SCK -> GPIO12,
 // SDA (MOSI) -> GPIO11, RES -> GPIO14, DC -> GPIO13, CS -> GPIO10.
@@ -132,6 +136,25 @@ static constexpr uint32_t SOUND_POWER_UP_MS = 1500;
 // DFPlayer TX -> GPIO18 (ESP32 RX); DFPlayer RX <- GPIO17 through ~1 kOhm;
 // BUSY -> GPIO16, LOW while playing.
 static constexpr int SOUND_RX_PIN = 18, SOUND_TX_PIN = 17, SOUND_BUSY_PIN = 16;
+
+// ---- Touch (v4) ----
+// TTP223 touch module: OUT -> GPIO6 (HIGH while touched), VCC -> 3V3, GND.
+// Touch is handled on the robot only; the app is never told.
+// Awake, a pat (released before TOUCH_HOLD_MS) giggles with the happy face and
+// a small nod; holding purrs with happy eyes until released, head still. Both
+// only over a resting face (IDLE or THINKING): never while the phone speaks or
+// another reaction plays, and any app command ends them at once. Asleep, the
+// eyes stir open to heavy half-lids with a quiet "mm-hm?", at most once per
+// TOUCH_STIR_GAP_MS.
+static constexpr int TOUCH_PIN = 6;
+static constexpr uint32_t TOUCH_HOLD_MS = 800;
+static constexpr uint32_t TOUCH_PAT_SHOW_MS = 1200;
+static constexpr uint32_t TOUCH_STIR_SHOW_MS = 2000;
+static constexpr uint32_t TOUCH_STIR_GAP_MS = 4000;
+static constexpr uint32_t TOUCH_PURR_REPEAT_MS = 1500;  // the purr replays this often while held
+static constexpr uint16_t TOUCH_PAT_TRACK = 13;    // giggle
+static constexpr uint16_t TOUCH_HOLD_TRACK = 14;   // purr
+static constexpr uint16_t TOUCH_ASLEEP_TRACK = 22; // drowsy "mm-hm?"
 
 static void requestFace(uint8_t reaction) {
   const uint32_t previous = faceMailbox.load();
@@ -429,6 +452,12 @@ static void updateSound(uint32_t now) {
   soundStartedAt = now ? now : 1;
 }
 
+// Touch sounds aren't reactions: they bypass the reaction table and, for the
+// sleepy stir, the "silent while asleep" rule. Off still silences them.
+static void playTouchSound(uint16_t track) {
+  if (soundReady && soundLevel) soundPending = track;
+}
+
 static void requestVolume(uint8_t argument) {
   const uint32_t previous = volumeMailbox.load();
   volumeMailbox.store(((previous + 256U) & 0xFFFFFF00U) | argument);
@@ -583,6 +612,67 @@ static void drawSleepingFace(uint32_t age) {
   if (bubbleCount >= 3) {
     display.drawCircle(116, 8, 3, SSD1306_WHITE);
   }
+}
+
+// Debounced TTP223 reading. A pat is reported on release; a hold as soon as it
+// has lasted TOUCH_HOLD_MS, and again when it ends.
+static TouchEvent readTouch(uint32_t now) {
+  static bool raw = false, down = false, holding = false;
+  static uint32_t changedAt = 0, downAt = 0;
+  const bool level = digitalRead(TOUCH_PIN) == HIGH;
+  if (level != raw) {
+    raw = level;
+    changedAt = now;
+  }
+  if (raw == down || uint32_t(now - changedAt) < 30) {
+    if (down && !holding && uint32_t(now - downAt) >= TOUCH_HOLD_MS) {
+      holding = true;
+      return TOUCH_HOLD_START;
+    }
+    return TOUCH_NONE;
+  }
+  down = raw;
+  if (down) {
+    downAt = now;
+    return TOUCH_NONE;
+  }
+  const bool held = holding;
+  holding = false;
+  return held ? TOUCH_HOLD_END : TOUCH_PAT;
+}
+
+// Eye height (pixels) of the drowsy stir over time: open slowly, hold, one
+// slow blink, then sink shut by TOUCH_STIR_SHOW_MS. Below 3 it is drawn closed.
+static int stirOpening(uint32_t t) {
+  if (t < 400U) return int(t) * 10 / 400;
+  if (t < 900U) return 10;
+  if (t < 1100U) return 10 - int(t - 900U) * 8 / 200;
+  if (t < 1300U) return 2 + int(t - 1100U) * 7 / 200;
+  if (t < 2000U) return 9 - int(t - 1300U) * 9 / 700;
+  return 0;
+}
+
+// A touch while asleep: both eyes open to heavy half-lids (the lower part of
+// the awake eye under a flat lid line), blink once and close again. The sleep
+// bubbles pause and the mouth is a small "o"; the head doesn't move.
+static void drawStirringFace(uint32_t t) {
+  display.clearDisplay();
+  const int open = stirOpening(t);
+  for (int x : {28, 80}) {
+    if (open < 3) {
+      for (int thickness = 0; thickness < 2; ++thickness) {
+        display.drawLine(x, 26 + thickness, x + 9, 29 + thickness, SSD1306_WHITE);
+        display.drawLine(x + 9, 29 + thickness, x + 19, 26 + thickness, SSD1306_WHITE);
+      }
+      continue;
+    }
+    display.fillRoundRect(x, 14, 20, 23, 6, SSD1306_WHITE);
+    display.fillRect(x, 14, 20, 23 - open, SSD1306_BLACK);
+    display.drawFastHLine(x - 2, 35 - open, 24, SSD1306_WHITE);
+  }
+  display.drawCircle(64, 46, 2, SSD1306_WHITE);
+  display.fillCircle(122, 4, 1, SSD1306_WHITE);
+  display.display();
 }
 
 // All display drawing runs in loop(), never inside BLE callbacks.
@@ -1047,6 +1137,11 @@ static void updateOLED() {
   static PrivetCards::Card shownCard;
   static uint32_t cardAt=0,cardShownAt=0;
   static bool cardVisible=false;
+  // A touch reaction drawn over the current state without changing it.
+  enum : uint8_t { SHOW_NONE, SHOW_PAT, SHOW_HOLD, SHOW_STIR };
+  static uint8_t touchShow = SHOW_NONE;
+  static uint32_t touchShownAt = 0, lastStirAt = 0, lastPurrAt = 0;
+  static bool stirred = false;
   PrivetCards::Card incoming;
   portENTER_CRITICAL(&cardsMux);
   incoming=cards.completed;
@@ -1081,6 +1176,7 @@ static void updateOLED() {
     started = now;
     startServoReaction(connected ? current : uint8_t(PrivetMotion::SLEEP), now);
     if (connected) requestSound(current, now);
+    touchShow = SHOW_NONE;  // an app command always wins
     changed = true;
   }
 
@@ -1115,6 +1211,48 @@ static void updateOLED() {
     age = 0;
   }
 
+  const TouchEvent touch = readTouch(now);
+  if (!connected) {
+    if ((touch == TOUCH_PAT || touch == TOUCH_HOLD_START) &&
+        (!stirred || uint32_t(now - lastStirAt) >= TOUCH_STIR_GAP_MS)) {
+      touchShow = SHOW_STIR;
+      touchShownAt = lastStirAt = now;
+      stirred = true;
+      playTouchSound(TOUCH_ASLEEP_TRACK);
+      Serial.println("[TOUCH] Asleep: stir.");
+      changed = true;
+    }
+  } else if (current == IDLE || current == THINKING) {
+    if (touch == TOUCH_PAT) {
+      touchShow = SHOW_PAT;
+      touchShownAt = now;
+      startServoReaction(NOD, now);
+      playTouchSound(TOUCH_PAT_TRACK);
+      Serial.println("[TOUCH] Pat.");
+      changed = true;
+    } else if (touch == TOUCH_HOLD_START) {
+      touchShow = SHOW_HOLD;
+      touchShownAt = lastPurrAt = now;
+      playTouchSound(TOUCH_HOLD_TRACK);
+      Serial.println("[TOUCH] Hold.");
+      changed = true;
+    }
+  }
+  if (touchShow == SHOW_HOLD && touch == TOUCH_HOLD_END) {
+    touchShow = SHOW_NONE;
+    changed = true;
+  } else if (touchShow == SHOW_HOLD && !soundPlaying(now) && uint32_t(now - lastPurrAt) >= TOUCH_PURR_REPEAT_MS) {
+    lastPurrAt = now;
+    playTouchSound(TOUCH_HOLD_TRACK);
+  }
+  if ((touchShow == SHOW_PAT && uint32_t(now - touchShownAt) >= TOUCH_PAT_SHOW_MS) ||
+      (touchShow == SHOW_STIR && (connected || uint32_t(now - touchShownAt) >= TOUCH_STIR_SHOW_MS))) {
+    // Back to the state underneath; restart its gesture (THINKING keeps the head still).
+    if (touchShow == SHOW_PAT) startServoReaction(current, now);
+    touchShow = SHOW_NONE;
+    changed = true;
+  }
+
   const bool ambientAwake =
     connected &&
     uint32_t(now - lastCommandAt) <
@@ -1123,7 +1261,7 @@ static void updateOLED() {
   // The head follows the face's idle glance, but not while a card is shown.
   static bool cardOnScreen = false;
   servoGlanceUs =
-    current == IDLE && ambientAwake && !cardOnScreen && age < AMBIENT_WINDOW_MS
+    current == IDLE && ambientAwake && !cardOnScreen && touchShow == SHOW_NONE && age < AMBIENT_WINDOW_MS
       ? int(lroundf(PrivetMotion::glance(age) * IDLE_GLANCE_DEG * PrivetMotion::US_PER_DEGREE / 1000.0f))
       : 0;
 
@@ -1160,6 +1298,12 @@ static void updateOLED() {
     // Local safe expiry: THINKING keeps the head still; IDLE restarts only so
     // the head's glance stays in step with the face's.
     if(current==IDLE)startServoReaction(IDLE,now);
+  }
+  if(touchShow!=SHOW_NONE){
+    cardOnScreen=false;
+    if(touchShow==SHOW_STIR)drawStirringFace(now-touchShownAt);
+    else drawFace(true,HAPPY,false,now-touchShownAt);
+    return;
   }
   if(validCard&&shownCard.mode&&uint32_t(now-lastCommandAt)>=transition){
     if(!cardVisible){cardVisible=true;cardShownAt=now;}
@@ -1327,6 +1471,9 @@ void setup() {
     "[SERVO] Pan GPIO4, tilt GPIO5, limits in ServoMotion.h; "
     "center 1500 us. Smooth follower; PWM off when still."
   );
+
+  // Pulled down so a missing or unplugged touch module never reads as a touch.
+  pinMode(TOUCH_PIN, INPUT_PULLDOWN);
 
   setupOLED();
 

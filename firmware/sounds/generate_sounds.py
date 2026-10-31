@@ -219,6 +219,13 @@ def s_curious():
     return env(osc(.22, 700, 1150, shape=SOFT, vib_rate=8, vib_depth=.015), attack=.02, release=.06)
 
 
+def s_stir():
+    # A drowsy closed-mouth "mm-hm?": two soft low notes, the second slightly up.
+    mm = env(osc(.22, 560, 540, shape=SINE, vib_rate=4, vib_depth=.01), attack=.06, release=.08)
+    hm = env(osc(.3, 600, 660, shape=SINE, vib_rate=4, vib_depth=.01), attack=.06, release=.14)
+    return cat(mm, .05, hm)
+
+
 def s_uh_oh():
     return cat(chirp(.11, 520, 500, shape=BUZZ, gain=.7), .07, chirp(.18, 430, 400, shape=BUZZ, gain=.7))
 
@@ -246,6 +253,7 @@ EFFECTS = [
     (19, 'streak_risk', s_streak_risk, 0),
     (20, 'curious', s_curious, -3),
     (21, 'uh_oh', s_uh_oh, -2),
+    (22, 'stir', s_stir, -9),
 ]
 
 TARGET_RMS_DB = -13.0

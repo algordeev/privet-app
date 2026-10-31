@@ -27,8 +27,8 @@ fades in and out over a few milliseconds so the speaker doesn't pop. The effects
 
 ## Sounds
 
-"Reaction" means the firmware can play the sound when the app sends that reaction; the others wait for
-hardware or app events that don't exist yet.
+"Reaction" means the firmware can play the sound when the app sends that reaction, and "Touch" rows are played by
+the touch pad in PrivetBLE_S3_v4. The others wait for hardware or app events that don't exist yet.
 
 | File | Name | When | Length |
 | --- | --- | --- | --- |
@@ -42,10 +42,10 @@ hardware or app events that don't exist yet.
 | 0008 | streak | Reaction STREAK | 1.2 s |
 | 0009 | nod | Reaction NOD (match pair): a tiny tick, deliberately quiet | 0.1 s |
 | 0010 | on_fire | Reaction ON_FIRE: an excited warble landing on a chime | 0.7 s |
-| 0011 | sleep | Face falls asleep: a yawn | 1.2 s |
+| 0011 | sleep | Falling asleep: a yawn | 1.2 s |
 | 0012 | wake | Face wakes up | 0.5 s |
-| 0013 | giggle | Touch pad: a pat on the head | 0.5 s |
-| 0014 | purr | Touch pad: long press | 1.1 s |
+| 0013 | giggle | Touch: a pat on the head | 0.5 s |
+| 0014 | purr | Touch: holding the head, repeating while held | 1.1 s |
 | 0015 | pickup | Accelerometer: picked up ("whee!") | 0.5 s |
 | 0016 | shake | Accelerometer: shaken (dizzy) | 1.0 s |
 | 0017 | knocked_over | Accelerometer: tipped over ("oof", then dizzy) | 0.9 s |
@@ -53,6 +53,7 @@ hardware or app events that don't exist yet.
 | 0019 | streak_risk | App: the streak ends today without a lesson | 1.2 s |
 | 0020 | curious | Idle: an occasional "hm?" | 0.3 s |
 | 0021 | uh_oh | Something failed, e.g. an unknown command | 0.4 s |
+| 0022 | stir | Touch while asleep: a drowsy, quiet "mm-hm?" | 0.65 s |
 
 LISTENING and THINKING have no sound on purpose: during LISTENING the phone is speaking, and THINKING is
 the resting state during a question.
