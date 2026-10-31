@@ -1,5 +1,8 @@
 # PrivetBLE_S3_v4: the ESP32-S3 companion with sound
 
+Superseded by [PrivetBLE_S3_v5](../PrivetBLE_S3_v5/README.md), which adds MPU6050 motion reactions; v4 stays for robots
+without the sensor.
+
 [PrivetBLE_S3](../PrivetBLE_S3/README.md) plus a DFPlayer Mini that plays a short sound for each reaction, and a
 TTP223 touch pad on the head for pats.
 Everything else is unchanged: device name (`Privet-ESP32`), reactions 1–9, 11 NOD and 12 ON_FIRE, learning cards,
