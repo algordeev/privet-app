@@ -177,6 +177,15 @@ HIGH level at power-on can stop the S3 from booting.
 Put a 1000 µF capacitor across each servo's + and − (stripe to −). Don't power the servos from 3V3.
 While USB is plugged in, don't also feed 5V into the DevKitC's 5V pin.
 
+**Power-on order.** The servos' first jump to centre and the Bluetooth radio each draw a burst of current. Together,
+while the supply is still charging its capacitors, they can dip the 5 V rail enough for the ESP32's brownout
+detector to reset it again and again: the reset LED blinks, the OLED stays off and the servos creep in small steps.
+So the sketch starts them in turn: nothing until 1.5 s after power-on (`SERVO_POWER_ON_DELAY_MS`), then the pan
+servo, the tilt servo 0.8 s later (`SERVO_STAGGER_MS`), and Bluetooth 1.2 s after that (`BLE_AFTER_SERVOS_MS`), about
+3.5 s after power-on. If it still loops, the supply is too weak for the start-up load: use a 5 V source rated for
+at least 2–3 A, keep the power and ground wires short and thick, or feed the DevKitC's 5V pin through a Schottky diode
+with a 470–1000 µF capacitor after it, so a servo dip can't pull the ESP32 down.
+
 ## Tuning
 
 Angles are in degrees (0 = straight ahead, + = head up / turned toward the eyes' look). They are approximate:
@@ -218,7 +227,7 @@ shot to its top position. There is no position feedback: if the head is pushed w
 next gesture starts.
 
 Compiles for ESP32S3 Dev Module (Arduino-ESP32 3.3.12, DFRobotDFPlayerMini 1.0.6) with the settings above:
-678,898 bytes of program storage (21%), 33,492 bytes of global variables (10%). Motion sensing is not yet tested on
+678,966 bytes of program storage (21%), 33,492 bytes of global variables (10%). Motion sensing is not yet tested on
 hardware. `npm test` runs `MotionSense.h` on synthetic 50 Hz sensor data (`scripts/test-motion-sense.cpp`): lifting
 and carrying, a steady hand, setting down with a landing bump, shaking, tipping over and back, gentle tilts both ways,
 desk bumps, servo vibration and ten quiet minutes.

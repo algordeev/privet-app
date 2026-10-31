@@ -261,6 +261,15 @@ static constexpr int IDLE_GLANCE_DEG = 5;
 // (smoothly limited only from the re-attach point onward).
 static constexpr uint32_t SERVO_RELEASE_AFTER_MS = 300;
 
+// Power-on order. The servos' first jump to centre and the Bluetooth radio
+// each draw a burst of current; together, while the supply is still charging
+// its capacitors, they can dip the 5 V rail into a brownout reset loop. So:
+// nothing until SERVO_POWER_ON_DELAY_MS after boot, then pan, then tilt
+// SERVO_STAGGER_MS later, and Bluetooth BLE_AFTER_SERVOS_MS after the tilt.
+static constexpr uint32_t SERVO_POWER_ON_DELAY_MS = 1500;
+static constexpr uint32_t SERVO_STAGGER_MS = 800;
+static constexpr uint32_t BLE_AFTER_SERVOS_MS = 1200;
+
 // Each servo owns one LEDC channel for the whole run; "release" is duty 0
 // (line held low, no pulses), never a detach. ESP32Servo on the S3 hands out
 // MCPWM outputs by count when re-attaching, so after one servo was released
@@ -1633,9 +1642,13 @@ void setup() {
   // always safe to call once the characteristic exists.
   bleNotifyMutex = xSemaphoreCreateMutex();
 
-  // Centre once at power-on; PWM is released once still (SERVO_RELEASE_AFTER_MS).
+  // Centre once at power-on, one servo at a time once the supply has settled;
+  // PWM is released once still (SERVO_RELEASE_AFTER_MS).
+  while (millis() < SERVO_POWER_ON_DELAY_MS) delay(10);
   panServo.begin(millis());
+  delay(SERVO_STAGGER_MS);
   tiltServo.begin(millis());
+  const uint32_t servosStarted = millis();
 
   Serial.println(
     "[SERVO] Pan GPIO4, tilt GPIO5, limits in ServoMotion.h; "
@@ -1648,6 +1661,8 @@ void setup() {
   setupOLED();
   setupMotion();
 
+  // The radio starts last, once the servos have reached centre.
+  while (millis() - servosStarted < BLE_AFTER_SERVOS_MS) delay(10);
   BLEDevice::init("Privet-ESP32");
 
   BLEServer *server =
