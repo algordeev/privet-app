@@ -22,6 +22,8 @@ When a companion is found, a floating card (`CompanionFoundCard`) slides up with
 
 Advertised name: **Privet-ESP32**. Advertise the service so a service-filtered iOS scan can discover the device. Service UUID, rather than the friendly name, is the scan filter; the picker shows discovered names.
 
+The keychain companion (`firmware/PrivetMini_v0.5`) speaks the same protocol and advertises **Privet-Mini**. The app reads the live advertised local name (`companionModel` in `src/bleProtocol.ts`): a name starting with `Privet-Mini` shows the keychain figure in the "companion found" card; any other name shows the desk robot. Keep that prefix in any future Mini firmware.
+
 | Purpose | UUID | Required property |
 | --- | --- | --- |
 | Service | `7b5e0001-6d8a-4f3b-9c2e-1a0d8f6b4c91` | Advertised custom service |

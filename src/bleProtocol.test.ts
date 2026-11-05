@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {encodeHappy,encodeCommand,encodeVolume,COMMAND,SET_VOLUME,VOLUME_LEVELS,EXTENDED_FALLBACK,decodeAcknowledgement,nextRequestId} from './bleProtocol.ts';
+import {encodeHappy,encodeCommand,encodeVolume,COMMAND,SET_VOLUME,VOLUME_LEVELS,EXTENDED_FALLBACK,decodeAcknowledgement,nextRequestId,companionModel} from './bleProtocol.ts';
 const bytes=(view:DataView)=>Array.from(new Uint8Array(view.buffer,view.byteOffset,view.byteLength));
 test('happy packet is exactly eight bytes with a little-endian unsigned request ID',()=>{
  assert.deepEqual(bytes(encodeHappy(0x12345678)),[1,1,0x78,0x56,0x34,0x12,1,0]);
@@ -19,6 +19,11 @@ test('malformed sizes, versions, message types, commands and results are rejecte
  for(const [offset,value] of [[0,2],[1,0],[1,3],[6,0],[6,10],[6,255],[7,3],[7,255]]){
   const bad=new DataView(packet.buffer.slice(0));bad.setUint8(offset,value);assert.equal(decodeAcknowledgement(bad),null);
  }
+});
+test('the advertised name tells the keychain Mini from the desk robot; unknown names stay desk',()=>{
+ assert.equal(companionModel('Privet-Mini'),'mini');
+ assert.equal(companionModel('Privet-Mini-2'),'mini');
+ for(const name of ['Privet-ESP32','privet-mini','Mini',undefined,''])assert.equal(companionModel(name),'desk');
 });
 test('request IDs remain distinct across controller instances during the process lifetime',()=>{
  const ids=Array.from({length:1000},()=>nextRequestId());assert.equal(new Set(ids).size,1000);
