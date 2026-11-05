@@ -12,8 +12,7 @@ New in v0.6 (v0.5 is the screen-and-BLE-only version), all on the Mini itself. T
 protocol is unchanged:
 
 - **Living eyes:** the IDLE eyes roll towards the low side whenever you tilt it, in your hand too.
-- **Motion play:** shake it properly and it gets dizzy; toss it and it goes "whee"; face down it switches its screen
-  off; turned back up it plays peekaboo.
+- **Motion play:** shake it properly and it gets dizzy; toss it and it goes "whee".
 - **Pocket words:** it keeps the last 30 Russian words the app showed it, with their meanings, so you can flip through
   them with the right button, without the phone.
 - **Buttons:** a pat (giggle), a hug, a status screen and a reconnect.
@@ -68,8 +67,6 @@ during an answer reaction or while a word plays, and any app command ends a loca
 | Tilt it (in IDLE) | The eyes roll down the slope, springy; lying on its back they look up at you | — |
 | Shake it (about 0.6 s) | **Dizzy**: spiral eyes spin and slow down, 2.5 s | Drowsy **stir** |
 | Toss it up a little and catch it | **Whee**: wide eyes and sparkles, 2 s | Drowsy stir |
-| Lay it face down, still (0.7 s) | Screen off ("do not disturb"; saves power) | Screen off |
-| Turn it face up again | Screen on, **peekaboo**, 1.4 s | Screen on |
 | Right button | **Pocket words** (see below) | Pocket words |
 | Left button | **Giggle** (a pat), 1.2 s; in pocket words: close | Drowsy stir; in pocket words: close |
 | Hold left | **Hug**: happy squint and floating hearts, while held | Drowsy stir |
@@ -84,7 +81,9 @@ and a running hug ends.
 
 The app already sends the Mini a Russian word with its meaning in two cases: a word you tap while discovering
 vocabulary (a DISCOVERY card) and the answer after you get it right (an ANSWER card). The Mini keeps the last 30 of these
-in flash, newest first, without duplicates. It never keeps prompts, hints or status cards, and it never makes up
+in flash, newest first, without duplicates: "Спасибо!", "спасибо" and "Спасибо." are one word (case,
+punctuation, spaces and ё/е are ignored), kept with the newest spelling. Duplicates saved by an older build are
+removed at start-up. It never keeps prompts, hints or status cards, and it never makes up
 content.
 
 - **Right:** shows the newest saved word (Russian), with "3/12" in the corner. **Right again:** adds its meaning
@@ -109,8 +108,6 @@ to rest on a table, and fire on small movements of a light object):
   last and within 0.35 s of it, then a 2 s pause. Swinging on the key ring, walking, a single flick or a small wobble
   don't count.
 - **Toss:** under 0.35 g (free fall) for 80 ms, not in the middle of a shake. Dropping it counts too.
-- **Face down / up:** the screen facing the floor for 0.7 s while held fairly still (so moving it around never turns
-  the screen off); face up again for 0.3 s.
 
 **Which way is up.** The Mini learns it the first time it is held upright (screen facing you, within about 20° of
 vertical) and still for half a second, and saves it in flash. After that it works from the start even if you power it
@@ -119,7 +116,7 @@ look sideways while it stands straight, power it on, hold it straight for a seco
 
 **Screen sign.** `MOTION_SCREEN_SIGN = -1` because the prototype's SY-104 module has the chip on its underside, so the
 sensor's +Z points into the board. With the wrong sign, left and right are swapped and holding it screen-up (or lying
-on its back) turns the screen off; use +1 for a module whose chip faces you.
+on its back) makes the eyes look down; use +1 for a module whose chip faces you.
 
 **How it is read.** A small FreeRTOS task samples the buttons every 10 ms and the accelerometer every 20 ms (50 Hz),
 also while `loop()` sends a frame to the screen. It only queues events. `loop()` prints them and does all the drawing
@@ -148,14 +145,12 @@ The numbers depend on how the chip sits on its module. Some MPU6050 clones repor
 long as motion works.
 
 **Without the app:**
-1. Lay it face down: `[MOTION] face down: screen off`. Turn it up: `face up: screen on` (the sleeping face returns;
-   peekaboo plays only when awake).
-2. Shake it for about half a second: `[MOTION] shaken` and `asleep: stir`. A small wiggle or swinging it on its ring
-   prints nothing. Walk around holding it like a phone: the screen must stay on.
-3. Toss it up a few centimetres and catch it: `[MOTION] tossed` and a stir (one per 4 s).
-4. Right button: `[WORDS] none saved yet` and "No words yet". Right again closes.
-5. Hold right: the status screen. Hold both 2 s: `[BUTTON] both held: restarting BLE` and "Reconnect...".
-6. The first motion should also print `[MOTION] INT on D8 went high: the motion interrupt is wired`. If it never
+1. Shake it for about half a second: `[MOTION] shaken` and `asleep: stir`. A small wiggle or swinging it on its ring
+   prints nothing.
+2. Toss it up a few centimetres and catch it: `[MOTION] tossed` and a stir (one per 4 s).
+3. Right button: `[WORDS] none saved yet` and "No words yet". Right again closes.
+4. Hold right: the status screen. Hold both 2 s: `[BUTTON] both held: restarting BLE` and "Reconnect...".
+5. The first motion should also print `[MOTION] INT on D8 went high: the motion interrupt is wired`. If it never
    does, check the INT wire.
 
 **With the app (connect, wait for the CONNECTED face to finish):**
@@ -201,14 +196,14 @@ three faces, change both.
 - `scripts/test-mini-faces.cpp`: every reaction, local face and tilted look draws a face for its whole duration, and
   the three faces match the app pixel for pixel.
 - `scripts/test-mini-motion.cpp`: synthetic handling (learning up, tilts, swinging, walking, flicks, a wobble, a
-  moderate and a hard shake, a toss, face down, moving upside down).
+  moderate and a hard shake, a toss, face down or moving upside down: nothing).
 - `scripts/test-mini-buttons.cpp`: bounce, short presses, holds and both held.
-- `scripts/test-mini-words.cpp`: which cards are kept, order, duplicates and a full deck.
+- `scripts/test-mini-words.cpp`: which cards are kept, order, duplicates (case and punctuation), clean-up of an old deck and a full deck.
 
 ## Not in the firmware yet
 
 - **Sleep**: the sketch runs at full CPU speed, advertises at the default rate and redraws the whole screen about 30
-  times a second at full brightness (except face down, when the panel is off). Expect a few hours on 300 mAh; measure
+  times a second at full brightness. Expect a few hours on 300 mAh; measure
   it before relying on it. The MPU6050's INT on D8 (GPIO7) and the right button on D9 (GPIO8) can wake the chip from
   deep sleep. The left button on D7 (GPIO44) is not an RTC pin, so it can wake it only from light sleep.
 - **Battery**: the code is there; the divider is not fitted yet (see Wiring).

@@ -39,9 +39,51 @@ struct Deck {
     return (mode == MODE_DISCOVERY || mode == MODE_ANSWER) && hasCyrillic(russian) && meaning[0];
   }
 
-  // Adds a word as the newest. A word already in the deck moves to the front
-  // (with the latest meaning); a full deck forgets its oldest word. Returns
-  // true when the deck changed.
+  // The next letter or digit of s as a lowercase code point (ё counts as е),
+  // skipping spaces and punctuation; 0 at the end. So "Спасибо!",
+  // "спасибо" and "Спасибо." are the same word.
+  static uint32_t nextLetter(const char *&s) {
+    while (*s) {
+      const uint8_t b = uint8_t(*s);
+      uint32_t c;
+      if (b < 0x80) { c = b; s++; }
+      else if ((b & 0xE0) == 0xC0 && s[1]) { c = (b & 0x1F) << 6 | (uint8_t(s[1]) & 0x3F); s += 2; }
+      else if ((b & 0xF0) == 0xE0 && s[1] && s[2]) { c = (b & 0x0F) << 12 | (uint8_t(s[1]) & 0x3F) << 6 | (uint8_t(s[2]) & 0x3F); s += 3; }
+      else { s++; continue; }  // a broken or 4-byte sequence: skip a byte
+      if (c >= 'A' && c <= 'Z') c += 32;
+      else if (c >= 0x410 && c <= 0x42F) c += 32;  // А-Я -> а-я
+      if (c == 0x401 || c == 0x451) c = 0x435;     // Ё, ё -> е
+      const bool letter = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (c >= 0x430 && c <= 0x44F);
+      if (letter) return c;
+    }
+    return 0;
+  }
+  static bool sameWord(const char *a, const char *b) {
+    for (;;) {
+      const uint32_t x = nextLetter(a), y = nextLetter(b);
+      if (x != y) return false;
+      if (!x) return true;
+    }
+  }
+
+  // Drops later copies of a word (saved before sameWord existed), keeping
+  // the newest. Returns true when the deck changed.
+  bool dedupe() {
+    uint8_t kept = 0;
+    for (uint8_t i = 0; i < count; i++) {
+      bool seen = false;
+      for (uint8_t j = 0; j < kept && !seen; j++) seen = sameWord(words[j].russian, words[i].russian);
+      if (!seen) words[kept++] = words[i];
+    }
+    const bool changed = kept != count;
+    for (uint8_t i = kept; i < count; i++) words[i] = Word{};
+    count = kept;
+    return changed;
+  }
+
+  // Adds a word as the newest. A word already in the deck (sameWord) moves
+  // to the front with the latest spelling and meaning; a full deck forgets
+  // its oldest word. Returns true when the deck changed.
   bool add(uint8_t mode, const char *russian, const char *meaning) {
     if (!keeps(mode, russian, meaning)) return false;
     Word w = {};
@@ -49,8 +91,8 @@ struct Deck {
     strncpy(w.meaning, meaning, sizeof w.meaning - 1);
     uint8_t at = count < CAPACITY ? count : CAPACITY - 1;  // the slot that falls off
     for (uint8_t i = 0; i < count; i++) {
-      if (strcmp(words[i].russian, w.russian) == 0) {
-        if (i == 0 && strcmp(words[0].meaning, w.meaning) == 0) return false;
+      if (sameWord(words[i].russian, w.russian)) {
+        if (i == 0 && !strcmp(words[0].russian, w.russian) && !strcmp(words[0].meaning, w.meaning)) return false;
         at = i;
         break;
       }

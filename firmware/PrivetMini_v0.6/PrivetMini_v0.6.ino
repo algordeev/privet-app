@@ -29,8 +29,7 @@
  *
  * Local, never sent to the app (the BLE protocol is unchanged):
  *   Motion (MiniMotion.h): the IDLE eyes follow the tilt; a real shake makes
- *   it dizzy; a toss makes it go "whee"; face down turns the screen off, face
- *   up again plays peekaboo.
+ *   it dizzy; a toss makes it go "whee".
  *   Buttons: right = pocket words (word, flip to meaning, next word), left =
  *   pat (giggle) or close the words; hold left = hug, hold right = status,
  *   hold both 2 s = reconnect.
@@ -86,8 +85,8 @@ static constexpr uint32_t BATTERY_READ_MS = 10000;
 // ---- Motion ----
 // -1: the MPU6050's +Z points into the board, away from you (the SY-104
 // module's chip is on its underside, facing the board). +1 if +Z points out
-// of the screen. Wrong sign: left and right are swapped, and holding it
-// screen-up (or lying on its back) turns the screen off.
+// of the screen. Wrong sign: left and right are swapped, and the eyes look
+// down instead of up when it lies on its back.
 static constexpr int8_t MOTION_SCREEN_SIGN = -1;
 static constexpr int LOOK_MAX_X_PX = 10;  // eyes: furthest sideways
 static constexpr int LOOK_MAX_UP_PX = 8;  // eyes: furthest up (lying on its back)
@@ -413,7 +412,7 @@ static void setupMotion() {
 // The only code that touches the detector and the button reader. It hands
 // events to loop() through inputQueue; loop() does all printing and drawing.
 enum InputEvent : uint8_t {
-  // 1..5: MiniMotion::Event (SHAKEN, TOSSED, FACE_DOWN, FACE_UP, LEARNED_UP)
+  // 1..3: MiniMotion::Event (SHAKEN, TOSSED, LEARNED_UP)
   IN_INT_SEEN = 9,
   IN_BUTTON = 16,  // + MiniButtons::Event
 };
@@ -469,6 +468,7 @@ static PocketWords::Deck deck;
 
 static void loadWords() {
   if (prefs.getBytes("words", &deck, sizeof deck) != sizeof deck || !deck.valid()) deck = PocketWords::Deck();
+  if (deck.dedupe()) prefs.putBytes("words", &deck, sizeof deck);  // e.g. "Спасибо!" and "спасибо"
   Serial.printf("[WORDS] %u pocket words saved\n", unsigned(deck.count));
 }
 
@@ -588,7 +588,7 @@ static bool cardExpired(const PrivetCards::Card &card, uint8_t face, uint32_t no
 static uint8_t localFace = 0;  // MiniFaces::Local, 0 = none
 static uint32_t localAt = 0, lastStirAt = 0;
 static bool stirred = false;
-static bool statusShown = false, reconnectShown = false, screenOff = false;
+static bool statusShown = false, reconnectShown = false;
 static uint32_t statusAt = 0, reconnectAt = 0;
 enum WordsView : uint8_t { WORDS_CLOSED, WORDS_FRONT, WORDS_BACK, WORDS_EMPTY };
 static uint8_t wordsView = WORDS_CLOSED, wordsIndex = 0, wordsSeen = 0;
@@ -601,7 +601,6 @@ static uint32_t localDuration(uint8_t face) {
     case MiniFaces::STIR: return MiniFaces::STIR_MS;
     case MiniFaces::WHEE: return MiniFaces::WHEE_MS;
     case MiniFaces::DIZZY: return MiniFaces::DIZZY_MS;
-    case MiniFaces::PEEKABOO: return MiniFaces::PEEKABOO_MS;
     case MiniFaces::GIGGLE: return MiniFaces::GIGGLE_MS;
     case MiniFaces::PROUD: return MiniFaces::PROUD_MS;
     default: return 0;  // HUG: until the left button is released
@@ -705,16 +704,6 @@ static void handleInput(uint8_t event, uint32_t now, bool connected, bool restin
       Serial.printf("[MOTION] learned \"up\" (%.2f, %.2f, %.2f) and saved it\n", up[0], up[1], up[2]);
       break;
     }
-    case FACE_DOWN:
-      screenOff = true;
-      if (localFace == MiniFaces::HUG) localFace = 0;
-      Serial.println("[MOTION] face down: screen off");
-      break;
-    case FACE_UP:
-      screenOff = false;
-      if (connected && resting && wordsView == WORDS_CLOSED) { startLocal(MiniFaces::PEEKABOO, now); Serial.println("[MOTION] face up: screen on, peekaboo"); }
-      else Serial.println("[MOTION] face up: screen on");
-      break;
     case SHAKEN:
       if (wordsView == WORDS_FRONT || wordsView == WORDS_BACK) {
         Serial.println("[MOTION] shaken: a random word");
@@ -778,7 +767,7 @@ static void updateOLED(uint32_t now) {
   static uint8_t current = IDLE, transitionFace = IDLE, transitionFrom = IDLE;
   static PrivetCards::Card shownCard;
   static uint32_t cardAt = 0, cardShownAt = 0;
-  static bool cardVisible = false, wasConnected = false, panelOff = false;
+  static bool cardVisible = false, wasConnected = false;
   static MiniMotion::Spring lookX, lookY;
   static int8_t tiltZone = 0;
 
@@ -819,7 +808,7 @@ static void updateOLED(uint32_t now) {
   // the question stays open until the retry), or a question/hint card is on.
   const bool questionOpen = transitionFace == THINKING || transitionFace == HINT || transitionFace == LISTENING ||
                             transitionFace == NOD || transitionFace == ENCOURAGE || current == THINKING;
-  const bool wordsAllowed = !screenOff && (!connected || (current == IDLE && !questionOpen && !(validCard && (shownCard.mode == 2 || shownCard.mode == 4))));
+  const bool wordsAllowed = !connected || (current == IDLE && !questionOpen && !(validCard && (shownCard.mode == 2 || shownCard.mode == 4)));
   uint8_t event;
   while (xQueueReceive(inputQueue, &event, 0) == pdTRUE) handleInput(event, now, connected, resting, wordsAllowed);
   if (localFace && localDuration(localFace) && now - localAt >= localDuration(localFace)) localFace = 0;
@@ -831,9 +820,6 @@ static void updateOLED(uint32_t now) {
   const float dt = (now - lastFrame) / 1000.0f;
   lastFrame = now;
 
-  // Face down: the panel sleeps (and nothing is sent to it).
-  if (screenOff != panelOff) { panelOff = screenOff; oled.setPowerSave(panelOff ? 1 : 0); }
-
   // The eyes follow the tilt with a little spring; the log says which way.
   const float tx = lookXMilli.load() / 1000.0f, ty = lookYMilli.load() / 1000.0f;
   lookX.step(tx * LOOK_MAX_X_PX, dt);
@@ -844,7 +830,6 @@ static void updateOLED(uint32_t now) {
     static const char *const names[] = {"level: eyes centred", "tilted right: eyes look right", "tilted left: eyes look left", "lying back: eyes look up"};
     Serial.printf("[MOTION] %s\n", names[zone]);
   }
-  if (panelOff) return;
 
   oled.clearBuffer();
   oled.setDrawColor(1);

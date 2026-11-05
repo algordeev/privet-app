@@ -1,5 +1,5 @@
 // Host checks for firmware/PrivetMini_v0.6/PocketWords.h: which cards are
-// kept, newest first, duplicates move to the front, a full deck forgets the
+// kept, newest first, duplicates (ignoring case and punctuation) move to the front, a full deck forgets the
 // oldest, and long text is cut without overflowing.
 #include <assert.h>
 #include <stdio.h>
@@ -24,6 +24,27 @@ int main() {
   assert(d.add(1, "привет", "hi"));
   assert(d.count == 2 && !strcmp(d.words[0].russian, "привет") && !strcmp(d.words[0].meaning, "hi"));
   assert(!d.add(5, "привет", "hi"));
+  // Case, punctuation, spaces and ё/е don't make a new word; the newest spelling wins.
+  Deck c;
+  assert(c.add(5, "Спасибо!", "Thank you!"));
+  assert(c.add(1, "спасибо", "thank you"));
+  assert(c.add(5, "СПАСИБО.", "thanks"));
+  assert(c.add(1, "«Привет»", "hello"));
+  assert(c.add(1, "привет", "hello"));
+  assert(c.add(1, "Всё хорошо", "all good"));
+  assert(c.add(5, "Все хорошо!", "All good!"));
+  assert(c.count == 3 && !strcmp(c.words[0].russian, "Все хорошо!") && !strcmp(c.words[1].russian, "привет") && !strcmp(c.words[2].russian, "СПАСИБО."));
+  assert(!c.add(5, "Все хорошо!", "All good!"));
+  // Different words stay apart: a different letter, a different number, a missing word.
+  assert(!Deck::sameWord("слово1", "слово10") && !Deck::sameWord("я работаю", "я работала") && !Deck::sameWord("доброе утро", "доброе"));
+  assert(Deck::sameWord("Как дела?", "как  дела") && Deck::sameWord("Ёлка", "елка"));
+  // An old deck with duplicates is cleaned up, keeping the newest of each.
+  Deck old;
+  strcpy(old.words[0].russian, "спасибо"); strcpy(old.words[1].russian, "кофе");
+  strcpy(old.words[2].russian, "Спасибо!"); strcpy(old.words[3].russian, "Кофе.");
+  old.count = 4;
+  assert(old.dedupe() && old.count == 2 && !strcmp(old.words[0].russian, "спасибо") && !strcmp(old.words[1].russian, "кофе") && !old.words[2].russian[0]);
+  assert(!old.dedupe());
   // Full: the oldest is forgotten.
   Deck f;
   char word[16];

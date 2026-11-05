@@ -11,7 +11,6 @@
 // - the eyes follow the tilt all the time (look());
 // - a shake needs several hard back-and-forth jolts, not one flick;
 // - a toss is a short free fall;
-// - face down turns the screen off, face up again plays peekaboo.
 //
 // The MPU6050 lies flat behind the screen, so its Z axis is the screen's
 // normal; screenSign = +1 if +Z points out of the screen towards you. "Up" in
@@ -19,7 +18,7 @@
 // upright (and can be restored from flash with setUp()).
 namespace MiniMotion {
 
-enum Event : uint8_t { NONE, SHAKEN, TOSSED, FACE_DOWN, FACE_UP, LEARNED_UP };
+enum Event : uint8_t { NONE, SHAKEN, TOSSED, LEARNED_UP };
 
 // ---- Tuning (g, ms) ----
 // Shake: a "jolt" is the acceleration beyond gravity going over SHAKE_G; each
@@ -35,14 +34,6 @@ constexpr uint32_t SHAKE_COOLDOWN_MS = 2000;
 constexpr float FREE_FALL_G = 0.35f;
 constexpr uint8_t FREE_FALL_SAMPLES = 4;
 constexpr uint32_t TOSS_COOLDOWN_MS = 1500;
-// Face down: the screen within ~37° of facing the floor, held fairly still
-// (moving less than FACE_DOWN_STILL_G), for FACE_DOWN_MS; face up again past
-// ~60° for FACE_UP_MS. Moving it around never turns the screen off.
-constexpr float FACE_DOWN_COS = 0.8f;
-constexpr float FACE_UP_COS = 0.5f;
-constexpr uint32_t FACE_DOWN_MS = 700;
-constexpr uint32_t FACE_UP_MS = 300;
-constexpr float FACE_DOWN_STILL_G = 0.25f;
 // Learning "up": still (within STILL_G of a steady 1 g) for LEARN_SAMPLES
 // samples with the screen within ~20° of vertical. At start-up it relearns
 // during the first LEARN_WINDOW_MS; without a saved "up" it keeps trying.
@@ -75,7 +66,6 @@ class Detector {
   void setUp(Vec up) { up_ = unit(up - normal_ * dot(up, normal_)); hasUp_ = true; }
   bool hasUp() const { return hasUp_; }
   Vec up() const { return up_; }
-  bool faceDown() const { return faceDown_; }
   // Where the eyes should look, -1..1: x towards the screen's right (down the
   // slope), y towards the screen's bottom (negative: up). 0, 0 when upright.
   float lookX() const { return lookX_; }
@@ -87,7 +77,7 @@ class Detector {
     const Vec motion = a - grav_;
     const float jolt = length(motion), g = length(a);
     const Vec upNow = unit(grav_);  // the accelerometer reads "up" at rest
-    const float facing = dot(upNow, normal_);  // +1 lying on its back, -1 face down
+    const float facing = dot(upNow, normal_);  // +1 lying on its back, 0 upright
 
     // Look: down the slope sideways; up when leaning back.
     if (hasUp_) {
@@ -104,16 +94,6 @@ class Detector {
       setUp(upNow);
       learned_ = true;
       return LEARNED_UP;
-    }
-
-    // Face down / face up, with hold times.
-    const bool flipping = faceDown_ ? facing > -FACE_UP_COS : facing < -FACE_DOWN_COS && jolt < FACE_DOWN_STILL_G;
-    if (!flipping) flipSince_ = 0;
-    else if (!flipSince_) flipSince_ = now ? now : 1;
-    else if (uint32_t(now - flipSince_) >= (faceDown_ ? FACE_UP_MS : FACE_DOWN_MS)) {
-      flipSince_ = 0;
-      faceDown_ = !faceDown_;
-      return faceDown_ ? FACE_DOWN : FACE_UP;
     }
 
     // Shake: alternating hard jolts.
@@ -158,9 +138,9 @@ class Detector {
   }
 
   Vec normal_, up_{0, 1, 0}, grav_{0, 0, 0}, joltDir_{0, 0, 0};
-  bool started_ = false, hasUp_ = false, learned_ = false, faceDown_ = false, shook_ = false, tossed_ = false;
+  bool started_ = false, hasUp_ = false, learned_ = false, shook_ = false, tossed_ = false;
   uint8_t stillCount_ = 0, jolts_ = 0, fall_ = 0;
-  uint32_t flipSince_ = 0, joltAt_ = 0, shakeActiveAt_ = 0, shakeAt_ = 0, tossAt_ = 0;
+  uint32_t joltAt_ = 0, shakeActiveAt_ = 0, shakeAt_ = 0, tossAt_ = 0;
   float lookX_ = 0, lookY_ = 0;
 };
 
