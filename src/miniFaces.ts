@@ -1,7 +1,7 @@
 import type {FirmwareFace} from './oledFaces';
 
 // Privet Mini's own sleeping, CONNECTED and IDLE faces, pixel for pixel as drawn by
-// firmware/PrivetMini_v0.5/MiniFaces.h, for the keychain figure in the "companion found" card.
+// firmware/PrivetMini_v0.6/MiniFaces.h, for the keychain figure in the "companion found" card.
 // Keep in sync with that header; firmwareLearning.test.ts compares the two.
 const W=128,H=64,EL=46,ER=82,EY=30,AMBIENT_WINDOW_MS=60000;
 
