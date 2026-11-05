@@ -495,6 +495,50 @@ test('home discovery also resumes after an error or with Bluetooth off, but neve
  const before=denied.initializations;await denied.actor.discover();assert.equal(denied.state.phase,'permission-denied');assert.equal(denied.initializations,before);
 });
 
+test('the remembered companion is looked for on any screen and connected to by itself, without a card offer',async()=>{
+ const h=harness();h.actor.navigate('lesson');const idle=h.state.message;
+ await h.actor.discover('device-a',true);
+ assert.equal(h.state.phase,'scanning');assert.equal(h.state.quiet,true);assert.equal(h.state.offer,false);assert.equal(h.state.message,idle);
+ h.found('device-b');assert.equal(h.state.phase,'scanning');assert.equal(h.connections,0);
+ h.found('device-a');await flush();
+ assert.equal(h.state.phase,'connected');assert.equal(h.state.auto,true);assert.equal(h.state.device?.deviceId,'device-a');assert.deepEqual(h.codes(),[COMMAND.CONNECTED]);
+ // An unexpected drop: back to the ordinary disconnected state, looked for again.
+ h.disconnect();assert.equal(h.state.phase,'disconnected');assert.equal(h.state.auto,false);
+ await flush();await h.actor.discover('device-a',false);assert.equal(h.state.phase,'scanning');h.actor.dispose();
+});
+test('home looks for the remembered companion and offers others; nothing else looks off home without a target',async()=>{
+ const h=harness();await h.actor.discover('device-a');
+ assert.equal(h.state.offer,true);h.found('device-b');assert.equal(h.state.devices.length,1);
+ h.found('device-a');await flush();assert.equal(h.state.phase,'connected');assert.equal(h.state.auto,true);h.actor.dispose();
+ const away=harness();away.actor.navigate('profile');await away.actor.discover(undefined,true);assert.equal(away.initializations,0);
+});
+test('a quiet look for the remembered companion uses the short window and ends silently; failed attempts stay quiet',async()=>{
+ const h=harness();h.actor.navigate('lesson');const idle=h.state.message;await h.actor.discover('device-a');
+ await h.tick(BLE_TIMEOUTS.lookup);assert.equal(h.state.phase,'disconnected');assert.equal(h.state.message,idle);
+ const f=harness({async connect(){throw new Error('Connection timed out. Try again.');}});f.actor.navigate('lesson');
+ await f.actor.discover('device-a');f.found('device-a');await flush();await flush();
+ assert.equal(f.state.phase,'disconnected');assert.equal(f.state.message,idle);
+ const d=harness({async connect(){throw new Error('BLE permission denied');}});d.actor.navigate('lesson');
+ await d.actor.discover('device-a');d.found('device-a');await flush();await flush();assert.equal(d.state.phase,'permission-denied');
+});
+test('changing screens never cancels the app’s own reconnection, only a connection the user started',async()=>{
+ const pending=deferred(),h=harness({connect:()=>pending.promise});await h.actor.discover('device-a');h.found('device-a');await flush();
+ assert.equal(h.state.phase,'connecting');assert.equal(h.state.auto,true);
+ h.actor.enterLesson(true);h.actor.navigate('physical');h.actor.navigate('home');await flush();assert.equal(h.state.phase,'connecting');
+ pending.resolve();await flush();assert.equal(h.state.phase,'connected');assert.equal(h.state.ready,true);h.actor.dispose();
+});
+test('Connect in settings turns a running quiet look into the visible scan, keeping what it found',async()=>{
+ const h=harness();h.actor.navigate('physical');await h.actor.discover('device-z');
+ h.found('device-a');assert.equal(h.state.quiet,true);
+ await h.actor.scan();
+ assert.equal(h.state.phase,'scanning');assert.equal(h.state.quiet,false);assert.equal(h.state.offer,false);assert.match(h.state.message,/Choose a device/);
+ assert.deepEqual(h.state.devices.map(d=>d.deviceId),['device-a']);
+ // The visible scan lists the remembered one too, rather than connecting to it.
+ h.found('device-z');assert.equal(h.state.phase,'scanning');assert.equal(h.state.devices.length,2);
+ await h.tick(BLE_TIMEOUTS.lookup);assert.equal(h.state.phase,'scanning');
+ await h.actor.connect('device-a');await flush();assert.equal(h.state.phase,'connected');assert.equal(h.state.auto,false);h.actor.dispose();
+});
+
 const volumes=(writes:DataView[])=>writes.filter(p=>p.getUint8(0)===1&&p.getUint8(6)===13).map(p=>p.getUint8(7));
 test('sound firmware gets the saved level once per connection, without a preview, after CONNECTED and negotiation',async()=>{
  const h=harness({},true,0,'sound',()=>2);await h.ready(true);await flush();

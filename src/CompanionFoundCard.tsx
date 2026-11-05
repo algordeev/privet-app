@@ -12,7 +12,8 @@ export function preloadCompanionRobot(){void loadRobot3D().catch(()=>{/* The car
 type Stage='found'|'connecting'|'connected'|'failed'|'gone';
 const reducedMotion=()=>!!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-// Floating card. On home it answers the quiet discovery scan with the first companion found.
+// Floating card. On home it answers the quiet discovery scan with the first companion found (never the
+// remembered companion: the app reconnects to that one by itself, without a card).
 // In companion settings the scan only fills the list, so any of several companions can be chosen;
 // the card opens once one is picked and plays its wake-up while it connects.
 export function CompanionFoundCard({controller,where}:{controller:PhysicalCompanionController;where:'home'|'physical'}){
@@ -20,8 +21,8 @@ export function CompanionFoundCard({controller,where}:{controller:PhysicalCompan
  const [card,setCard]=useState<{device:PhysicalDevice;quiet:boolean;attempted:boolean}|null>(null);
  const [leaving,setLeaving]=useState(false);
  const dismissedScan=useRef(false),buzzed=useRef(false);
- const offer=where==='home'&&state.phase==='scanning'&&state.devices.length>0&&!!state.quiet;
- const picked=where==='physical'&&state.phase==='connecting'?state.device:undefined;
+ const offer=where==='home'&&state.phase==='scanning'&&state.devices.length>0&&!!state.quiet&&!!state.offer;
+ const picked=where==='physical'&&state.phase==='connecting'&&!state.auto?state.device:undefined;
  useEffect(()=>{
   if(state.phase!=='scanning'&&state.phase!=='connecting'&&!card)dismissedScan.current=false;
   if(card||dismissedScan.current)return;
@@ -30,7 +31,7 @@ export function CompanionFoundCard({controller,where}:{controller:PhysicalCompan
  },[offer,picked,state.phase,card,controller]);
  const stage:Stage|null=!card?null
   :state.phase==='connected'&&state.ready&&state.device?.deviceId===card.device.deviceId?'connected'
-  :state.phase==='connecting'?'connecting'
+  :state.phase==='connecting'&&state.device?.deviceId===card.device.deviceId?'connecting'
   // After a failed attempt the card keeps its message, even once home's discovery scans again.
   :card.attempted?'failed'
   :state.phase==='scanning'?'found':'gone';
@@ -40,7 +41,7 @@ export function CompanionFoundCard({controller,where}:{controller:PhysicalCompan
  function close(){
   // Closing an unanswered card ends its scan; closing mid-connection cancels it.
   if(stage==='found')card!.quiet?controller.dismissDiscovery():controller.cancelScan();
-  else if(stage==='connecting')controller.disconnect();
+  else if(stage==='connecting')controller.cancelConnection();
   dismissedScan.current=true;setCard(null);
  }
  const connect=()=>{setCard({...card,attempted:true});controller.connect(card.device.deviceId);};

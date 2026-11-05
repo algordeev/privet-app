@@ -67,8 +67,15 @@ try {
  }
  const connectedGreeting=(definition=cafeLesson)=>renderToStaticMarkup(createElement(ConnectedGreeting,{definition}));
  assert.ok(connectedGreeting().includes('Привет! Ready for a little Russian?'));
- function physical(state){return renderToStaticMarkup(createElement(PhysicalCompanionSettings,{controller:{...stub(state),scan:noOp,connect:noOp,disconnect:noOp,testHappy:noOp},onClose:noOp}));}
+ function physical(state,remembered){return renderToStaticMarkup(createElement(PhysicalCompanionSettings,{controller:{...stub(state),scan:noOp,connect:noOp,disconnect:noOp,testHappy:noOp,remembered:()=>remembered},onClose:noOp}));}
  const disconnectedPhysical=physical(initialBleState());
+ // A remembered companion: settings says it reconnects by itself; the app's own quiet look stays invisible.
+ const mini={deviceId:'mini',name:'Privet-Mini'};
+ assert.ok(physical(initialBleState(),mini).includes('Privet-Mini will reconnect by itself when it’s nearby.'));
+ assert.ok(!disconnectedPhysical.includes('will reconnect by itself'));
+ const looking=physical({...initialBleState(),phase:'scanning',quiet:true,devices:[{deviceId:'other',name:'Privet-ESP32'}]},mini);
+ assert.ok(looking.includes('>Connect <')&&!looking.includes('Stop scanning')&&!looking.includes('Available companions')&&looking.includes('will reconnect by itself'));
+ assert.ok(!physical({...initialBleState(),phase:'connected',ready:true},mini).includes('will reconnect by itself'));
  assert.ok(disconnectedPhysical.includes('Physical companion'));
  assert.ok(!disconnectedPhysical.includes('STAGE 1'));
  assert.ok(!disconnectedPhysical.includes('native-physical-note'));
