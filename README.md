@@ -1,6 +1,6 @@
 # Privet — Russian learning app and companion prototype
 
-Privet is a React + TypeScript + Vite learning prototype with a native Capacitor iOS app and an optional ESP32 OLED-and-servo desk companion. The project owner has tested the app and electronics on a real iPhone, including lesson reactions and the latest lock/background connection preservation. This is an electronics prototype, not a finished enclosure or production product. Product naming is centralized in `src/config.ts`.
+Privet is a React + TypeScript + Vite learning prototype with a native Capacitor iOS app, an optional ESP32 OLED-and-servo desk companion and a smaller keychain companion, Privet Mini. The project owner has tested the app and electronics on a real iPhone, including lesson reactions and the latest lock/background connection preservation. This is an electronics prototype, not a finished enclosure or production product. Product naming is centralized in `src/config.ts`.
 
 | Part | Current experience |
 | --- | --- |
@@ -8,6 +8,7 @@ Privet is a React + TypeScript + Vite learning prototype with a native Capacitor
 | Native iOS app | Capacitor selects an app home, profile/statistics and eight full-screen lessons using `Capacitor.isNativePlatform()`. Content is bundled locally. |
 | Virtual companion | Coral SVG/CSS robot with predefined greetings and reactions; works independently of physical hardware. |
 | Optional physical companion | ESP32 (ESP-32S or ESP32-S3) with an SSD1306 or SH1106 128×64/1.3" OLED and SG90-targeted servo firmware, receiving emotion commands and negotiated, answer-safe learning cards over native iOS BLE. |
+| Optional keychain companion | Privet Mini: XIAO ESP32-S3 with a 0.96" SSD1306 I2C OLED and its own face set. Same BLE protocol and learning cards; no servo or sound. |
 
 The **phone** owns lessons, answer checking, progress/statistics and optional synthesized pronunciation. The **ESP32** renders OLED faces, bounded learning text and associated local servo motion; it does not check answers or play audio. Lessons remain fully usable without hardware.
 
@@ -46,9 +47,11 @@ All three offers are concepts, with no checkout, StoreKit or payment. Free prese
 
 ## Physical ESP32 OLED + servo companion
 
-Open **Physical companion settings** from native home, tap Connect, choose the advertised companion, and use Test happy reaction. With sound firmware (v4/v5), a **Robot sound** row below the connection card sets the level (Off, Quiet, Medium, Loud, Max) with a preview chirp; the app saves it and sends it on every connection. Connect through Privet, rather than manually pairing in iPhone Settings. Bluetooth access is requested only after Connect.
+Open **Physical companion settings** from native home, tap Connect and pick your companion from the list of every one found, then use Test happy reaction. Picking one opens the **companion found** card with a 3D figure of that companion (desk robot or keychain Mini), which wakes up as it connects. Once a connection has succeeded, home also offers a nearby companion in the same card. With sound firmware (v4/v5), a **Robot sound** row below the connection card sets the level (Off, Quiet, Medium, Loud, Max) with a preview chirp; the app saves it and sends it on every connection. Connect through Privet, rather than manually pairing in iPhone Settings. Bluetooth access is requested only after Connect.
 
 For the current robot (ESP32-S3 N16R8, SH1106 display, pan/tilt head) use [PrivetBLE_S3_v5](firmware/PrivetBLE_S3_v5/README.md): reaction sounds from a DFPlayer Mini, touch reactions from a TTP223 pad and motion reactions (picked up, shaken, tipped over, tilted) from an MPU6050. [PrivetBLE_S3_v4](firmware/PrivetBLE_S3_v4/README.md) is the same without the MPU6050, and [PrivetBLE_S3](firmware/PrivetBLE_S3/README.md) the S3 port without sound. Copy the sound files from [firmware/sounds](firmware/sounds/README.md) to the DFPlayer's SD card. The original ESP32 board uses the [new-emotions firmware and setup guide](firmware/PrivetBLE_Servo_New_Emotions_v2/README.md); the BLE protocol, reactions and learning cards are shared by all of them. The original [new-emotions sketch](firmware/PrivetBLE_Servo_New_Emotions/README.md) is preserved as the nine-reaction, face-only variant. The v2/S3 firmware supports nine reaction codes and capability-negotiated learning cards; STREAK is retained for compatibility but opening Profile is silent. The older [servo](firmware/PrivetBLE_Servo/README.md) and [OLED-only](firmware/PrivetBLE_Lessons/README.md) sketches support codes 1–4 and remain available as legacy variants.
+
+For the keychain companion use [PrivetMini_v0.5](firmware/PrivetMini_v0.5/README.md) (Seeed XIAO ESP32-S3, 0.96" SSD1306 over I2C). It shares the protocol, reactions and learning cards but draws its own faces (`MiniFaces.h`) and has no servo or sound. It advertises as `Privet-Mini`, and the app uses that name to tell it from the desk robot (`Privet-ESP32`) before connecting.
 
 Active lesson entry, resume, switching, replay, Continue and retry show THINKING. It persists until replaced. Correct/incorrect answers show HAPPY/ENCOURAGE; final completion sends CELEBRATE once. HINT returns to THINKING after its short cue unless a newer command replaces it. Pronunciation shows LISTENING, with no text, for exactly as long as the audio plays; when it finishes, the companion returns to what it showed before (THINKING and the question's card while unanswered, otherwise IDLE and the last card), with canceled/stale callbacks ignored. Results/failed screens, close, home and ordinary reset use IDLE. Fresh subscribed connections send CONNECTED; foreground reconciliation uses ACK-gated IDLE.
 
@@ -64,13 +67,13 @@ On return, the app waits boundedly for any already-submitted native write, check
 
 ## Companion concept illustrations
 
-White and coral explorations of the optional desk companion, showing a possible enclosure and internal arrangement. The ESP32/OLED/servo electronics prototype is implemented; the pictured enclosure and internal arrangement remain concepts. These are concept illustrations, not photographs of a completed device. The interactive website companion remains a browser simulation.
+White and coral explorations of the optional desk companion, showing a possible enclosure and internal arrangement, and the Privet Mini keychain. The ESP32/OLED/servo and Mini electronics prototypes are implemented; the pictured enclosures and internal arrangement remain concepts. These are concept illustrations, not photographs of a completed device. The interactive website companion remains a browser simulation.
 
-| Warm white | Soft coral |
-| --- | --- |
-| [![White desk companion concept with enclosed and open rear views](public/images/companion-white.webp)](public/images/companion-white.webp) | [![Coral desk companion concept with enclosed and open rear views](public/images/companion-coral.webp)](public/images/companion-coral.webp) |
+| Warm white | Soft coral | Privet Mini |
+| --- | --- | --- |
+| [![White desk companion concept with enclosed and open rear views](public/images/companion-white.webp)](public/images/companion-white.webp) | [![Coral desk companion concept with enclosed and open rear views](public/images/companion-coral.webp)](public/images/companion-coral.webp) | [![Privet Mini keychain companion concept with its key ring](public/images/companion-mini.webp)](public/images/companion-mini.webp) |
 
-Illustrations supplied by the project creator. The original PNGs live in `public/images/` and also appear in the website’s companion gallery. On the website, click an illustration to open a same-page image viewer and switch between Warm white and Soft coral. Close with the close button, Escape, or the backdrop; left/right arrow keys also switch images. README image links open the original files.
+Illustrations supplied by the project creator. The images live in `public/images/`; the two desk companion ones also appear in the website’s companion gallery. On the website, click an illustration to open a same-page image viewer and switch between Warm white and Soft coral. Close with the close button, Escape, or the backdrop; left/right arrow keys also switch images. README image links open the original files.
 
 ## Run locally
 
@@ -142,14 +145,17 @@ Statistics use `privet-demo-v1-native-stats`; resumable sessions have separate k
 | `src/speechController.ts`, `src/useSpeech.ts` | Single guarded pronunciation controller and lifecycle cancellation |
 | `src/nativeStats.ts`, `src/useNativeStats.ts`, `src/NativeProfile.tsx`, `src/GemsScreen.tsx` | Authoritative local activity, daily/attempt rewards, freezes, gems and profile |
 | `src/subscription.ts`, `src/useSubscription.ts`, `src/PlusScreen.tsx` | Local Plus demo activation/cancellation; no billing |
-| `src/bleProtocol.ts`, `src/learningProtocol.ts`, `src/bleTransport.ts` | Unchanged v1 reactions, SET_VOLUME control, negotiated card frames/limits and capabilities, bounded serialized jobs and lifecycle |
+| `src/bleProtocol.ts`, `src/learningProtocol.ts`, `src/bleTransport.ts` | Unchanged v1 reactions, SET_VOLUME control, companion model from the advertised name, negotiated card frames/limits and capabilities, bounded serialized jobs and lifecycle |
 | `src/companionDisplay.ts` | Pure app-owned answer safety and compact display metadata, independent of lesson prose |
 | `src/bleDriver.ts`, `src/usePhysicalCompanion.ts` | Installed BLE plugin adapter and app-wide native lifecycle wiring |
-| `src/physicalLessonEvents.ts`, `src/PhysicalCompanionSettings.tsx` | Accepted lesson-to-BLE mapping; connection/test UI and home status |
+| `src/physicalLessonEvents.ts`, `src/PhysicalCompanionSettings.tsx` | Accepted lesson-to-BLE mapping; connection/test UI, companion list and home status |
+| `src/CompanionFoundCard.tsx`, `src/Robot3D.tsx`, `src/robotScene.ts` | "Companion found" card with a lazily loaded three.js figure of the desk robot or the keychain Mini and its wake-up animation |
+| `src/oledFaces.ts`, `src/miniFaces.ts`, `src/OledFace.tsx` | Pixel ports of the desk robot's and the Mini's sleeping/CONNECTED/IDLE faces for the figure; flat face without WebGL |
 | `firmware/PrivetBLE_Servo_New_Emotions_v2/PrivetBLE_Servo_New_Emotions_v2.ino` | Commands 1–9, separate capability control, fixed-buffer receiver and U8g2 Cyrillic OLED/servo rendering; cards await hardware verification |
 | `firmware/PrivetBLE_S3/PrivetBLE_S3.ino` | Same protocol/commands/cards ported to ESP32-S3 N16R8, SH1106 SPI OLED and a pan/tilt head; servos on direct LEDC PWM |
 | `firmware/PrivetBLE_S3_v4/PrivetBLE_S3_v4.ino` | S3 sketch plus DFPlayer reaction sounds, SET_VOLUME (level kept in flash) and TTP223 touch reactions |
 | `firmware/PrivetBLE_S3_v5/PrivetBLE_S3_v5.ino`, `MotionSense.h` | Current robot firmware: v4 plus MPU6050 pick-up/shake/tip/tilt reactions; detection is host-tested |
+| `firmware/PrivetMini_v0.5/PrivetMini_v0.5.ino`, `MiniFaces.h` | Keychain companion: XIAO ESP32-S3 and 0.96" I2C OLED, same protocol and cards, its own face set (host-tested against the app) |
 | `firmware/sounds/` | Synthesized robot sounds for the DFPlayer SD card and their generator, `generate_sounds.py` |
 | `firmware/PrivetBLE_Servo/PrivetBLE_Servo.ino` | Legacy commands-1–4 servo variant: loop-driven pulse gestures, centering and PWM release |
 | `firmware/PrivetBLE_Lessons/PrivetBLE_Lessons.ino` | OLED-only baseline with the same BLE protocol |
@@ -163,7 +169,7 @@ Answer normalization ignores case, stress accents, surrounding/repeated spaces a
 
 Latest local app validation: the full Node test suite, shell checks, web/Pages/native builds, iOS sync and `git diff --check` passed. Isolated Chromium checks at 320×568, 375×667, 390×844 and 430×932 cover lessons, replay, first-time welcome/lesson/offers/replay, Cyrillic reference, letter highlighting and answer concealment, audio-completion safeguards, rewards/Plus and mock BLE navigation. Mouse/touch/keyboard checks also cover repeated sentence words and saved-session restoration. The browser café content is unchanged; current shell checks retain the website layout and demo. An unsigned iOS Simulator build also passed (compile only). A font-accurate local U8g2 check confirms every distinct current learning card fits without truncation or overlapping/off-screen lines. The suite also covers negotiated learning-card byte/scalar bounds, transfer deadlines, content-only fallback, cancellation/serialization and exhaustive eight-lesson answer safety, and compiles/runs the actual portable C++ firmware receiver. These are local automated checks with fake BLE/speech, not real-device, real-audio or GitHub CI verification.
 
-The project owner reports real-iPhone discovery/connection/ACKs, disconnect/reconnect, navigation continuity, commands 1–4, lock/background retention and servo movement, and the v4 reaction sounds on the real robot. New states, learning cards, the volume setting, touch and motion still need hardware validation. PrivetBLE_S3_v5 compiles for ESP32S3 Dev Module (Arduino-ESP32 3.3.12); `npm test` also compiles and runs its motion detector and the S3 servo motion on the host. After integrating the separate editorial branch, rerun exhaustive safety tests against the final lesson content. No exact device/software versions, timing, range or endurance results were supplied. Earlier milestone checks are historical; the current [protocol checklist](docs/companion-ble.md#verification) distinguishes remaining tests.
+The project owner reports real-iPhone discovery/connection/ACKs, disconnect/reconnect, navigation continuity, commands 1–4, lock/background retention and servo movement, and the v4 reaction sounds on the real robot. New states, learning cards, the volume setting, touch and motion still need hardware validation. PrivetBLE_S3_v5 compiles for ESP32S3 Dev Module (Arduino-ESP32 3.3.12); `npm test` also compiles and runs its motion detector and the S3 servo motion on the host. PrivetMini_v0.5 compiles for XIAO_ESP32S3 (Arduino-ESP32 3.3.12); `npm test` compiles its `MiniFaces.h` on the host and checks the app draws the same Mini faces. The Mini's faces and cards, and choosing between two companions in settings, still need hardware validation. After integrating the separate editorial branch, rerun exhaustive safety tests against the final lesson content. No exact device/software versions, timing, range or endurance results were supplied. Earlier milestone checks are historical; the current [protocol checklist](docs/companion-ble.md#verification) distinguishes remaining tests.
 
 ```sh
 npm test

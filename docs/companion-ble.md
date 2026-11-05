@@ -12,11 +12,11 @@ The current source is implemented, but the additional states and latest return-t
 
 ## Companion found card
 
-When a companion is found, a floating card (`CompanionFoundCard`) slides up with a 3D model of the robot (three.js, loaded lazily; a flat OLED face without WebGL). Its OLED shows the firmware's own faces, ported pixel-for-pixel in `src/oledFaces.ts` (sleeping before connection; CONNECTED's opening eyes, smile and pulse; then IDLE), and its head follows the firmware's CONNECTED servo curve. Keep `oledFaces.ts` in sync when firmware faces change.
+A floating card (`CompanionFoundCard`) slides up with a 3D model of the companion (three.js, loaded lazily; a flat OLED face without WebGL). The advertised name picks the model (`companionModel`): the desk robot, or the keychain Mini for `Privet-Mini`. Its OLED shows that firmware's own faces, ported pixel-for-pixel (sleeping before connection; CONNECTED; then IDLE): the desk robot's in `src/oledFaces.ts`, the Mini's in `src/miniFaces.ts`. The desk robot's head follows the firmware's CONNECTED servo curve; the Mini has no servo, so it hops, its key ring swings and its LED lights. Keep both face files in sync when firmware faces change (`npm test` compares the Mini's with `MiniFaces.h`).
 
-- **Settings:** the explicit Connect scan shows the card when exactly one companion is found; several keep the plain list.
+- **Settings:** the explicit Connect scan only fills the list with every companion found, so one of several can be chosen. Tapping one starts its connection and opens the card on that companion, which plays its wake-up as it connects.
 - **Home:** while home is open (app in the foreground), quiet discovery scans (`discover`, state `quiet`) repeat: each runs the normal scan window and the next starts within 4 s after it ends, so a companion switched on later is still found. They start only after a connection has succeeded once (`privet-demo-v1-ble-used`), so they never trigger the iOS permission prompt, and also after an error or with Bluetooth off, but never after a permission denial. They keep the ordinary disconnected status, end silently after the scan window or on any error, stop when leaving home or backgrounding the app, and never connect by itself. *Not now* or an explicit Disconnect ends discovery for the app session.
-- While the card is open the scan window is held (`holdScan`); closing it ends the scan (`cancelScan`) or cancels an unfinished connection. After connecting it closes itself about 3 s later.
+- While home's card is open the scan window is held (`holdScan`); closing it ends the scan (`cancelScan`). Closing either card mid-connection cancels that connection. After connecting the card closes itself about 3 s later.
 
 ## Peripheral contract (unchanged UUIDs)
 
