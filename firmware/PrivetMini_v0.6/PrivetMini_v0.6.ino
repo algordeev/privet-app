@@ -35,6 +35,10 @@
  *   hold both 2 s = reconnect.
  *   Pocket words (PocketWords.h): the last 30 Russian words the app showed
  *   with their meaning (discovery and answer cards), kept in flash.
+ * Power (MiniPower.h): the CPU runs at 80 MHz and the MPU6050's gyro is off.
+ *   After a minute of no use the screen dims and redraws less often; after 5
+ *   minutes untouched with no phone connected it goes to deep sleep; only the
+ *   right button (D9) wakes it.
  * Every command, ACK, motion and button event is printed to Serial at 115200.
  */
 
@@ -47,6 +51,8 @@
 #include <BLE2902.h>
 #include <Preferences.h>
 #include <atomic>
+#include <driver/rtc_io.h>
+#include <esp_sleep.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <freertos/semphr.h>
@@ -55,6 +61,7 @@
 #include "MiniButtons.h"
 #include "MiniFaces.h"
 #include "MiniMotion.h"
+#include "MiniPower.h"
 #include "PocketWords.h"
 
 // Defined before any function: the Arduino build declares functions that
@@ -90,8 +97,8 @@ static constexpr uint32_t BATTERY_READ_MS = 10000;
 static constexpr int8_t MOTION_SCREEN_SIGN = -1;
 static constexpr int LOOK_MAX_X_PX = 10;  // eyes: furthest sideways
 static constexpr int LOOK_MAX_UP_PX = 8;  // eyes: furthest up (lying on its back)
-// Motion interrupt on INT (D8): above MOT_THR x 2 mg for MOT_DUR ms. It is
-// only logged for now; it is there to wake the chip from sleep later.
+// Motion interrupt on INT (D8): above MOT_THR x 2 mg (after the 5 Hz
+// high-pass) for MOT_DUR ms. It is only logged.
 static constexpr uint8_t MPU_MOTION_THRESHOLD = 20;
 static constexpr uint8_t MPU_MOTION_DURATION_MS = 1;
 // The input task samples the buttons every 10 ms and the MPU6050 every 20 ms,
@@ -110,6 +117,12 @@ static constexpr uint32_t RECONNECT_SHOW_MS = 1500;  // hold both
 // or hint is on, so the screen cannot give an answer away.
 static constexpr uint32_t WORDS_CLOSE_MS = 30000;    // closes after this long untouched
 static constexpr uint8_t WORDS_PROUD_AFTER = 5;      // meanings seen before a proud face
+
+// ---- Power ---- (the timings are in MiniPower.h)
+static constexpr uint32_t CPU_MHZ = 80;            // the lowest that keeps BLE running
+static constexpr uint8_t CONTRAST_BRIGHT = 0xCF;   // U8g2's SSD1306 default
+static constexpr uint8_t CONTRAST_DIM = 0x01;
+static constexpr uint32_t FRAME_MS = 33, FRAME_DIM_MS = 100;  // 30 fps, 10 fps dimmed
 
 // The app finds companions by service UUID; the name tells it which device
 // this is (the big robot advertises "Privet-ESP32").
@@ -341,7 +354,8 @@ static void setupI2C() {
 }
 
 // ---- OLED ----
-static void setupOLED() {
+// splash: the "Privet Mini" start-up screen, left out when waking from deep sleep.
+static void setupOLED(bool splash) {
   if (!oledAddress) {
     Serial.println("[OLED] Nothing at 0x3C/0x3D. Check SDA->D4, SCL->D5, VCC->3V3. BLE still runs.");
     return;
@@ -352,6 +366,8 @@ static void setupOLED() {
   oled.enableUTF8Print();
   Serial.printf("[OLED] %s at 0x%02X\n", oledReady ? "OK" : "begin() failed", oledAddress);
   if (!oledReady) return;
+  oled.setContrast(CONTRAST_BRIGHT);
+  if (!splash) return;
 
   oled.clearBuffer();
   oled.setFont(u8g2_font_helvB12_tr);
@@ -381,17 +397,17 @@ static uint8_t mpuRead(uint8_t reg) {
 
 // Without the sensor everything else works, without motion reactions.
 static void setupMotion() {
-  pinMode(MPU_INT_PIN, INPUT_PULLDOWN);
   if (!motionAddress) {
     Serial.println("[MOTION] No MPU6050 at 0x68/0x69 (check 3V3, SDA D4, SCL D5); motion disabled.");
     return;
   }
   const uint8_t who = mpuRead(0x75);
-  // Wake up on the gyro clock, ~44 Hz low-pass, accelerometer +-4 g with the
-  // 5 Hz high-pass for motion detection only (the data registers are not
-  // filtered). INT: active high, push-pull, latched until any register read
-  // (the 20 ms sample clears it), on motion only.
-  if (!mpuWrite(0x6B, 0x01) || !mpuWrite(0x1A, 0x03) || !mpuWrite(0x1C, 0x09) ||
+  // Wake up on the internal clock with the gyro in standby (only the
+  // accelerometer is used; this saves about 3.5 mA), ~44 Hz low-pass,
+  // accelerometer +-4 g with the 5 Hz high-pass for motion detection only
+  // (the data registers are not filtered). INT: active high, push-pull,
+  // latched until any register read (the 20 ms sample clears it), on motion only.
+  if (!mpuWrite(0x6B, 0x00) || !mpuWrite(0x6C, 0x07) || !mpuWrite(0x1A, 0x03) || !mpuWrite(0x1C, 0x09) ||
       !mpuWrite(0x1F, MPU_MOTION_THRESHOLD) || !mpuWrite(0x20, MPU_MOTION_DURATION_MS) ||
       !mpuWrite(0x37, 0x30) || !mpuWrite(0x38, 0x40)) {
     motionAddress = 0;
@@ -417,6 +433,7 @@ enum InputEvent : uint8_t {
   IN_BUTTON = 16,  // + MiniButtons::Event
 };
 static QueueHandle_t inputQueue = nullptr;
+static std::atomic<bool> inputPaused{false};  // set just before deep sleep
 static std::atomic<int> lookXMilli{0}, lookYMilli{0};  // MiniMotion look x 1000
 static std::atomic<int> learnedUpMilli[3];
 
@@ -448,6 +465,7 @@ static void inputTask(void *) {
   TickType_t wake = xTaskGetTickCount();
   for (uint32_t tick = 0;; tick++) {
     vTaskDelayUntil(&wake, pdMS_TO_TICKS(INPUT_TICK_MS));
+    if (inputPaused.load()) continue;
     const uint32_t now = millis();
     const MiniButtons::Event b = buttons.update(digitalRead(LEFT_BUTTON_PIN) == LOW, digitalRead(RIGHT_BUTTON_PIN) == LOW, now);
     if (b != MiniButtons::NONE) post(uint8_t(IN_BUTTON) + uint8_t(b));
@@ -456,6 +474,9 @@ static void inputTask(void *) {
 }
 
 static void setupInput() {
+  // After a wake by a pin, that pin is still routed to the RTC: hand it back.
+  rtc_gpio_deinit(gpio_num_t(RIGHT_BUTTON_PIN));
+  pinMode(MPU_INT_PIN, INPUT_PULLDOWN);
   pinMode(LEFT_BUTTON_PIN, INPUT_PULLUP);
   pinMode(RIGHT_BUTTON_PIN, INPUT_PULLUP);
   inputQueue = xQueueCreate(16, 1);
@@ -582,6 +603,44 @@ static bool cardExpired(const PrivetCards::Card &card, uint8_t face, uint32_t no
   if (card.mode == 4) return visible && now - shownAt >= 2000;
   if (card.mode == 1 && face == IDLE) return visible && now - shownAt >= 4000;
   return now - receivedAt >= 30000;
+}
+
+// ---- Power, owned by loop() ----
+static MiniPower::Idle power;
+static bool dimmed = false;
+static bool ignoreRightUntilUp = false;  // the press that woke it is not a press
+
+// Deep sleep: screen and MPU6050 off, the chip woken only by the right
+// button going low (D9). Waking starts the sketch again from setup(), which
+// also wakes the MPU6050.
+static void enterDeepSleep() {
+  Serial.println("[POWER] no use for a while and no phone: deep sleep. Press the right button to wake.");
+  inputPaused.store(true);
+  delay(3 * INPUT_TICK_MS);  // let a sample in progress finish
+  if (oledReady) oled.setPowerSave(1);
+  digitalWrite(LED_PIN, HIGH);  // off
+  if (motionAddress) mpuWrite(0x6B, 0x40);  // PWR_MGMT_1 SLEEP: a few microamps
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);  // keeps the pull-up below
+  esp_sleep_enable_ext0_wakeup(gpio_num_t(RIGHT_BUTTON_PIN), 0);
+  rtc_gpio_pullup_en(gpio_num_t(RIGHT_BUTTON_PIN));
+  rtc_gpio_pulldown_dis(gpio_num_t(RIGHT_BUTTON_PIN));
+  Serial.flush();
+  esp_deep_sleep_start();
+}
+
+// Dims the screen after a minute of no use and sleeps after 5 minutes
+// untouched without a phone (MiniPower.h decides).
+static void updatePower(uint32_t now) {
+  static bool wasLinked = false;
+  const bool linked = phoneConnected.load();
+  if (linked != wasLinked) { wasLinked = linked; power.touch(now); }
+  const MiniPower::Stage stage = power.update(now, linked);
+  if (stage == MiniPower::SLEEP) enterDeepSleep();
+  const bool dim = stage == MiniPower::DIM;
+  if (dim == dimmed) return;
+  dimmed = dim;
+  if (oledReady) oled.setContrast(dim ? CONTRAST_DIM : CONTRAST_BRIGHT);
+  Serial.println(dim ? "[POWER] no use for a minute: screen dimmed" : "[POWER] in use: screen bright");
 }
 
 // ---- Local state, owned by loop() ----
@@ -782,6 +841,7 @@ static void updateOLED(uint32_t now) {
     // An app command always wins over local faces, the status screen and the words.
     closeWords(now, "app command", false);
     localFace = 0; statusShown = false;
+    power.touch(now);
     Serial.printf("[FACE] %s\n", reactionName(current));
   }
   // Waking up or falling asleep ends a local face (a stir, or an awake reaction).
@@ -810,18 +870,27 @@ static void updateOLED(uint32_t now) {
                             transitionFace == NOD || transitionFace == ENCOURAGE || current == THINKING;
   const bool wordsAllowed = !connected || (current == IDLE && !questionOpen && !(validCard && (shownCard.mode == 2 || shownCard.mode == 4)));
   uint8_t event;
-  while (xQueueReceive(inputQueue, &event, 0) == pdTRUE) handleInput(event, now, connected, resting, wordsAllowed);
+  while (xQueueReceive(inputQueue, &event, 0) == pdTRUE) {
+    if (event != IN_INT_SEEN && event != MiniMotion::LEARNED_UP) power.touch(now);
+    if (ignoreRightUntilUp && event >= IN_BUTTON) {
+      const uint8_t b = event - IN_BUTTON;
+      if (b == MiniButtons::RIGHT_SHORT || b == MiniButtons::RIGHT_RELEASE) { ignoreRightUntilUp = false; continue; }
+      if (b == MiniButtons::RIGHT_HOLD) continue;
+    }
+    handleInput(event, now, connected, resting, wordsAllowed);
+  }
   if (localFace && localDuration(localFace) && now - localAt >= localDuration(localFace)) localFace = 0;
   if (statusShown && now - statusAt >= STATUS_SHOW_MS) statusShown = false;
   if (reconnectShown && now - reconnectAt >= RECONNECT_SHOW_MS) reconnectShown = false;
   if (wordsView != WORDS_CLOSED && now - wordsAt >= WORDS_CLOSE_MS) closeWords(now, "untouched for 30 s", false);
 
-  if (!oledReady || now - lastFrame < 33) return;  // ~30 fps
+  if (!oledReady || now - lastFrame < (dimmed ? FRAME_DIM_MS : FRAME_MS)) return;
   const float dt = (now - lastFrame) / 1000.0f;
   lastFrame = now;
 
   // The eyes follow the tilt with a little spring; the log says which way.
   const float tx = lookXMilli.load() / 1000.0f, ty = lookYMilli.load() / 1000.0f;
+  if (connected) power.look(tx, ty, now);  // the eyes follow the tilt only while connected
   lookX.step(tx * LOOK_MAX_X_PX, dt);
   lookY.step(ty * LOOK_MAX_UP_PX, dt);
   const int8_t zone = ty < -0.6f ? 3 : tx > 0.5f ? 1 : tx < -0.5f ? 2 : 0;
@@ -866,18 +935,25 @@ static void updateOLED(uint32_t now) {
 void setup() {
   Serial.begin(115200);
   delay(300);
-  Serial.println("\nPrivet Mini v0.6: OLED + BLE + motion + buttons + pocket words");
+  setCpuFrequencyMhz(CPU_MHZ);
+  const esp_sleep_wakeup_cause_t woke = esp_sleep_get_wakeup_cause();
+  const bool wokeByButton = woke == ESP_SLEEP_WAKEUP_EXT0;
+  Serial.println("\nPrivet Mini v0.6: OLED + BLE + motion + buttons + pocket words + power");
+  Serial.printf("[POWER] %s, CPU %u MHz\n", wokeByButton ? "woken by the right button" : "power on or reset", unsigned(getCpuFrequencyMhz()));
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, HIGH);  // off
   prefs.begin("privet-mini", false);
   loadWords();
   setupI2C();
-  setupOLED();
+  setupOLED(!wokeByButton);
   setupMotion();
   readBattery();
   if (BATTERY_DIVIDER_FITTED) Serial.printf("[BATTERY] %u mV, %d%%\n", unsigned(batteryMillivolts), batteryPercent);
   else Serial.println("[BATTERY] divider not fitted (BATTERY_DIVIDER_FITTED = false)");
   setupInput();
+  power.begin(millis());
+  if (wokeByButton && digitalRead(RIGHT_BUTTON_PIN) == LOW) ignoreRightUntilUp = true;
+  if (wokeByButton) stir(millis(), "POWER");
   setupBLE();
 }
 
@@ -896,5 +972,6 @@ void loop() {
   digitalWrite(LED_PIN, phoneConnected.load() ? LOW : HIGH);
   updateBattery(now);
   updateOLED(now);
+  updatePower(now);
   delay(5);
 }

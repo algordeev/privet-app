@@ -16,6 +16,8 @@ protocol is unchanged:
 - **Pocket words:** it keeps the last 30 Russian words the app showed it, with their meanings, so you can flip through
   them with the right button, without the phone.
 - **Buttons:** a pat (giggle), a hug, a status screen and a reconnect.
+- **Power:** the screen dims after a minute of no use; after 5 minutes untouched with no phone it goes to deep sleep,
+  and the right button wakes it.
 
 ![Privet Mini keychain concept](../../public/images/companion-mini.webp)
 
@@ -123,7 +125,30 @@ also while `loop()` sends a frame to the screen. It only queues events. `loop()`
 and flash writes, and the BLE callbacks still only store state.
 
 **INT pin.** The MPU6050's motion interrupt is set up on D8 (active high, latched until the next sensor read; threshold
-`MPU_MOTION_THRESHOLD` × 2 mg). It is only logged for now, so it can later wake the chip from sleep.
+`MPU_MOTION_THRESHOLD` × 2 mg). It is only logged.
+
+### Power
+
+The rules are in `MiniPower.h`; the sketch does the rest.
+
+- **Always:** the CPU runs at 80 MHz (the lowest that keeps Bluetooth working; drawing does not need more) and the
+  MPU6050's gyro is in standby, since only the accelerometer is used (the gyro alone draws about 3.5 mA). How much this saves in total has
+  not been measured.
+- **Use** is a button, a shake or a toss, the phone connecting or disconnecting, a command from the app, or (while
+  connected, when the eyes follow the tilt) tilting it noticeably.
+- **Dim:** after 1 minute without use the screen goes to its lowest brightness and redraws 10 times a second instead
+  of 30. Any use brightens it again, and that use also does what it normally does (a right press while dimmed still
+  opens the words).
+- **Deep sleep:** after 5 minutes without a button, shake, toss or app command, and only while no phone is connected.
+  The screen is turned off and the chip sleeps. While connected it never sleeps, only dims.
+- **Waking:** only the right button (D9). Waking restarts the sketch without the "Privet Mini" splash and
+  shows a drowsy stir; then connect from the app as usual. The press that woke it does nothing else. The left button
+  (D7, GPIO44) is not an RTC pin, so it cannot wake the chip. A shake does not wake it either, so it never wakes in a
+  pocket.
+
+In deep sleep the ESP32-S3, the screen and the MPU6050 (put to sleep too) each draw microamps; what remains is the
+power LED on the MPU module, if it has one (often 1–2 mA, by far the largest part). Removing that LED makes sleep last several
+times longer. The Serial Monitor loses the port while it sleeps and gets it back after waking.
 
 ## Testing on the breadboard
 
@@ -131,6 +156,7 @@ Open the Serial Monitor at 115200 baud. The first time, power it on and hold it 
 a second. Expect:
 
 ```
+[POWER] power on or reset, CPU 80 MHz
 [WORDS] 0 pocket words saved
 [I2C] Devices: 0x3C 0x68
 [OLED] OK at 0x3C
@@ -152,6 +178,9 @@ long as motion works.
 4. Hold right: the status screen. Hold both 2 s: `[BUTTON] both held: restarting BLE` and "Reconnect...".
 5. The first motion should also print `[MOTION] INT on D8 went high: the motion interrupt is wired`. If it never
    does, check the INT wire.
+6. Leave it alone for a minute: `[POWER] no use for a minute: screen dimmed`. Press left: `in use: screen bright`.
+7. Leave it alone for 5 minutes: `[POWER] ... deep sleep` and the screen goes black. Press right: it boots with
+   `[POWER] woken by the right button` and a stir. Shaking it while it sleeps does nothing.
 
 **With the app (connect, wait for the CONNECTED face to finish):**
 1. Tilt it right, left, then lay it on its back: `[MOTION] tilted right: eyes look right`, `tilted left: eyes look
@@ -165,6 +194,7 @@ long as motion works.
 6. During a question, right prints `[WORDS] not now: a question, hint or reaction is on`, and motion and the left
    button print `(ignored: a reaction is playing)` while an answer reaction plays.
 7. Start any local face or the words, then trigger an app reaction: the app's face replaces it at once.
+8. Stay connected and leave it for over 5 minutes: it dims after 1 minute but never goes to deep sleep.
 
 ## Faces
 
@@ -199,14 +229,14 @@ three faces, change both.
   moderate and a hard shake, a toss, face down or moving upside down: nothing).
 - `scripts/test-mini-buttons.cpp`: bounce, short presses, holds and both held.
 - `scripts/test-mini-words.cpp`: which cards are kept, order, duplicates (case and punctuation), clean-up of an old deck and a full deck.
+- `scripts/test-mini-power.cpp`: dim after 1 minute, deep sleep after 5 without a phone and never with one, back to
+  tilting keeps it bright but not awake, a small wobble is not use.
 
 ## Not in the firmware yet
 
-- **Sleep**: the sketch runs at full CPU speed, advertises at the default rate and redraws the whole screen about 30
-  times a second at full brightness. Expect a few hours on 300 mAh; measure
-  it before relying on it. The MPU6050's INT on D8 (GPIO7) and the right button on D9 (GPIO8) can wake the chip from
-  deep sleep. The left button on D7 (GPIO44) is not an RTC pin, so it can wake it only from light sleep.
+- **Lighter use while awake**: Bluetooth advertises at the default rate, and the chip does not light-sleep between
+  frames. Battery life awake and asleep has not been measured yet.
 - **Battery**: the code is there; the divider is not fitted yet (see Wiring).
 - **Pocket words in the app**: the words you review on the Mini aren't counted in the app's statistics.
 
-No hardware results for the faces, cards, motion, buttons or pocket words on the Mini have been reported yet.
+No hardware results for the faces, cards, motion, buttons, pocket words or power on the Mini have been reported yet.
