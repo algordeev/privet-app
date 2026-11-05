@@ -5,6 +5,8 @@ import {mkdtempSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {companionCardFixtures} from '../scripts/companion-card-fixtures.ts';
+import {buildPocketDeck,emptyReview,reviewSources} from './review.ts';
+import {deckFrames} from './pocketProtocol.ts';
 test('actual fixed-buffer firmware receiver passes portable C++ protocol regressions',()=>{
  const dir=mkdtempSync(join(tmpdir(),'privet-cards-'));try{
   const compile=spawnSync('c++',['-std=c++11','-Wall','-Wextra','-Werror','-Ifirmware/PrivetBLE_Servo_New_Emotions_v2','scripts/test-learning-cards.cpp','-o',join(dir,'receiver')],{encoding:'utf8'});assert.equal(compile.status,0,compile.stderr||String(compile.error));
@@ -28,6 +30,25 @@ test('Privet Mini v0.6 motion (tilt look, shake, toss), buttons (short, hold, bo
   for(const name of ['motion','buttons','words','power']){
    const compile=spawnSync('c++',['-std=c++17','-Wall','-Wextra','-Werror','-Ifirmware/PrivetMini_v0.6',`scripts/test-mini-${name}.cpp`,'-o',join(dir,name)],{encoding:'utf8'});assert.equal(compile.status,0,compile.stderr||String(compile.error));
    const run=spawnSync(join(dir,name),[],{encoding:'utf8'});assert.equal(run.status,0,name+': '+run.stdout+run.stderr);
+  }
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+test('Privet Mini v0.7 pocket deck: host checks pass, and every course word sent by the app loads in the firmware unchanged',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'privet-mini-deck-'));try{
+  for(const name of ['deck','deck-wire']){
+   const compile=spawnSync('c++',['-std=c++17','-Wall','-Wextra','-Werror','-Ifirmware/PrivetMini_v0.7',`scripts/test-mini-${name}.cpp`,'-o',join(dir,name)],{encoding:'utf8'});assert.equal(compile.status,0,compile.stderr||String(compile.error));
+  }
+  const run=spawnSync(join(dir,'deck'),[],{encoding:'utf8'});assert.equal(run.status,0,'deck: '+run.stdout+run.stderr);
+  const words=reviewSources().filter(s=>s.word);
+  for(let start=0;start<words.length;start+=20){
+   const slice=words.slice(start,start+20);
+   const state={...emptyReview(),items:Object.fromEntries(slice.map((w,i)=>[w.key,{box:i%2?3:0,due:'2026-11-01',lapses:0,reviews:0}]))};
+   const built=buildPocketDeck(state,'2026-11-06',1000+start)!;
+   const hex=deckFrames(start+1,built.deck.id,built.entries).map(f=>Buffer.from(f.buffer,f.byteOffset,f.byteLength).toString('hex')).join('\n')+'\n';
+   const wire=spawnSync(join(dir,'deck-wire'),[],{encoding:'utf8',input:hex});assert.equal(wire.status,0,wire.stdout+wire.stderr);
+   const [head,...cards]=wire.stdout.trim().split('\n');
+   assert.equal(head,`deck ${built.deck.id} ${built.entries.length}`);
+   assert.deepEqual(cards,built.entries.map(e=>`${e.englishFirst?1:0}\t${e.russian}\t${e.meaning}`));
   }
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
