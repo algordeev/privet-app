@@ -11,6 +11,7 @@ import {createNativeBleDriver} from './bleDriver';
 import {createBleTransport,initialBleState,type BleState,type BleTransport,type PhysicalDevice} from './bleTransport';
 import {appStorage} from './previewStorage';
 import {PRODUCT} from './config';
+import {syncPocket,type PocketStore,type PocketSummary} from './pocketSync';
 
 // Set once a connection has succeeded, so iOS has already granted Bluetooth: only then may the app
 // look for a companion by itself ("companion found" on home, and reconnecting to the remembered one).
@@ -73,6 +74,7 @@ export function usePhysicalCompanion(){
   // Lost (not only by Disconnect): look quickly for a while.
   if(wasLinked&&!linked&&next.phase!=='suspended'&&next.phase!=='reconciling')reconnect.current.lostAt=Date.now();
   store.current!.state=next;
+  if(linked&&next.pocket)syncPocketOnce();
   for(const listener of store.current!.listeners)listener();
  },[]);
  const transport=useRef<BleTransport|null>(null);
@@ -89,6 +91,19 @@ export function usePhysicalCompanion(){
  // for any companion to offer). Each round is a no-op while a scan, connection or cleanup is under way.
  const reconnect=useRef<{timer?:ReturnType<typeof setTimeout>;lostAt:number;running:boolean}>({lostAt:Date.now(),running:false});
  const connected=useRef<(()=>void)|null>(null);
+ // Pocket deck (keychain Mini, capability bit 32): one sync per connection, at most two tries, in the
+ // transport's background slot. The app supplies the review side with setPocket().
+ const pocket=useRef<{store?:PocketStore;onSynced?:(summary:PocketSummary)=>void;done:number;running:boolean;tries:Map<number,number>}>({done:-1,running:false,tries:new Map()});
+ const syncPocketOnce=useCallback(()=>{
+  const p=pocket.current,t=transport.current,s=store.current!.state;
+  if(!p.store||!t||p.running||!(s.phase==='connected'&&s.ready&&s.pocket))return;
+  const token=t.connectionToken(),tries=p.tries.get(token)??0;
+  if(p.done===token||tries>=2)return;
+  p.tries.set(token,tries+1);p.running=true;
+  const run=p.store;
+  setTimeout(()=>{void syncPocket(t,run).then(summary=>{p.done=token;if(transport.current===t)p.onSynced?.(summary);}).catch(()=>{/* Tried again on the next ready state, or next connection. */}).finally(()=>{p.running=false;});},0);
+ },[]);
+ const setPocket=useCallback((pocketStore:PocketStore|undefined,onSynced?:(summary:PocketSummary)=>void)=>{pocket.current.store=pocketStore;pocket.current.onSynced=onSynced;syncPocketOnce();},[syncPocketOnce]);
  const lookAgain=useCallback(()=>{
   const r=reconnect.current,d=discovery.current;clearTimeout(r.timer);r.timer=undefined;
   if(!r.running)return;
@@ -209,7 +224,7 @@ export function usePhysicalCompanion(){
   return transport.current?.enterLesson(hasActiveQuestion,contextCard.current);
  },[]);
  const onTransition=useCallback((previous:Progress,next:Progress,action:Action,lessonId='cafe')=>{lessonEvents.current?.(previous,next,action,lessonId);},[]);
- return {getState,subscribe,scan,discover,dismissDiscovery,holdScan,cancelScan,connect,testHappy,volume:savedVolume,setVolume,disconnect,cancelConnection,remembered:autoReconnectTarget,navigate,enterLesson,greet,onListen,onListenEnd,onQuickStartListenEnd,onHint,onReveal,onMatchPair,onTransition};
+ return {getState,subscribe,scan,discover,dismissDiscovery,holdScan,cancelScan,connect,testHappy,volume:savedVolume,setVolume,disconnect,cancelConnection,remembered:autoReconnectTarget,setPocket,navigate,enterLesson,greet,onListen,onListenEnd,onQuickStartListenEnd,onHint,onReveal,onMatchPair,onTransition};
 }
 export type PhysicalCompanionController=ReturnType<typeof usePhysicalCompanion>;
 // Fine-grained subscription: only the component calling this (e.g. the

@@ -229,7 +229,7 @@ three faces, change both.
   moderate and a hard shake, a toss, face down or moving upside down: nothing).
 - `scripts/test-mini-buttons.cpp`: bounce, short presses, holds and both held.
 - `scripts/test-mini-words.cpp`: which cards are kept, order, duplicates (case and punctuation), clean-up of an old deck and a full deck.
-- `scripts/test-mini-power.cpp`: dim after 1 minute, deep sleep after 5 without a phone and never with one, back to
+- `scripts/test-mini-power.cpp`: dim after 1 minute, deep sleep after 5 without a phone and never with one;
   tilting keeps it bright but not awake, a small wobble is not use.
 
 ## Not in the firmware yet
