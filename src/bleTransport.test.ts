@@ -6,7 +6,7 @@ import {encodeCommand,BLE_SERVICE,COMMAND,type CommandCode} from './bleProtocol.
 function deferred<T=void>(){let resolve!:(value:T)=>void,reject!:(error:Error)=>void;const promise=new Promise<T>((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};}
 const flush=()=>new Promise<void>(resolve=>setImmediate(resolve));
 function acknowledgement(id:number,result=0,command:CommandCode=COMMAND.HAPPY){const packet=encodeCommand(id,command);packet.setUint8(1,2);packet.setUint8(7,result);return packet;}
-function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0,capable:boolean|'silent'|'ack-only'|'malformed'|'extended'=false){
+function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0,capable:boolean|'silent'|'ack-only'|'malformed'|'extended'|'sound'=false,volume?:()=>number){
  let now=0,nextTimer=0,initializations=0,connections=0,cleanups=0,stopScans=0,syncing=false,activeWrites=0,maxWrites=0,subscriptions=0,watches=0,queries=0;
  let found!:(device:PhysicalDevice)=>void,notified!:(value:DataView)=>void,disconnected!:()=>void,enabled!:(value:boolean)=>void;
  const timers=new Map<number,{at:number;fn:()=>void}>(),writes:DataView[]=[],allWrites:DataView[]=[],snapshots:BleState[]=[];
@@ -23,7 +23,7 @@ function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0,ca
    allWrites.push(packet);
    if(packet.getUint8(0)===1&&packet.getUint8(6)===10){
     const ack=new DataView(packet.buffer.slice(0));ack.setUint8(1,2);ack.setUint8(7,capable?0:1);
-    if(capable===true||capable==='malformed'||capable==='extended'){const caps=new DataView(new ArrayBuffer(20));[2,0x80,0,0,0,0,capable==='extended'?15:7,20,96,0,64,32,77,0,0,0,0x88,0x13].forEach((v,i)=>caps.setUint8(i,v));caps.setUint32(2,packet.getUint32(2,true),true);if(capable==='malformed')caps.setUint8(10,65);notified(caps);}
+    if(capable===true||capable==='malformed'||capable==='extended'||capable==='sound'){const caps=new DataView(new ArrayBuffer(20));[2,0x80,0,0,0,0,capable==='extended'?15:capable==='sound'?31:7,20,96,0,64,32,77,0,0,0,0x88,0x13].forEach((v,i)=>caps.setUint8(i,v));caps.setUint32(2,packet.getUint32(2,true),true);if(capable==='malformed')caps.setUint8(10,65);notified(caps);}
     if(capable!=='silent')notified(ack);return;
    }
    writes.push(packet);activeWrites++;maxWrites=Math.max(maxWrites,activeWrites);
@@ -34,7 +34,7 @@ function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0,ca
   },
   async cleanup(id){cleanups++;await overrides.cleanup?.(id);}
  };
- const actor=createBleTransport(driver,s=>snapshots.push(s),{supported:()=>supported,clock:{
+ const actor=createBleTransport(driver,s=>snapshots.push(s),{supported:()=>supported,volume,clock:{
   now:()=>now,
   set(fn,ms){const id=++nextTimer;timers.set(id,{at:now+ms,fn});return id as unknown as ReturnType<typeof setTimeout>;},clear(id){timers.delete(id as unknown as number);}
  }});
@@ -493,4 +493,66 @@ test('home discovery also resumes after an error or with Bluetooth off, but neve
  const denied=harness({async initialize(){throw new Error('BLE permission denied');}});
  await denied.actor.scan();await flush();assert.equal(denied.state.phase,'permission-denied');
  const before=denied.initializations;await denied.actor.discover();assert.equal(denied.state.phase,'permission-denied');assert.equal(denied.initializations,before);
+});
+
+test('the remembered companion is looked for on any screen and connected to by itself, without a card offer',async()=>{
+ const h=harness();h.actor.navigate('lesson');const idle=h.state.message;
+ await h.actor.discover('device-a',true);
+ assert.equal(h.state.phase,'scanning');assert.equal(h.state.quiet,true);assert.equal(h.state.offer,false);assert.equal(h.state.message,idle);
+ h.found('device-b');assert.equal(h.state.phase,'scanning');assert.equal(h.connections,0);
+ h.found('device-a');await flush();
+ assert.equal(h.state.phase,'connected');assert.equal(h.state.auto,true);assert.equal(h.state.device?.deviceId,'device-a');assert.deepEqual(h.codes(),[COMMAND.CONNECTED]);
+ // An unexpected drop: back to the ordinary disconnected state, looked for again.
+ h.disconnect();assert.equal(h.state.phase,'disconnected');assert.equal(h.state.auto,false);
+ await flush();await h.actor.discover('device-a',false);assert.equal(h.state.phase,'scanning');h.actor.dispose();
+});
+test('home looks for the remembered companion and offers others; nothing else looks off home without a target',async()=>{
+ const h=harness();await h.actor.discover('device-a');
+ assert.equal(h.state.offer,true);h.found('device-b');assert.equal(h.state.devices.length,1);
+ h.found('device-a');await flush();assert.equal(h.state.phase,'connected');assert.equal(h.state.auto,true);h.actor.dispose();
+ const away=harness();away.actor.navigate('profile');await away.actor.discover(undefined,true);assert.equal(away.initializations,0);
+});
+test('a quiet look for the remembered companion uses the short window and ends silently; failed attempts stay quiet',async()=>{
+ const h=harness();h.actor.navigate('lesson');const idle=h.state.message;await h.actor.discover('device-a');
+ await h.tick(BLE_TIMEOUTS.lookup);assert.equal(h.state.phase,'disconnected');assert.equal(h.state.message,idle);
+ const f=harness({async connect(){throw new Error('Connection timed out. Try again.');}});f.actor.navigate('lesson');
+ await f.actor.discover('device-a');f.found('device-a');await flush();await flush();
+ assert.equal(f.state.phase,'disconnected');assert.equal(f.state.message,idle);
+ const d=harness({async connect(){throw new Error('BLE permission denied');}});d.actor.navigate('lesson');
+ await d.actor.discover('device-a');d.found('device-a');await flush();await flush();assert.equal(d.state.phase,'permission-denied');
+});
+test('changing screens never cancels the app’s own reconnection, only a connection the user started',async()=>{
+ const pending=deferred(),h=harness({connect:()=>pending.promise});await h.actor.discover('device-a');h.found('device-a');await flush();
+ assert.equal(h.state.phase,'connecting');assert.equal(h.state.auto,true);
+ h.actor.enterLesson(true);h.actor.navigate('physical');h.actor.navigate('home');await flush();assert.equal(h.state.phase,'connecting');
+ pending.resolve();await flush();assert.equal(h.state.phase,'connected');assert.equal(h.state.ready,true);h.actor.dispose();
+});
+test('Connect in settings turns a running quiet look into the visible scan, keeping what it found',async()=>{
+ const h=harness();h.actor.navigate('physical');await h.actor.discover('device-z');
+ h.found('device-a');assert.equal(h.state.quiet,true);
+ await h.actor.scan();
+ assert.equal(h.state.phase,'scanning');assert.equal(h.state.quiet,false);assert.equal(h.state.offer,false);assert.match(h.state.message,/Choose a device/);
+ assert.deepEqual(h.state.devices.map(d=>d.deviceId),['device-a']);
+ // The visible scan lists the remembered one too, rather than connecting to it.
+ h.found('device-z');assert.equal(h.state.phase,'scanning');assert.equal(h.state.devices.length,2);
+ await h.tick(BLE_TIMEOUTS.lookup);assert.equal(h.state.phase,'scanning');
+ await h.actor.connect('device-a');await flush();assert.equal(h.state.phase,'connected');assert.equal(h.state.auto,false);h.actor.dispose();
+});
+
+const volumes=(writes:DataView[])=>writes.filter(p=>p.getUint8(0)===1&&p.getUint8(6)===13).map(p=>p.getUint8(7));
+test('sound firmware gets the saved level once per connection, without a preview, after CONNECTED and negotiation',async()=>{
+ const h=harness({},true,0,'sound',()=>2);await h.ready(true);await flush();
+ assert.equal(h.state.sound,true);assert.deepEqual(h.codes(),[COMMAND.CONNECTED,13]);assert.deepEqual(volumes(h.writes),[2]);
+ h.actor.disconnect();assert.equal(h.state.sound,false);
+ for(const capable of [false,true,'extended'] as const){const old=harness({},true,0,capable,()=>2);await old.ready(true);await flush();assert.notEqual(old.state.sound,true);assert.deepEqual(volumes(old.writes),[]);assert.equal(old.actor.setVolume(1),false,'no volume for firmware without sound');old.actor.dispose();}
+});
+test('a picked level previews once; rapid picks keep only the latest; reactions never drop it or overlap its write',async()=>{
+ let release=deferred();const h=harness({write:async(_id,packet)=>{if(packet.getUint8(6)===13)await release.promise;}},true,0,'sound');await h.ready();await flush();h.writes.length=0;
+ assert.equal(h.actor.setVolume(4),true);await flush();assert.deepEqual(volumes(h.writes),[0x84]);
+ h.actor.setVolume(1);h.actor.setVolume(0);h.actor.request(COMMAND.HAPPY);await flush();assert.equal(h.writes.length,1,'one native write at a time');
+ release.resolve();release=deferred();await flush();assert.deepEqual(h.codes(),[13,COMMAND.HAPPY,13],'the reaction goes first; only the latest pick follows its write');
+ assert.deepEqual(volumes(h.writes),[0x84,0x80]);h.notify(acknowledgement(h.writes[1].getUint32(2,true)));release.resolve();await flush();
+ assert.equal(h.state.message,'Reaction accepted.');assert.equal(h.state.phase,'connected');assert.equal(h.maxWrites,1,'never two native writes at once');
+ for(const level of [-1,5,1.5])assert.equal(h.actor.setVolume(level),false);
+ h.actor.setActive(false);assert.equal(h.actor.setVolume(2),false,'nothing is kept while paused');h.actor.dispose();
 });

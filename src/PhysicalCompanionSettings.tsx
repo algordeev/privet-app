@@ -1,27 +1,36 @@
 import {useEffect,useState} from 'react';
 import {useBleState,type PhysicalCompanionController} from './usePhysicalCompanion';
-import {BLE_NAME} from './bleProtocol';
+import {BLE_NAME,VOLUME_LEVELS} from './bleProtocol';
 // Phases where the app is still looking for (or re-checking) the companion; these get a gentle searching motion.
 const searching=(phase:string)=>phase==='scanning'||phase==='connecting'||phase==='reconciling';
 const phases={suspended:'Reactions paused',reconciling:'Checking connection',disconnected:'Disconnected',scanning:'Scanning',connecting:'Connecting',connected:'Connected',unavailable:'Bluetooth unavailable','permission-denied':'Permission denied',error:'Connection error'} as const;
 export function PhysicalCompanionSettings({controller,onClose,backLabel='Back to home'}:{controller:PhysicalCompanionController;onClose:()=>void;backLabel?:string}){
  const {scan,connect,disconnect,testHappy}=controller;
- const state=useBleState(controller);
+ // The app's own quiet look for a companion is invisible here: Connect stays available (and turns it
+ // into the visible scan).
+ const ble=useBleState(controller);
+ const state=ble.quiet?{...ble,phase:'disconnected' as const,devices:[]}:ble;
+ const remembered=controller.remembered();
+ const waiting=!!remembered&&(state.phase==='disconnected'||state.phase==='error'||state.phase==='unavailable');
+ const [volume,setVolume]=useState(controller.volume);
+ const chooseVolume=(level:number)=>{setVolume(level);controller.setVolume(level);};
  const inSession=state.phase==='scanning'||state.phase==='connecting'||state.phase==='connected'||state.phase==='suspended'||state.phase==='reconciling';
  return <div className="native-physical-scroll">
   <header className="native-profile-navigation"><button className="app-icon-button" onClick={onClose} aria-label={backLabel}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><h1 id="native-physical-title" tabIndex={-1}>Physical companion</h1><span aria-hidden="true"/></header>
   <section className="native-physical-intro"><span className="native-kicker">YOUR DESK COMPANION</span><h2>A little hello, over Bluetooth.</h2><p>Connect your {BLE_NAME} for little reactions as you learn. You can keep learning with or without it.</p></section>
   <section className="native-physical-card" aria-label="Physical companion settings">
-   <div className="native-physical-status" data-phase={state.phase} data-searching={searching(state.phase)} role="status" aria-live="polite" aria-atomic="true"><strong key={state.phase}><i className="native-physical-dot" aria-hidden="true"/>{phases[state.phase]}</strong>{state.device&&<span>{state.device.name||BLE_NAME}</span>}<p>{state.message}</p>{state.notice&&<p className="native-physical-update">{state.notice}</p>}{state.busy&&!inSession&&<p>Finishing the previous connection. If this takes too long, reopen Privet.</p>}</div>
+   <div className="native-physical-status" data-phase={state.phase} data-searching={searching(state.phase)} role="status" aria-live="polite" aria-atomic="true"><strong key={state.phase}><i className="native-physical-dot" aria-hidden="true"/>{phases[state.phase]}</strong>{state.device&&<span>{state.device.name||BLE_NAME}</span>}{waiting&&state.phase==='disconnected'?<p>{remembered!.name||BLE_NAME} will reconnect by itself when it’s nearby.</p>:<p>{state.message}</p>}{waiting&&state.phase!=='disconnected'&&<p>{remembered!.name||BLE_NAME} will reconnect by itself when it’s nearby.</p>}{state.notice&&<p className="native-physical-update">{state.notice}</p>}{state.busy&&!inSession&&<p>Finishing the previous connection. If this takes too long, reopen Privet.</p>}</div>
    {state.phase==='scanning'&&state.devices.length>0&&<ul className="native-physical-devices" aria-label="Available companions">{state.devices.map((device,index)=><li key={device.deviceId}><button disabled={state.busy} onClick={()=>connect(device.deviceId)}><span>{device.name||'Unnamed companion'}<small>Device {index+1} · Tap to connect</small></span><span aria-hidden="true">→</span></button></li>)}</ul>}
    <div className="native-physical-actions">{inSession?<button className="native-physical-disconnect" onClick={disconnect}>{state.phase==='scanning'?'Stop scanning':state.phase==='connecting'?'Cancel connection':'Disconnect'}</button>:<button className="button teal" onClick={scan} disabled={state.busy}>Connect <span aria-hidden="true">→</span></button>}
    <button className="button teal" onClick={testHappy} disabled={!state.ready||state.pending||state.busy}>{state.pending?'Sending reaction…':'Test happy reaction'}</button></div>
   </section>
+  {state.sound&&<fieldset className="native-physical-volume" disabled={!state.ready}><legend>Robot sound</legend><div>{VOLUME_LEVELS.map((label,level)=><button key={label} aria-pressed={volume===level} onClick={()=>chooseVolume(level)}>{label}</button>)}</div></fieldset>}
  </div>;
 }
 
 export function PhysicalCompanionHomeStatus({controller,onOpen}:{controller:PhysicalCompanionController;onOpen:()=>void}){
- const state=useBleState(controller);
+ const ble=useBleState(controller);
+ const state=ble.quiet?{...ble,phase:'disconnected' as const}:ble;
  const label=state.phase==='connected'?(state.notice?'Connected · Update needed':'Connected'):phases[state.phase];
  return <button id="native-physical-open" className="native-text-button native-physical-home" onClick={onOpen} aria-label={`Physical companion: ${label}. Open settings.`}><span>Physical companion settings</span><span className="native-physical-home-status" role="status" aria-live="polite"><i aria-hidden="true" data-connected={state.phase==='connected'} data-searching={searching(state.phase)}/>{label}</span></button>;
 }
