@@ -23,7 +23,7 @@ test('v5 motion sense detects lifts, set-downs, shakes, tipping and tilts, but n
   const run=spawnSync(join(dir,'motion'),[],{encoding:'utf8'});assert.equal(run.status,0,run.stdout+run.stderr);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
-test('Privet Mini v0.6 motion (tilt look, shake, toss, face down), buttons (short, hold, both) and pocket words pass their host checks',()=>{
+test('Privet Mini v0.6 motion (tilt look, shake, toss), buttons (short, hold, both) and pocket words pass their host checks',()=>{
  const dir=mkdtempSync(join(tmpdir(),'privet-mini-logic-'));try{
   for(const name of ['motion','buttons','words']){
    const compile=spawnSync('c++',['-std=c++17','-Wall','-Wextra','-Werror','-Ifirmware/PrivetMini_v0.6',`scripts/test-mini-${name}.cpp`,'-o',join(dir,name)],{encoding:'utf8'});assert.equal(compile.status,0,compile.stderr||String(compile.error));

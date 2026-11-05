@@ -1,7 +1,7 @@
 // Host checks for firmware/PrivetMini_v0.6/MiniMotion.h with synthetic 50 Hz
 // accelerometer data: learning "up", the eyes following tilts (also in a
 // shaky hand), a swing on the key ring, walking, single flicks, a real shake,
-// a toss, and face down / face up. The sensor's +Z points out of the screen.
+// and a toss. The sensor's +Z points out of the screen.
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
@@ -74,7 +74,6 @@ int main() {
     run(d, 600, [](uint32_t t) { return held(pose(0, 90), t); });
     near(d.lookY(), -1, .01f, "on its back: y");
     near(d.lookX(), 0, .05f, "on its back: x");
-    assert(!d.faceDown());
     expect({}, "leaning back");
   }
   {  // A swing on the key ring (big, slow) and walking: nothing.
@@ -120,20 +119,11 @@ int main() {
     run(d, 1500, [](uint32_t t) { return held(pose(0, 0), t); });
     expect({}, "a 40 ms dip is not a toss");
   }
-  {  // Face down: after 0.7 s; face up again: after 0.3 s. A quick flip: nothing.
-    run(d, 400, [](uint32_t t) { return held(pose(0, -90), t); });
-    run(d, 600, [](uint32_t t) { return held(pose(0, 0), t); });
-    expect({}, "a quick flip");
-    // Waved about upside down (moving all the time) for 2 s: the screen stays on.
+  {  // Face down, still or waved about upside down: no event.
+    run(d, 1500, [](uint32_t t) { return held(pose(0, -90), t); });
     run(d, 2000, [](uint32_t t) { return pose(0, -90) + Vec{.6f * sinf(t * 2 * PI_F / 400), .6f * cosf(t * 2 * PI_F / 400), 0}; });
-    assert(!d.faceDown());
-    expect({}, "moving upside down");
-    run(d, 1200, [](uint32_t t) { return held(pose(0, -90), t); });
-    assert(d.faceDown());
-    expect({FACE_DOWN}, "face down");
-    run(d, 1000, [](uint32_t t) { return held(pose(0, 90), t); });
-    assert(!d.faceDown());
-    expect({FACE_UP}, "face up");
+    run(d, 1500, [](uint32_t t) { return held(pose(0, 0), t); });
+    expect({}, "face down");
   }
   {  // A saved "up" is used at once; within the first 10 s it is relearned once.
     now = 0;
@@ -147,10 +137,17 @@ int main() {
     run(e, 1500, [](uint32_t t) { return held(pose(20, 0), t); });
     expect({}, "no relearning later");
   }
-  {  // The other screen sign mirrors face down / face up.
-    Detector f(-1);
-    run(f, 1500, [](uint32_t t) { return held(pose(0, 90), t); });
-    assert(f.faceDown());
+  {  // The other screen sign mirrors left and right.
+    now = 0;
+    Detector e(1), f(-1);
+    run(e, 1500, [](uint32_t t) { return held(pose(0, 0), t); });
+    run(e, 1000, [](uint32_t t) { return held(pose(25, 0), t); });
+    now = 0;
+    run(f, 1500, [](uint32_t t) { return held(pose(0, 0), t); });
+    run(f, 1000, [](uint32_t t) { return held(pose(25, 0), t); });
+    events.clear();
+    assert(fabsf(e.lookX()) > .3f);
+    near(f.lookX(), -e.lookX(), .01f, "sign -1 mirrors x");
   }
   {  // The spring settles on its target with a small overshoot.
     Spring s;

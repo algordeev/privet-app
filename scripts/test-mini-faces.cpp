@@ -25,7 +25,7 @@ int main() {
   }
   const struct { uint8_t face; uint32_t ms; } locals[] = {
     {MiniFaces::STIR, MiniFaces::STIR_MS}, {MiniFaces::WHEE, MiniFaces::WHEE_MS}, {MiniFaces::DIZZY, MiniFaces::DIZZY_MS},
-    {MiniFaces::PEEKABOO, MiniFaces::PEEKABOO_MS}, {MiniFaces::GIGGLE, MiniFaces::GIGGLE_MS}, {MiniFaces::HUG, 10000},
+    {MiniFaces::GIGGLE, MiniFaces::GIGGLE_MS}, {MiniFaces::HUG, 10000},
     {MiniFaces::PROUD, MiniFaces::PROUD_MS}};
   for (const auto &l : locals) for (uint32_t t = 0; t < l.ms; t += 10) {
     memset(frame, 0, sizeof frame);

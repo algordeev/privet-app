@@ -277,9 +277,9 @@ template <class P> void reaction(P &d, uint8_t code, uint32_t age, uint32_t now,
 }
 
 // ---- Local faces: motion and buttons on the Mini itself, never sent by the app ----
-enum Local : uint8_t { STIR = 1, WHEE, DIZZY, PEEKABOO, GIGGLE, HUG, PROUD };
+enum Local : uint8_t { STIR = 1, WHEE, DIZZY, GIGGLE, HUG, PROUD };
 // HUG has no duration: it lasts while the left button is held.
-static constexpr uint32_t STIR_MS = 2000, WHEE_MS = 2000, DIZZY_MS = 2500, PEEKABOO_MS = 1400, GIGGLE_MS = 1200, PROUD_MS = 2200;
+static constexpr uint32_t STIR_MS = 2000, WHEE_MS = 2000, DIZZY_MS = 2500, GIGGLE_MS = 1200, PROUD_MS = 2200;
 
 // Eye opening (rows) of the drowsy stir: open slowly, hold, one slow blink, sink shut.
 inline int stirOpening(uint32_t t) {
@@ -340,13 +340,6 @@ template <class P> void local(P &d, uint8_t which, uint32_t t, uint32_t now) {
     case DIZZY:  // shaken: spirals spin fast and slow to a stop (about 14 radians)
       dizzyFace(d, 14.0 * (1.0 - exp(-double(t) / 700.0)));
       break;
-    case PEEKABOO: {  // turned face up again: eyes shut, then pop open with a big smile
-      if (t < 250U) { closedEyes(d); smile(d); break; }
-      const uint32_t u = t - 250U;
-      eyes(d, 0, -1, u < 120U ? 2 + int(u * 20U / 120U) : u < 220U ? 23 : 21); openMouth(d);
-      if (u >= 150U && u < 900U) { const int r = 1 + int(((u - 150U) / 125U) % 3U); sparkle(d, 22, 14, r); sparkle(d, 106, 14, r); }
-      break;
-    }
     case GIGGLE: {  // a pat (left button): "^ ^" and an open smile, quick little hops
       const int dy = (t / 90U) % 2U ? -1 : 0;
       happyEyes(d, dy); openMouth(d, dy);
