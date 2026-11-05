@@ -17,6 +17,20 @@ test('S3 servo gestures stay in range, finish within each reaction, survive smoo
   const run=spawnSync(join(dir,'servo'),[],{encoding:'utf8'});assert.equal(run.status,0,run.stdout+run.stderr);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
+test('v5 motion sense detects lifts, set-downs, shakes, tipping and tilts, but not bumps, servo shake or a steady hand',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'privet-motion-'));try{
+  const compile=spawnSync('c++',['-std=c++17','-Wall','-Wextra','-Werror','-Ifirmware/PrivetBLE_S3_v5','scripts/test-motion-sense.cpp','-o',join(dir,'motion')],{encoding:'utf8'});assert.equal(compile.status,0,compile.stderr||String(compile.error));
+  const run=spawnSync(join(dir,'motion'),[],{encoding:'utf8'});assert.equal(run.status,0,run.stdout+run.stderr);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+test('Privet Mini v0.6 motion (tilt look, shake, toss), buttons (short, hold, both), pocket words and power (dim, deep sleep) pass their host checks',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'privet-mini-logic-'));try{
+  for(const name of ['motion','buttons','words','power']){
+   const compile=spawnSync('c++',['-std=c++17','-Wall','-Wextra','-Werror','-Ifirmware/PrivetMini_v0.6',`scripts/test-mini-${name}.cpp`,'-o',join(dir,name)],{encoding:'utf8'});assert.equal(compile.status,0,compile.stderr||String(compile.error));
+   const run=spawnSync(join(dir,name),[],{encoding:'utf8'});assert.equal(run.status,0,name+': '+run.stdout+run.stderr);
+  }
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
 test('S3 servos use one fixed LEDC channel each and release by duty 0, never by detaching',()=>{
  const source=readFileSync('firmware/PrivetBLE_S3/PrivetBLE_S3.ino','utf8');
  assert.doesNotMatch(source,/#include <ESP32Servo\.h>|\.detach\(\)|\.attach\(/);
@@ -31,4 +45,19 @@ test('firmware connection callback cannot independently start CONNECTED; callbac
  const loop=source.slice(source.indexOf('void loop()'));assert.match(loop,/portENTER_CRITICAL\(&cardsMux\);\s*const auto expired=cards\.expire\(millis\(\)\);\s*portEXIT_CRITICAL\(&cardsMux\);\s*if\(expired\.send/);
  assert.match(source,/PrivetMotion::target/);assert.match(source,/updateServo\(millis\(\)\);\s*u8x8_DrawTile/);assert.doesNotMatch(source,/oled\.sendBuffer\(/);assert.match(source,/displayRefresh\.present\(oled\.getBufferPtr\(\)/);
  assert.match(source,/PrivetFaces::roundedRadius\(w,h,r\)/);assert.match(source,/U8G2_R2/);assert.match(source,/SERVO_MIN_US = 1300/);assert.match(source,/SERVO_MAX_US = 1700/);
+});
+test('Privet Mini faces: every reaction and local face draws a face, and the app draws the firmware\'s exact sleeping, CONNECTED and IDLE pixels',async()=>{
+ const {renderMiniFace}=await import('./miniFaces.ts');
+ const dir=mkdtempSync(join(tmpdir(),'privet-mini-faces-'));try{
+  const compile=spawnSync('c++',['-std=c++17','-Wall','-Wextra','-Werror','-Ifirmware/PrivetMini_v0.6','scripts/test-mini-faces.cpp','-o',join(dir,'faces')],{encoding:'utf8'});assert.equal(compile.status,0,compile.stderr||String(compile.error));
+  const cases:[('sleeping'|'connected'|'idle'),number,number][]=[];
+  for(let t=0;t<9600;t+=40)cases.push(['sleeping',t,t]);
+  for(let t=0;t<2400;t+=10)cases.push(['connected',t,t]);
+  for(let t=0;t<16000;t+=25)cases.push(['idle',t,t+7]);
+  cases.push(['idle',60000,61234],['idle',60000,4300*20+50]);
+  const code={sleeping:'sleeping',connected:'9',idle:'4'};
+  const run=spawnSync(join(dir,'faces'),[],{encoding:'utf8',maxBuffer:64<<20,input:cases.map(([face,age,now])=>`${code[face]} ${age} ${now}`).join('\n')+'\n'});assert.equal(run.status,0,run.stdout+run.stderr);
+  const frames=run.stdout.trim().split('\n');assert.equal(frames.length,cases.length);
+  cases.forEach(([face,age,now],i)=>assert.equal(Array.from(renderMiniFace(face,age,now)).join(''),frames[i],`${face} at ${age} ms (clock ${now})`));
+ }finally{rmSync(dir,{recursive:true,force:true});}
 });

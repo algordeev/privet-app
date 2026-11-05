@@ -8,9 +8,10 @@ test('control code 10 is separate from reactions and v1 reaction ACKs',()=>{
  const p=encodeControl(42);assert.deepEqual([...bytes(p)],[1,1,42,0,0,0,10,0]);p.setUint8(1,2);assert.deepEqual(decodeControlAck(p),{id:42,result:0});assert.equal(decodeAcknowledgement(p),null);assert.throws(()=>encodeCommand(42,10 as CommandCode));
 });
 test('capabilities require exact advertised limits, nonzero nonce and ready Cyrillic OLED',()=>{
- const p=new DataView(new ArrayBuffer(20));[2,0x80,42,0,0,0,7,20,96,0,64,32,1,0,0,0,0x88,0x13].forEach((b,i)=>p.setUint8(i,b));assert.deepEqual(decodeCapabilities(p),{id:42,nonce:1,reactions:false});
- const extended=new DataView(p.buffer.slice(0));extended.setUint8(6,15);assert.deepEqual(decodeCapabilities(extended),{id:42,nonce:1,reactions:true},'feature bit 8 advertises reactions 11-12');
- for(const [i,value] of [[6,3],[6,11],[6,16],[6,23],[7,21],[8,97],[10,65],[11,33],[12,0],[16,0],[19,1]]){const q=new DataView(p.buffer.slice(0));q.setUint8(i,value);assert.equal(decodeCapabilities(q),null);}
+ const p=new DataView(new ArrayBuffer(20));[2,0x80,42,0,0,0,7,20,96,0,64,32,1,0,0,0,0x88,0x13].forEach((b,i)=>p.setUint8(i,b));assert.deepEqual(decodeCapabilities(p),{id:42,nonce:1,reactions:false,sound:false});
+ const extended=new DataView(p.buffer.slice(0));extended.setUint8(6,15);assert.deepEqual(decodeCapabilities(extended),{id:42,nonce:1,reactions:true,sound:false},'feature bit 8 advertises reactions 11-12');
+ const sound=new DataView(p.buffer.slice(0));sound.setUint8(6,31);assert.deepEqual(decodeCapabilities(sound),{id:42,nonce:1,reactions:true,sound:true},'feature bit 16 advertises sound and SET_VOLUME');
+ for(const [i,value] of [[6,3],[6,11],[6,16],[6,39],[6,135],[7,21],[8,97],[10,65],[11,33],[12,0],[16,0],[19,1]]){const q=new DataView(p.buffer.slice(0));q.setUint8(i,value);assert.equal(decodeCapabilities(q),null);}
 });
 test('64/32/96 byte limits are UTF-8 limits and frames contain complete scalars',()=>{
  const card={mode:DISPLAY_MODE.SAFE_PROMPT,primary:'Я'.repeat(32),secondary:'a'.repeat(32)};assert.equal(validateCard(card),true);assert.equal(validateCard({...card,primary:card.primary+'а'}),false);assert.equal(validateCard({...card,secondary:'b'.repeat(33)}),false);

@@ -167,9 +167,9 @@ def s_nod():
 
 
 def s_on_fire():
-    whoosh = env(noise(.4, 400, 5000, seed=12), attack=.15, release=.1)
-    zap = chirp(.28, 600, 2500, shape=BUZZ, gain=.6)
-    return cat(mix(whoosh, zap, at=.12), pluck('E7', .25, shape=SINE, decay=.07, gain=.5))
+    # An excited warble that climbs, then lands on a chime.
+    trill = env(osc(.35, 900, 1800, shape=SOFT, vib_rate=22, vib_depth=.06), attack=.02, release=.04)
+    return cat(trill, pluck('G6', .3, shape=BELL, decay=.1))
 
 
 def s_sleep():
@@ -219,6 +219,13 @@ def s_curious():
     return env(osc(.22, 700, 1150, shape=SOFT, vib_rate=8, vib_depth=.015), attack=.02, release=.06)
 
 
+def s_stir():
+    # A drowsy closed-mouth "mm-hm?": two soft low notes, the second slightly up.
+    mm = env(osc(.22, 560, 540, shape=SINE, vib_rate=4, vib_depth=.01), attack=.06, release=.08)
+    hm = env(osc(.3, 600, 660, shape=SINE, vib_rate=4, vib_depth=.01), attack=.06, release=.14)
+    return cat(mm, .05, hm)
+
+
 def s_uh_oh():
     return cat(chirp(.11, 520, 500, shape=BUZZ, gain=.7), .07, chirp(.18, 430, 400, shape=BUZZ, gain=.7))
 
@@ -234,7 +241,7 @@ EFFECTS = [
     (7, 'hint', s_hint, -1),
     (8, 'streak', s_streak, 0),
     (9, 'nod', s_nod, -6),
-    (10, 'on_fire', s_on_fire, 0),
+    (10, 'on_fire', s_on_fire, -2),
     (11, 'sleep', s_sleep, -4),
     (12, 'wake', s_wake, -2),
     (13, 'giggle', s_giggle, 0),
@@ -246,6 +253,7 @@ EFFECTS = [
     (19, 'streak_risk', s_streak_risk, 0),
     (20, 'curious', s_curious, -3),
     (21, 'uh_oh', s_uh_oh, -2),
+    (22, 'stir', s_stir, -9),
 ]
 
 TARGET_RMS_DB = -13.0
