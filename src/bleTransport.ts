@@ -15,12 +15,15 @@ export interface BleDriver {
  cleanup(id?:string):Promise<void>;
 }
 export type BlePhase='disconnected'|'suspended'|'reconciling'|'scanning'|'connecting'|'connected'|'unavailable'|'permission-denied'|'error';
-// quiet: a background discovery scan on home. It keeps the ordinary disconnected message and status
-// (no "Scanning" anywhere), ends silently, and only fills `devices` for the "companion found" card.
+// quiet: a background scan (home discovery and/or looking for the remembered companion). It keeps the
+// ordinary disconnected message and status (no "Scanning" anywhere) and ends silently.
+// offer: that quiet scan may show what it finds in the "companion found" card (home discovery only).
+// auto: the connection was started by the app itself, for the remembered companion (no card for it).
 // sound: the connected firmware has working sound and accepts a volume level (capability bit 16).
-export type BleState={phase:BlePhase;message:string;devices:PhysicalDevice[];device?:PhysicalDevice;ready:boolean;pending:boolean;busy:boolean;notice?:string;quiet?:boolean;sound?:boolean};
+export type BleState={phase:BlePhase;message:string;devices:PhysicalDevice[];device?:PhysicalDevice;ready:boolean;pending:boolean;busy:boolean;notice?:string;quiet?:boolean;offer?:boolean;auto?:boolean;sound?:boolean};
 export const initialBleState=():BleState=>({phase:'disconnected',message:'Not connected. The virtual companion works independently.',devices:[],ready:false,pending:false,busy:false});
-export const BLE_TIMEOUTS={initialize:15000,scan:12000,connect:10000,subscribe:5000,write:4000,ack:5000};
+// lookup: the shorter window of a quiet scan that only looks for the remembered companion.
+export const BLE_TIMEOUTS={initialize:15000,scan:12000,lookup:5000,connect:10000,subscribe:5000,write:4000,ack:5000};
 type Clock={now?:()=>number;set:(fn:()=>void,ms:number)=>ReturnType<typeof setTimeout>;clear:(id:ReturnType<typeof setTimeout>)=>void};
 const clock:Clock={now:()=>performance.now(),set:(fn,ms)=>setTimeout(fn,ms),clear:id=>clearTimeout(id)};
 class Cancelled extends Error {}
@@ -134,7 +137,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
   if(flight){flight.obsolete=true;flight.ack('cancelled');flight.reply?.(null);}flight=undefined;
   for(const cancel of [...cancelWaits])cancel();
   const id=state.device?.deviceId;
-  update({phase,message,ready:false,pending:false,device:undefined,devices:[],quiet:false,sound:false});cleanup(id);
+  update({phase,message,ready:false,pending:false,device:undefined,devices:[],quiet:false,offer:false,auto:false,sound:false});cleanup(id);
  }
  function failure(error:unknown,g:number){
   if(!current(g)||error instanceof Cancelled)return;
@@ -143,13 +146,21 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
   else if(/unsupported|unavailable|not enabled|powered off/i.test(message))invalidate('unavailable','Bluetooth is unavailable. Use a real iPhone with Bluetooth turned on.');
   else invalidate('error',(/timed out|too long|did not respond|No reply|Could not start scanning|Could not stop scanning/i.test(message))?message:'Could not reach the companion. Try connecting again.');
  }
- async function scan(quiet=false){
+ // target: the remembered companion's ID; a quiet scan that sees it connects to it at once.
+ async function scan(quiet=false,{target,offer=true}:{target?:string;offer?:boolean}={}){
+  // Connect on settings while a quiet scan runs: the same scan becomes the visible one, keeping what it found.
+  if(!quiet&&alive&&active&&state.phase==='scanning'&&state.quiet){
+   const g=generation;clearScanTimer();
+   scanTimer=timer.set(()=>{if(current(g))invalidate('disconnected','Scan finished. Tap Connect to scan again.');},time.scan);
+   update({quiet:false,offer:false,message:'Scanning for companions… Choose a device below.'});
+   return;
+  }
   if(!alive||!active||state.busy||state.phase==='scanning'||state.phase==='connecting'||state.phase==='connected'||state.phase==='suspended'||state.phase==='reconciling')return;
   if(options.supported&&!options.supported()){if(!quiet)update({phase:'unavailable',message:'Physical Bluetooth is available only in the native iPhone app on a real device.'});return;}
   // A quiet discovery never surfaces its own errors or end: it just returns to the ordinary disconnected state.
   const idle=initialBleState().message;
   const stop=(phase:BlePhase,message:string)=>quiet?invalidate('disconnected',idle):invalidate(phase,message);
-  const g=++generation;touched=true;update({phase:'scanning',message:quiet?idle:'Preparing Bluetooth…',devices:[],ready:false,notice:undefined,quiet});
+  const g=++generation;touched=true;update({phase:'scanning',message:quiet?idle:'Preparing Bluetooth…',devices:[],ready:false,notice:undefined,quiet,offer:quiet&&offer,auto:false});
   try{
    await wait(raw(()=>driver.initialize()),g,time.initialize,'Bluetooth took too long. Try connecting again.');
    if(!current(g))return;
@@ -160,27 +171,41 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
    if(!current(g))return;
    if(!quiet)update({message:'Scanning for companions… Choose a device below.'});
    // Both the scan window and the scan-start call are bounded.
-   scanTimer=timer.set(()=>{if(current(g))stop('disconnected','Scan finished. Tap Connect to scan again.');},time.scan);
+   scanTimer=timer.set(()=>{if(current(g))stop('disconnected','Scan finished. Tap Connect to scan again.');},quiet&&!offer?time.lookup:time.scan);
    const started=raw(()=>driver.scan(BLE_SERVICE,device=>{
     if(!current(g)||state.phase!=='scanning')return;
+    if(target&&state.quiet&&device.deviceId===target){void connectTo(device,true);return;}
     update({devices:[...state.devices.filter(d=>d.deviceId!==device.deviceId),device]});
    }));
    await wait(started,g,time.subscribe,'Could not start scanning. Try again.');
   }catch(error){if(quiet){if(current(g)&&!(error instanceof Cancelled))invalidate('disconnected',idle);}else failure(error,g);}
  }
- // Background discovery for the "companion found" card: home only, never while anything else is under way.
- // The caller decides whether Bluetooth permission was already granted; this never runs from mount alone.
- // It also runs after an error or with Bluetooth off: a quiet scan ends silently, so home just keeps looking.
- function discover(){if(screen==='home'&&['disconnected','error','unavailable'].includes(state.phase))return scan(true);return Promise.resolve();}
+ // Background discovery, never while anything else is under way. The caller decides whether Bluetooth
+ // permission was already granted; this never runs from mount alone. It also runs after an error or with
+ // Bluetooth off: a quiet scan ends silently, so the app just keeps looking.
+ // - target: the remembered companion, looked for on any screen and connected to as soon as it is seen.
+ // - offer: home's look for any companion, for the "companion found" card (home only).
+ function discover(target?:string,offer=true){
+  if(!['disconnected','error','unavailable'].includes(state.phase))return Promise.resolve();
+  const showing=offer&&screen==='home';
+  if(showing||target)return scan(true,{target,offer:showing});
+  return Promise.resolve();
+ }
  function stopDiscovery(){if(state.quiet&&state.phase==='scanning')invalidate('disconnected',initialBleState().message);}
  // While the "companion found" card is showing, the scan window must not expire under it.
  function holdScan(){if(state.phase==='scanning')clearScanTimer();}
  // "Not now" on the card: end the scan without an error; a quiet one leaves no trace at all.
  function cancelScan(){if(state.phase==='scanning')invalidate('disconnected',state.quiet?initialBleState().message:'Scan stopped. Tap Connect to scan again.');}
- async function connect(deviceId:string){
+ function connect(deviceId:string){
+  const device=state.devices.find(d=>d.deviceId===deviceId);
+  return device?connectTo(device,false):Promise.resolve();
+ }
+ // auto: the app reconnecting to the remembered companion by itself. Its failures end quietly (the app
+ // looks again soon), except a permission denial.
+ async function connectTo(device:PhysicalDevice,auto:boolean){
   if(!alive||!active||state.phase!=='scanning'||state.busy)return;
-  const device=state.devices.find(d=>d.deviceId===deviceId);if(!device)return;
-  clearScanTimer();const g=generation;update({phase:'connecting',device,message:'Connecting and subscribing to status…',ready:false,quiet:false});
+  const deviceId=device.deviceId;
+  clearScanTimer();const g=generation;update({phase:'connecting',device,message:auto?'Reconnecting…':'Connecting and subscribing to status…',ready:false,quiet:false,offer:false,auto});
   try{
    await wait(raw(()=>driver.stopScan()),g,time.subscribe,'Could not stop scanning. Try again.');
    if(!current(g))return;
@@ -200,7 +225,11 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
    update({phase:'connected',message:'Connected. Ready for your lesson.',ready:true});
    probe=newProbe();
    request(COMMAND.CONNECTED); // Fresh subscription only; foreground reconciliation still uses IDLE.
-  }catch(error){failure(error,g);}
+  }catch(error){
+   const message=error instanceof Error?error.message:String(error);
+   if(auto&&current(g)&&!(error instanceof Cancelled)&&!/permission|unauthoriz|denied/i.test(message))invalidate('disconnected',initialBleState().message);
+   else failure(error,g);
+  }
  }
  // Context changes cancel ACK waits, never an active native write. The next
  // command may run only once that write resolves (or its bounded timeout drops
@@ -322,6 +351,8 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
   volumeJob={level,preview:true};sendVolume();return true;
  }
  function leaveSettings(){
+  // The app's own reconnection belongs to no screen: changing screens never cancels it.
+  if(state.phase==='connecting'&&state.auto)return;
   if(state.phase==='scanning'||state.phase==='connecting')invalidate('disconnected','Connection cancelled.');
  }
  // homeCard: an optional status card (e.g. reviews due) shown with the neutral home face.
