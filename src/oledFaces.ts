@@ -1,7 +1,7 @@
 // A pixel-for-pixel port of the faces drawn by the current companion firmware
 // (PrivetBLE_Servo_New_Emotions_v2 drawFace/drawSleepingFace) on its 128×64 OLED,
 // so the app's 3D robot shows exactly what the real one shows. Keep in sync with
-// the firmware when those faces change. Privet Mini (PrivetMini_v0.5) draws the same
+// the firmware when those faces change. Privet Mini (PrivetMini_v0.5 and v0.6) draws the same
 // sleeping, CONNECTED and IDLE faces, so its keychain figure uses them too.
 export const OLED_WIDTH=128,OLED_HEIGHT=64;
 export type FirmwareFace='sleeping'|'connected'|'idle';
