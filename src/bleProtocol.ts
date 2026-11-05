@@ -4,6 +4,11 @@ export const BLE_SERVICE='7b5e0001-6d8a-4f3b-9c2e-1a0d8f6b4c91';
 export const BLE_COMMAND='7b5e0002-6d8a-4f3b-9c2e-1a0d8f6b4c91';
 export const BLE_STATUS='7b5e0003-6d8a-4f3b-9c2e-1a0d8f6b4c91';
 export const BLE_NAME='Privet-ESP32';
+// Both companions share the service and protocol; the advertised name (read live from the
+// advertisement, not iOS's cached one) tells the keychain Mini from the desk robot before connecting.
+export const MINI_BLE_NAME='Privet-Mini';
+export type CompanionModel='desk'|'mini';
+export const companionModel=(name?:string):CompanionModel=>name?.startsWith(MINI_BLE_NAME)?'mini':'desk';
 let lastRequestId=0;
 export function nextRequestId(){
  if(lastRequestId===0xffffffff)throw new Error('Request IDs exhausted. Restart Privet before testing again.');

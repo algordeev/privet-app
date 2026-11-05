@@ -38,3 +38,18 @@ test('firmware connection callback cannot independently start CONNECTED; callbac
  assert.match(source,/PrivetMotion::target/);assert.match(source,/updateServo\(millis\(\)\);\s*u8x8_DrawTile/);assert.doesNotMatch(source,/oled\.sendBuffer\(/);assert.match(source,/displayRefresh\.present\(oled\.getBufferPtr\(\)/);
  assert.match(source,/PrivetFaces::roundedRadius\(w,h,r\)/);assert.match(source,/U8G2_R2/);assert.match(source,/SERVO_MIN_US = 1300/);assert.match(source,/SERVO_MAX_US = 1700/);
 });
+test('Privet Mini faces: every reaction draws a face, and the app draws the firmware\'s exact sleeping, CONNECTED and IDLE pixels',async()=>{
+ const {renderMiniFace}=await import('./miniFaces.ts');
+ const dir=mkdtempSync(join(tmpdir(),'privet-mini-faces-'));try{
+  const compile=spawnSync('c++',['-std=c++17','-Wall','-Wextra','-Werror','-Ifirmware/PrivetMini_v0.5','scripts/test-mini-faces.cpp','-o',join(dir,'faces')],{encoding:'utf8'});assert.equal(compile.status,0,compile.stderr||String(compile.error));
+  const cases:[('sleeping'|'connected'|'idle'),number,number][]=[];
+  for(let t=0;t<9600;t+=40)cases.push(['sleeping',t,t]);
+  for(let t=0;t<2400;t+=10)cases.push(['connected',t,t]);
+  for(let t=0;t<16000;t+=25)cases.push(['idle',t,t+7]);
+  cases.push(['idle',60000,61234],['idle',60000,4300*20+50]);
+  const code={sleeping:'sleeping',connected:'9',idle:'4'};
+  const run=spawnSync(join(dir,'faces'),[],{encoding:'utf8',maxBuffer:64<<20,input:cases.map(([face,age,now])=>`${code[face]} ${age} ${now}`).join('\n')+'\n'});assert.equal(run.status,0,run.stdout+run.stderr);
+  const frames=run.stdout.trim().split('\n');assert.equal(frames.length,cases.length);
+  cases.forEach(([face,age,now],i)=>assert.equal(Array.from(renderMiniFace(face,age,now)).join(''),frames[i],`${face} at ${age} ms (clock ${now})`));
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});

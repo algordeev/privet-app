@@ -1,15 +1,21 @@
-import {NeutralToneMapping,CanvasTexture,CylinderGeometry,DirectionalLight,ExtrudeGeometry,Group,Mesh,MeshBasicMaterial,MeshPhysicalMaterial,MeshStandardMaterial,PerspectiveCamera,PlaneGeometry,PMREMGenerator,Scene,Shape,ShapeGeometry,SphereGeometry,SRGBColorSpace,TorusGeometry,WebGLRenderer,type BufferGeometry,type Material} from 'three';
+import {NeutralToneMapping,CanvasTexture,CapsuleGeometry,CircleGeometry,CylinderGeometry,DirectionalLight,ExtrudeGeometry,Group,Mesh,MeshBasicMaterial,MeshPhysicalMaterial,MeshStandardMaterial,PerspectiveCamera,PlaneGeometry,PMREMGenerator,Scene,Shape,ShapeGeometry,SphereGeometry,SRGBColorSpace,TorusGeometry,WebGLRenderer,type BufferGeometry,type Material} from 'three';
 import {RoomEnvironment} from 'three/examples/jsm/environments/RoomEnvironment.js';
 import {mergeVertices} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {CONNECTED_FACE_MS,OLED_HEIGHT,OLED_WIDTH,renderFirmwareFace,type FirmwareFace} from './oledFaces';
+import type {CompanionModel} from './bleProtocol';
+import {renderMiniFace} from './miniFaces';
 
-// The physical companion as a small WebGL scene for the "companion found" card, modelled on the
-// enclosure concept: tapered coral PLA base on a screwed bottom lid, cream button, servo neck and a
-// head whose OLED shows the firmware's own faces. The head turns with the firmware's servo curve.
+// The physical companions as a small WebGL scene for the "companion found" card, each modelled on
+// its enclosure concept, with an OLED that shows the firmware's own faces.
+// desk: tapered coral PLA base on a screwed bottom lid, cream button, servo neck and a head that
+//   turns with the firmware's servo curve.
+// mini: the white keychain (≈40×42×18 mm) with a cream top button, a lug with its split ring and
+//   key ring, a slide switch and vents on the right. No servo: it hops and its ring swings.
+//   Its screen shows the Mini's own faces (miniFaces.ts), not the desk robot's.
 export type RobotMood='sleeping'|'connected';
 export type RobotScene={setMood:(mood:RobotMood)=>void;resize:(width:number,height:number)=>void;dispose:()=>void};
 
-const CORAL=0xd8684f,CREAM=0xeee2c6;
+const CORAL=0xd8684f,CREAM=0xeee2c6,WHITE=0xf3f1ec;
 const DOT=4; // texture pixels per OLED pixel: a 3 px lit dot and a 1 px gap, like the real panel.
 
 function roundedRect(width:number,height:number,radius:number){
@@ -56,20 +62,16 @@ function servoAngle(age:number){
  return (pulse-1500)/1000*Math.PI/2;
 }
 
-// onReady: called once the first frame is on the canvas; the entrance starts from that frame.
-export function createRobotScene(canvas:HTMLCanvasElement,{reducedMotion=false,onReady}:{reducedMotion?:boolean;onReady?:()=>void}={}):RobotScene{
- const renderer=new WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:'low-power'});
- renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
- renderer.outputColorSpace=SRGBColorSpace;renderer.toneMapping=NeutralToneMapping;renderer.toneMappingExposure=.95;
- const scene=new Scene();
- const pmrem=new PMREMGenerator(renderer),room=new RoomEnvironment();
- const environment=pmrem.fromScene(room,.04).texture;scene.environment=environment;scene.environmentIntensity=.5;
- const key=new DirectionalLight(0xfff1e2,1.4);key.position.set(2.2,4,3.2);scene.add(key);
- const camera=new PerspectiveCamera(25,1,.1,50);camera.position.set(0,1.5,6.1);camera.lookAt(0,.93,0);
+const add=<T extends Mesh>(parent:Group,mesh:T,x=0,y=0,z=0)=>{mesh.position.set(x,y,z);parent.add(mesh);return mesh;};
+// A figure: its meshes (the OLED glass placed by the builder), framing and its own motion.
+// animate: since = ms in the current mood; t = s since the entrance began. Returns the lift above the floor.
+// face: that companion's firmware faces.
+type Figure={root:Group;camera:{x:number;y:number;z:number;target:number};shadow:number;face:typeof renderFirmwareFace;animate:(mood:RobotMood,since:number,t:number)=>number};
+type Parts={glass:Material;reducedMotion:boolean};
 
+function deskFigure({glass,reducedMotion}:Parts):Figure{
  const plastic=pla(CORAL);
- const robot=new Group();scene.add(robot);
- const add=<T extends Mesh>(parent:Group,mesh:T,x=0,y=0,z=0)=>{mesh.position.set(x,y,z);parent.add(mesh);return mesh;};
+ const robot=new Group();
  // Base: a pillowy body, wider at the bottom with a sloped front. Its rounded lower edge sits
  // into a flush bottom lid, leaving the slight overhang and seam of the printed enclosure.
  const BODY_BOTTOM=.05,BODY_HEIGHT=.95,DEPTH=1.2,LID_TOP=.17,TAPER_X=.1,TAPER_Z=.13,SLOPE=.07;
@@ -104,17 +106,101 @@ export function createRobotScene(canvas:HTMLCanvasElement,{reducedMotion=false,o
  const HEAD_HEIGHT=.68,HEAD_DEPTH=.52;
  add(head,new Mesh(slab(1.12,HEAD_HEIGHT,HEAD_DEPTH,.2,.08,false),plastic),0,HEAD_HEIGHT/2);
  add(head,new Mesh(new ShapeGeometry(roundedRect(.8,.5,.06),8),new MeshStandardMaterial({color:0x2a2c2c,roughness:.5})),0,HEAD_HEIGHT/2,HEAD_DEPTH/2+.001);
+ add(head,new Mesh(new PlaneGeometry(.74,.44),glass),0,HEAD_HEIGHT/2,HEAD_DEPTH/2+.003);
+ let yaw=0;
+ return {root:robot,camera:{x:0,y:1.5,z:6.1,target:.93},shadow:1,face:renderFirmwareFace,animate(mood,since){
+  // Head: the firmware's CONNECTED servo curve, followed with a little inertia like a real servo.
+  const target=mood==='connected'&&!reducedMotion?servoAngle(since):0;
+  yaw+=(target-yaw)*(reducedMotion?1:.32);head.rotation.y=yaw;
+  return 0;
+ }};
+}
+
+// Keychain proportions at 1 unit = 25 mm.
+const MINI_WIDTH=1.6,MINI_HEIGHT=1.68,MINI_DEPTH=.72,RING_RADIUS=.44,RING_LEAN=.32;
+// CONNECTED: a happy hop as the eyes open (with a small landing bounce), then rest.
+function hop(since:number){
+ const arc=(t:number,start:number,duration:number,height:number)=>{const x=(t-start)/duration;return x>0&&x<1?height*4*x*(1-x):0;};
+ return arc(since,120,420,.2)+arc(since,540,200,.035);
+}
+function miniFigure({glass,reducedMotion}:Parts):Figure{
+ const plastic=pla(WHITE);
+ const root=new Group(),device=new Group();root.add(device);
+ const W=MINI_WIDTH,H=MINI_HEIGHT,D=MINI_DEPTH,FRONT=D/2,SIDE=W/2;
+ add(device,new Mesh(slab(W,H,D,.36,.16,false),plastic),0,H/2);
+ // Front: the OLED module behind a glossy black window, two blush cheeks and the status LED.
+ const SCREEN_Y=1.08;
+ const bezel=new MeshPhysicalMaterial({color:0x0b0a0a,roughness:.18,clearcoat:1,clearcoatRoughness:.08});
+ add(device,new Mesh(slab(1.2,.9,.03,.07,.012,false),bezel),0,SCREEN_Y,FRONT);
+ add(device,new Mesh(new ShapeGeometry(roundedRect(.98,.56,.03),6),new MeshStandardMaterial({color:0x151617,roughness:.4})),0,SCREEN_Y+.01,FRONT+.018);
+ add(device,new Mesh(new PlaneGeometry(.92,.46),glass),0,SCREEN_Y+.01,FRONT+.021);
+ const blush=new MeshStandardMaterial({color:0xf5d3c8,roughness:.8,transparent:true,opacity:.5});
+ for(const x of [-.5,.5])add(device,new Mesh(new CircleGeometry(.11,40),blush),x,.34,FRONT+.001);
+ const led=new MeshStandardMaterial({color:0xf8c4a6,roughness:.35,emissive:0xff7a3a,emissiveIntensity:0});
+ const ledDome=add(device,new Mesh(new SphereGeometry(.036,24,12,0,Math.PI*2,0,Math.PI/2),led),0,.3,FRONT);ledDome.rotation.x=Math.PI/2;ledDome.scale.set(1,.5,1);
+ // Top right: the big click button, a cream cap on a raised white boss.
+ const cream=new MeshPhysicalMaterial({color:CREAM,roughness:.38,clearcoat:.35,clearcoatRoughness:.4});
+ add(device,new Mesh(new CylinderGeometry(.25,.27,.07,48),plastic),.3,H+.015);
+ add(device,new Mesh(new CylinderGeometry(.185,.19,.08,48),cream),.3,H+.085);
+ const cap=add(device,new Mesh(new SphereGeometry(.185,48,16,0,Math.PI*2,0,Math.PI/2),cream),.3,H+.124);cap.scale.set(1,.16,1);
+ // Top left: the keyring lug with its hole, a small split ring through it and the big key ring.
+ const LUG_X=-.46,HOLE_Y=H+.13;
+ add(device,new Mesh(slab(.42,.4,.3,.15,.06,false),plastic),LUG_X,H+.1);
+ const hole=new MeshStandardMaterial({color:0x6b625c,roughness:.9});
+ for(const z of [.151,-.151]){const disc=add(device,new Mesh(new CircleGeometry(.062,24),hole),LUG_X,HOLE_Y,z);if(z<0)disc.rotation.y=Math.PI;}
+ const metal=new MeshStandardMaterial({color:0xd8d8d4,metalness:1,roughness:.22});
+ const LOOP=.15,loop=add(device,new Mesh(new TorusGeometry(LOOP,.026,16,56),metal),LUG_X,HOLE_Y+LOOP);loop.rotation.y=Math.PI/2;
+ // The key ring hangs from the top of the loop, leaning left and back; it swings about that point.
+ const pivot=new Group();pivot.position.set(LUG_X,HOLE_Y+2*LOOP-.02,0);device.add(pivot);
+ const ring=add(pivot,new Mesh(new TorusGeometry(RING_RADIUS,.036,20,120),metal),0,RING_RADIUS);ring.rotation.y=.25;
+ // Right side: slide switch in its slot and three vent ribs.
+ const dark=new MeshStandardMaterial({color:0x1d1b1a,roughness:.7});
+ add(device,new Mesh(slab(.03,.3,.12,.012,.006,false),dark),SIDE-.008,.98);
+ add(device,new Mesh(slab(.08,.13,.09,.03,.014,false),cream),SIDE+.012,1.02);
+ for(const y of [.5,.6,.7]){const rib=add(device,new Mesh(new CapsuleGeometry(.022,.22,6,16),plastic),SIDE-.004,y);rib.rotation.x=Math.PI/2;}
+
+ let swing=0,swingVelocity=0,last=0;
+ return {root,camera:{x:0,y:2,z:7.6,target:1.38},shadow:1.15,face:renderMiniFace,animate(mood,since,t){
+  const lift=mood==='connected'&&!reducedMotion?hop(since):0;
+  device.position.y=lift;
+  // A little lean into the jump and back on landing.
+  device.rotation.z=mood==='connected'&&!reducedMotion&&since<760?-.06*Math.sin(Math.PI*Math.min(1,since/760)):0;
+  // The key ring: a damped pendulum, kicked by the hop and nudged by the idle float.
+  const dt=last?Math.min(.05,t-last):0;last=t;
+  if(reducedMotion){swing=0;swingVelocity=0;}
+  else{
+   const push=(mood==='connected'&&since>120&&since<300?-9:0)+(mood==='connected'&&since>540&&since<640?7:0)+.35*Math.sin(t*1.25);
+   swingVelocity+=(push-28*swing-2.2*swingVelocity)*dt;swing+=swingVelocity*dt;
+  }
+  pivot.rotation.set(-.42,0,RING_LEAN+swing);
+  led.emissiveIntensity=mood==='connected'?Math.min(1,Math.max(0,(since-450)/250))*3:0;
+  return lift;
+ }};
+}
+
+// onReady: called once the first frame is on the canvas; the entrance starts from that frame.
+export function createRobotScene(canvas:HTMLCanvasElement,{model='desk',reducedMotion=false,onReady}:{model?:CompanionModel;reducedMotion?:boolean;onReady?:()=>void}={}):RobotScene{
+ const renderer=new WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:'low-power'});
+ renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+ renderer.outputColorSpace=SRGBColorSpace;renderer.toneMapping=NeutralToneMapping;renderer.toneMappingExposure=.95;
+ const scene=new Scene();
+ const pmrem=new PMREMGenerator(renderer),room=new RoomEnvironment();
+ const environment=pmrem.fromScene(room,.04).texture;scene.environment=environment;scene.environmentIntensity=.5;
+ const key=new DirectionalLight(0xfff1e2,1.4);key.position.set(2.2,4,3.2);scene.add(key);
+
  // The OLED: glossy black glass whose emissive map is the firmware face, drawn as pixel dots.
  const faceCanvas=document.createElement('canvas');faceCanvas.width=OLED_WIDTH*DOT;faceCanvas.height=OLED_HEIGHT*DOT;
  const faceCtx=faceCanvas.getContext('2d')!;const faceTexture=new CanvasTexture(faceCanvas);faceTexture.colorSpace=SRGBColorSpace;faceTexture.anisotropy=4;
  const glass=new MeshPhysicalMaterial({color:0x000000,roughness:.12,clearcoat:1,clearcoatRoughness:.05,emissive:0xffffff,emissiveMap:faceTexture,emissiveIntensity:1.35});
- add(head,new Mesh(new PlaneGeometry(.74,.44),glass),0,HEAD_HEIGHT/2,HEAD_DEPTH/2+.003);
- const shadow=new Mesh(new PlaneGeometry(3,2.2),new MeshBasicMaterial({map:shadowTexture(),transparent:true,depthWrite:false}));
+ const figure=(model==='mini'?miniFigure:deskFigure)({glass,reducedMotion});
+ const robot=figure.root;scene.add(robot);
+ const camera=new PerspectiveCamera(25,1,.1,50);camera.position.set(figure.camera.x,figure.camera.y,figure.camera.z);camera.lookAt(0,figure.camera.target,0);
+ const shadow=new Mesh(new PlaneGeometry(3*figure.shadow,2.2*figure.shadow),new MeshBasicMaterial({map:shadowTexture(),transparent:true,depthWrite:false}));
  shadow.rotation.x=-Math.PI/2;shadow.position.y=.001;scene.add(shadow);
 
  let previous='';
  function drawFace(face:FirmwareFace,age:number,clock:number){
-  const pixels=renderFirmwareFace(face,age,clock);
+  const pixels=figure.face(face,age,clock);
   const signature=pixels.join('');if(signature===previous)return;previous=signature;
   faceCtx.fillStyle='#000';faceCtx.fillRect(0,0,faceCanvas.width,faceCanvas.height);
   faceCtx.fillStyle='#e9f5ff';
@@ -123,7 +209,7 @@ export function createRobotScene(canvas:HTMLCanvasElement,{reducedMotion=false,o
  }
 
  // Nothing is drawn until the canvas has its real size, so the first frame shown is the entrance's first.
- let start=0,mood:RobotMood='sleeping',moodAt=0,frame=0,disposed=false,sized=false,yaw=0;
+ let start=0,mood:RobotMood='sleeping',moodAt=0,frame=0,disposed=false,sized=false;
  const easeOut=(x:number)=>1-Math.pow(1-Math.min(1,Math.max(0,x)),3);
  function render(now=performance.now()){
   const first=!start;if(first){start=now;moodAt=Math.max(moodAt,now);}
@@ -133,10 +219,8 @@ export function createRobotScene(canvas:HTMLCanvasElement,{reducedMotion=false,o
   robot.rotation.y=-.34+(1-intro)*-.95+(reducedMotion?0:.13*Math.sin(t*.62)*intro);
   robot.position.y=reducedMotion?0:(1-intro)*-.18+.022*Math.sin(t*1.25)*intro;
   robot.scale.setScalar(.9+.1*intro);
-  shadow.scale.setScalar(1-robot.position.y*.6);
-  // Head: the firmware's CONNECTED servo curve, followed with a little inertia like a real servo.
-  const target=mood==='connected'&&!reducedMotion?servoAngle(since):0;
-  yaw+=(target-yaw)*(reducedMotion?1:.32);head.rotation.y=yaw;
+  const lift=figure.animate(mood,since,t);
+  shadow.scale.setScalar(1-(robot.position.y+lift)*.6);
   const face:FirmwareFace=mood==='sleeping'?'sleeping':since<CONNECTED_FACE_MS?'connected':'idle';
   drawFace(face,face==='sleeping'?now-start:face==='connected'?since:since-CONNECTED_FACE_MS,now-start);
   renderer.render(scene,camera);
