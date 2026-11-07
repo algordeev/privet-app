@@ -52,6 +52,21 @@ test('Privet Mini v0.7 pocket deck: host checks pass, and every course word sent
   }
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
+test('Privet Mini v0.8 sound (tunes, levels, Off, soft sounds, replacing) and its copied motion, buttons, words, power and deck pass their host checks',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'privet-mini-v08-'));try{
+  for(const name of ['sound','motion','buttons','words','power','deck']){
+   const compile=spawnSync('c++',['-std=c++17','-Wall','-Wextra','-Werror','-Ifirmware/PrivetMini_v0.8',`scripts/test-mini-${name}.cpp`,'-o',join(dir,name)],{encoding:'utf8'});assert.equal(compile.status,0,compile.stderr||String(compile.error));
+   const run=spawnSync(join(dir,name),[],{encoding:'utf8'});assert.equal(run.status,0,name+': '+run.stdout+run.stderr);
+  }
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+test('Privet Mini v0.8 advertises sound only with a working buzzer and accepts SET_VOLUME levels 0-4 with the preview bit',()=>{
+ const source=readFileSync('firmware/PrivetMini_v0.8/PrivetMini_v0.8.ino','utf8');
+ assert.match(source,/BUZZER_PIN = 9;\s+\/\/ D10/);
+ assert.match(source,/\(buzzerReady\.load\(\) \? 16 : 0\)/);
+ assert.match(source,/cmd == SET_VOLUME\) result = !buzzerReady\.load\(\) \? 1 : \(arg & ~VOLUME_PREVIEW\) >= MiniSound::LEVELS \? 2 : 0;/);
+ assert.match(source,/if \(current == LISTENING\) stopSound\("phone speaking"\);/);
+});
 test('S3 servos use one fixed LEDC channel each and release by duty 0, never by detaching',()=>{
  const source=readFileSync('firmware/PrivetBLE_S3/PrivetBLE_S3.ino','utf8');
  assert.doesNotMatch(source,/#include <ESP32Servo\.h>|\.detach\(\)|\.attach\(/);
