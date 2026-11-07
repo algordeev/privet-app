@@ -147,14 +147,20 @@ The buzzer plays short synthesized tones (`MiniSound.h`): steady notes, glides a
 | A tiny tick (soft) | NOD (each match pair) |
 | A warble and a chime | ON_FIRE |
 | Three quick rising chirps | Giggle (left button) |
-| A low "mmm" (soft) | Hug (hold left) |
+| A cat-like "mrrr" purr (soft), looping for as long as you hold | Hug (hold left) |
 | Falling wobble | Dizzy (shaken) |
 | A long rising glide | Whee (tossed) |
 | A drowsy "mm-hm?" (soft) | Stir (poked, shaken or tossed while asleep) |
+| One short tick (soft) | Flashcards: flipping to the meaning |
+| Three quick falling ticks, a "shuffle" (soft) | Flashcards: shaking for a random word |
 
 - **Silent on purpose:** LISTENING stops any sound at once, because the phone is speaking a Russian word; THINKING and
   IDLE are silent (a sound already playing finishes). Asleep, only the stir makes a sound, and falling asleep (the
-  phone going away) stops a sound. The menu, flashcards and button presses in the menu make no sound.
+  phone going away) stops a sound. Moving through the menu, "next" and "back" make no sound; in flashcards only the flip and the shuffle do.
+- **The purr:** a buzzer has no real rumble, so it is a low tone (about 600–720 Hz) chopped 20 ms on, 10 ms off; the
+  flutter is the "rrr". A short "m" glide, a slightly higher in-breath, a pause, a lower out-breath, a longer pause:
+  0.9 s, over and over until you let go (like the desk robot's purr while its head is held). It stops when you let go,
+  when an app reaction comes in (that reaction's sound plays instead) or when it falls asleep.
 - **One at a time:** a new sound replaces the one playing.
 - **Levels:** Off, Quiet, Medium, Loud and Max, the same five as the app. Loudness is the PWM duty (`LEVEL_DUTY` in
   `MiniSound.h`: 4, 24, 110 and 512 of 1024; 512 = 50 %, a piezo's loudest). These are a first guess: if two levels
@@ -306,11 +312,13 @@ long as motion works.
 1. Tilt it right, left, then lay it on its back: `[MOTION] tilted right: eyes look right`, `tilted left: eyes look
    left`, `lying back: eyes look up`. The eyes must go to the lower side; if they go up the slope, see *Motion*.
 2. Shake it: `[MOTION] shaken: dizzy`. Toss and catch it: `[MOTION] tossed: whee`.
-3. Left button: `[BUTTON] pat: giggle`. Hold left: `[BUTTON] hug` (hearts) until you let go.
+3. Left button: `[BUTTON] pat: giggle` and three chirps. Hold left: `[BUTTON] hug` (hearts) and a purr that keeps
+   going until you let go (`[SOUND] silent (hug over)`).
 4. Do a lesson: each discovered word and each correct answer that has a meaning prints
    `[WORDS] kept "..." = "..." (N saved)`.
 5. On the home screen (or after the lesson), right, left to Flashcards if needed, right: the newest word; right: its
-   meaning; right: the next word; shake: a random word; left: back to the menu.
+   meaning; right: the next word; shake: a random word; left: back to the menu. The flip ticks once (`[SOUND] flip`), the shake ticks three times
+   (`[SOUND] shuffle`), "next" and "back" are silent.
 6. During a question, right prints `[MENU] not now: a question, hint or reaction is on`, and motion and the left
    button print `(ignored: a reaction is playing)` while an answer reaction plays.
 7. Start any local face or open the menu, then trigger an app reaction: the app's face replaces it at once.
@@ -373,7 +381,8 @@ and deck checks):
   check it arrives unchanged.
 - `scripts/test-mini-sound.cpp` (v0.8): every sound plays on each 10 ms tick and ends at its length, glides move
   between their pitches, rests are silent, levels get louder and stay at or under 50 %, Off is silent, soft sounds are
-  a level quieter, a new sound replaces the old one, and `millis()` wrapping doesn't break a sound.
+  a level quieter, a new sound replaces the old one, the purr loops (the same every pass, fluttering, on the 10 ms
+  tick) until stopped, and `millis()` wrapping doesn't break a sound.
 - `scripts/test-mini-power.cpp`: dim after 1 minute, deep sleep after 5 without a phone and never with one;
   tilting keeps it bright but not awake, a small wobble is not use.
 
