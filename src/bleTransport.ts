@@ -20,7 +20,8 @@ export type BlePhase='disconnected'|'suspended'|'reconciling'|'scanning'|'connec
 // offer: that quiet scan may show what it finds in the "companion found" card (home discovery only).
 // auto: the connection was started by the app itself, for the remembered companion (no card for it).
 // sound: the connected firmware has working sound and accepts a volume level (capability bit 16).
-export type BleState={phase:BlePhase;message:string;devices:PhysicalDevice[];device?:PhysicalDevice;ready:boolean;pending:boolean;busy:boolean;notice?:string;quiet?:boolean;offer?:boolean;auto?:boolean;sound?:boolean};
+// pocket: it keeps a pocket review deck (capability bit 32, src/pocketProtocol.ts).
+export type BleState={phase:BlePhase;message:string;devices:PhysicalDevice[];device?:PhysicalDevice;ready:boolean;pending:boolean;busy:boolean;notice?:string;quiet?:boolean;offer?:boolean;auto?:boolean;sound?:boolean;pocket?:boolean};
 export const initialBleState=():BleState=>({phase:'disconnected',message:'Not connected. The virtual companion works independently.',devices:[],ready:false,pending:false,busy:false});
 // lookup: the shorter window of a quiet scan that only looks for the remembered companion.
 export const BLE_TIMEOUTS={initialize:15000,scan:12000,lookup:5000,connect:10000,subscribe:5000,write:4000,ack:5000};
@@ -44,6 +45,11 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
  // The sound level has its own slot, like the capability probe: lesson reactions never replace it, and it
  // waits for them on the same native write slot. Only the latest level is kept.
  let soundSupported=false,volumeJob:{level:number;preview:boolean}|undefined;
+ // Background data (the pocket deck): single frames written only when nothing else wants the link, so a
+ // lesson reaction always goes first. Each settles when written, or fails when the connection goes away.
+ type LowJob={packet:DataView;generation:number;resolve:()=>void;reject:(error:Error)=>void};
+ let lowJobs:LowJob[]=[];
+ const listeners=new Set<(packet:DataView)=>void>();
  type Probe={generation:number;revision:number;attempts:number;phase:'deferred'|'writing'|'waiting'|'ready'|'disabled';reply?:(packet:DataView)=>void;done:Promise<void>;finish:()=>void};
  let probe:Probe|undefined;
  function newProbe(attempts=0){let finish!:()=>void;const done=new Promise<void>(resolve=>{finish=resolve;});return {generation,revision:activityRevision,attempts,phase:'deferred' as const,done,finish};}
@@ -64,7 +70,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
      if(probe!==p||!current(g)||p.revision!==activityRevision)return;
      const ack=decodeControlAck(packet),caps=decodeCapabilities(packet);
      if(ack?.id===probeId){if(ack.result!==0){finish(undefined);return;}acked=true;}
-     if(caps?.id===probeId)offer={nonce:caps.nonce,reactions:caps.reactions,sound:caps.sound};
+     if(caps?.id===probeId)offer={nonce:caps.nonce,reactions:caps.reactions,sound:caps.sound,pocket:caps.pocket};
      if(acked&&offer)finish(offer);
     };
     const writing=raw(()=>driver.write(id,encodeControl(probeId,CAPABILITIES),time.write));
@@ -79,12 +85,25 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
     if(probe===p&&current(g)&&p.revision===activityRevision){
      capabilities=accepted;extendedReactions=!!accepted?.reactions;p.phase=accepted?'ready':'disabled';p.reply=undefined;p.finish();
      // Each connection gets the saved level, without a preview: the robot already played its wake-up chirp.
-     soundSupported=!!accepted?.sound;update({sound:soundSupported});
+     soundSupported=!!accepted?.sound;update({sound:soundSupported,pocket:!!accepted?.pocket});
      if(soundSupported&&options.volume)volumeJob={level:options.volume(),preview:false};
      sendVolume();
     }
    }catch(error){if(p.revision===activityRevision)failure(error,g);}
   })();
+ }
+ function dropLowJobs(){const jobs=lowJobs;lowJobs=[];for(const job of jobs)job.reject(new Error('Connection changed'));}
+ function sendLow(){
+  const job=lowJobs[0];
+  if(!job||submittedWrite||latest||flight||volumeJob||!active||!state.ready||!state.device)return;
+  if(probe&&['deferred','writing','waiting'].includes(probe.phase))return;
+  lowJobs.shift();
+  const g=generation,id=state.device.deviceId;
+  if(job.generation!==g){job.reject(new Error('Connection changed'));sendLow();return;}
+  const writing=raw(()=>driver.write(id,job.packet,time.write));
+  submittedWrite=writing;
+  void writing.then(()=>{if(submittedWrite===writing)submittedWrite=undefined;job.resolve();pump();},()=>{if(submittedWrite===writing)submittedWrite=undefined;});
+  void wait(writing,g,time.write,'Command timed out. Connect again to try later.').catch(error=>{job.reject(error instanceof Error?error:new Error(String(error)));failure(error,g);});
  }
  // The firmware's ACK is not awaited: a lost one changes nothing, and the write itself is with response.
  function sendVolume(){
@@ -133,11 +152,11 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
   void driver.cleanup(id).catch(()=>{/* Already disconnected/unavailable. */}).finally(()=>{cleaning--;update();});
  }
  function invalidate(phase:BlePhase,message:string){
-  generation++;clearScanTimer();latest=undefined;capabilities=undefined;extendedReactions=false;soundSupported=false;volumeJob=undefined;stopProbe();
+  generation++;clearScanTimer();latest=undefined;capabilities=undefined;extendedReactions=false;soundSupported=false;volumeJob=undefined;stopProbe();dropLowJobs();
   if(flight){flight.obsolete=true;flight.ack('cancelled');flight.reply?.(null);}flight=undefined;
   for(const cancel of [...cancelWaits])cancel();
   const id=state.device?.deviceId;
-  update({phase,message,ready:false,pending:false,device:undefined,devices:[],quiet:false,offer:false,auto:false,sound:false});cleanup(id);
+  update({phase,message,ready:false,pending:false,device:undefined,devices:[],quiet:false,offer:false,auto:false,sound:false,pocket:false});cleanup(id);
  }
  function failure(error:unknown,g:number){
   if(!current(g)||error instanceof Cancelled)return;
@@ -214,6 +233,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
    if(!current(g))return;
    const subscribed=raw(()=>driver.subscribe(deviceId,value=>{
     if(!current(g))return;
+    for(const listener of [...listeners])listener(value);
     probe?.reply?.(value);
     if(!flight||flight.obsolete||flight.generation!==g)return;
     flight.reply?.(value);
@@ -257,7 +277,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
   latest={command,card,argument};update({pending:true});pump();return true;
  }
  function pump(resume=false){
-  if(latest===undefined){startProbe();sendVolume();return;}
+  if(latest===undefined){startProbe();sendVolume();sendLow();return;}
   if(flight||submittedWrite||(!state.ready&&!(resume&&state.phase==='reconciling'))||!state.device||!active||!alive)return;
   const {card}=latest;
   // Resolved at send time: firmware without the extended reactions gets their
@@ -378,7 +398,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
    if(state.phase==='scanning'||state.phase==='connecting')invalidate('disconnected','Connection cancelled while Privet was inactive.');
    return;
   }
-  clearScanTimer();latest=undefined;volumeJob=undefined;
+  clearScanTimer();latest=undefined;volumeJob=undefined;dropLowJobs();
   if(probe&&['deferred','writing','waiting'].includes(probe.phase)){const attempts=probe.attempts;stopProbe();probe=newProbe(attempts);if(attempts>=2){probe.phase='disabled';probe.finish();}}
   if(flight){flight.obsolete=true;flight.ack('cancelled');flight.reply?.(null);}
   // Drop ACK waits and JS deadlines. The native write promise remains tracked.
@@ -407,7 +427,15 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
    if(valid()&&!(error instanceof Cancelled))invalidate('error','Could not confirm the connection. Connect again.');
   }
  }
- return {scan:()=>scan(),discover,stopDiscovery,holdScan,cancelScan,connect,testHappy,setVolume,request,leaveSettings,navigate,enterLesson,getState:()=>state,connectionToken:()=>generation,
+ // A background frame for this connection, written when the link is free (see LowJob).
+ function writeLow(packet:DataView){
+  if(!alive||!active||!state.ready||!state.device)return Promise.reject(new Error('Not connected'));
+  const g=generation;
+  return new Promise<void>((resolve,reject)=>{lowJobs.push({packet,generation:g,resolve,reject});sendLow();});
+ }
+ // Every notification of the current connection (the pocket deck reads its replies here).
+ function listen(listener:(packet:DataView)=>void){listeners.add(listener);return ()=>{listeners.delete(listener);};}
+ return {scan:()=>scan(),discover,stopDiscovery,holdScan,cancelScan,connect,testHappy,setVolume,request,leaveSettings,navigate,enterLesson,writeLow,listen,getState:()=>state,connectionToken:()=>generation,
   disconnect:()=>invalidate('disconnected','Disconnected. No commands are queued.'),
   setActive(value:boolean){if(!alive||active===value)return;active=value;activityRevision++;if(!value)pause();else void reconcile();},
   dispose(){alive=false;active=false;invalidate('disconnected','Disconnected.');}

@@ -6,7 +6,7 @@ import {encodeCommand,BLE_SERVICE,COMMAND,type CommandCode} from './bleProtocol.
 function deferred<T=void>(){let resolve!:(value:T)=>void,reject!:(error:Error)=>void;const promise=new Promise<T>((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};}
 const flush=()=>new Promise<void>(resolve=>setImmediate(resolve));
 function acknowledgement(id:number,result=0,command:CommandCode=COMMAND.HAPPY){const packet=encodeCommand(id,command);packet.setUint8(1,2);packet.setUint8(7,result);return packet;}
-function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0,capable:boolean|'silent'|'ack-only'|'malformed'|'extended'|'sound'=false,volume?:()=>number){
+function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0,capable:boolean|'silent'|'ack-only'|'malformed'|'extended'|'sound'|'pocket'=false,volume?:()=>number){
  let now=0,nextTimer=0,initializations=0,connections=0,cleanups=0,stopScans=0,syncing=false,activeWrites=0,maxWrites=0,subscriptions=0,watches=0,queries=0;
  let found!:(device:PhysicalDevice)=>void,notified!:(value:DataView)=>void,disconnected!:()=>void,enabled!:(value:boolean)=>void;
  const timers=new Map<number,{at:number;fn:()=>void}>(),writes:DataView[]=[],allWrites:DataView[]=[],snapshots:BleState[]=[];
@@ -23,7 +23,7 @@ function harness(overrides:Partial<BleDriver>={},supported=true,freshResult=0,ca
    allWrites.push(packet);
    if(packet.getUint8(0)===1&&packet.getUint8(6)===10){
     const ack=new DataView(packet.buffer.slice(0));ack.setUint8(1,2);ack.setUint8(7,capable?0:1);
-    if(capable===true||capable==='malformed'||capable==='extended'||capable==='sound'){const caps=new DataView(new ArrayBuffer(20));[2,0x80,0,0,0,0,capable==='extended'?15:capable==='sound'?31:7,20,96,0,64,32,77,0,0,0,0x88,0x13].forEach((v,i)=>caps.setUint8(i,v));caps.setUint32(2,packet.getUint32(2,true),true);if(capable==='malformed')caps.setUint8(10,65);notified(caps);}
+    if(capable===true||capable==='malformed'||capable==='extended'||capable==='sound'||capable==='pocket'){const caps=new DataView(new ArrayBuffer(20));[2,0x80,0,0,0,0,capable==='extended'?15:capable==='sound'?31:capable==='pocket'?47:7,20,96,0,64,32,77,0,0,0,0x88,0x13].forEach((v,i)=>caps.setUint8(i,v));caps.setUint32(2,packet.getUint32(2,true),true);if(capable==='malformed')caps.setUint8(10,65);notified(caps);}
     if(capable!=='silent')notified(ack);return;
    }
    writes.push(packet);activeWrites++;maxWrites=Math.max(maxWrites,activeWrites);
@@ -537,6 +537,43 @@ test('Connect in settings turns a running quiet look into the visible scan, keep
  h.found('device-z');assert.equal(h.state.phase,'scanning');assert.equal(h.state.devices.length,2);
  await h.tick(BLE_TIMEOUTS.lookup);assert.equal(h.state.phase,'scanning');
  await h.actor.connect('device-a');await flush();assert.equal(h.state.phase,'connected');assert.equal(h.state.auto,false);h.actor.dispose();
+});
+
+const low=(n:number)=>{const p=new DataView(new ArrayBuffer(8));p.setUint8(0,2);p.setUint8(1,0x24);p.setUint32(2,n,true);return p;};
+const isLow=(p:DataView)=>p.getUint8(0)===2&&p.getUint8(1)===0x24;
+test('pocket firmware is flagged after negotiation; background frames wait for it and for every reaction',async()=>{
+ const h=harness({},true,0,'pocket');await h.ready(true);await flush();
+ assert.equal(h.state.pocket,true);
+ const plain=harness({},true,0,true);await plain.ready(true);await flush();assert.equal(plain.state.pocket,false);plain.actor.dispose();
+ const write=deferred(),slow=harness({write:(_,p)=>p.getUint8(0)===1&&p.getUint8(6)===COMMAND.HAPPY?write.promise:Promise.resolve()},true,0,'pocket');await slow.ready();await flush();
+ slow.actor.request(COMMAND.HAPPY);await flush();
+ let written=0;const first=slow.actor.writeLow(low(1)).then(()=>{written++;});void slow.actor.writeLow(low(2)).then(()=>{written++;});
+ await flush();assert.equal(written,0,'a reaction’s write goes first');assert.equal(slow.allWrites.filter(isLow).length,0);
+ write.resolve();await flush();await slow.ackLatest();await first;await flush();
+ assert.equal(written,2);assert.deepEqual(slow.allWrites.filter(isLow).map(p=>p.getUint32(2,true)),[1,2]);assert.equal(slow.maxWrites,1);slow.actor.dispose();
+});
+test('a reaction requested between background frames goes before the next frame',async()=>{
+ const gate=deferred(),h=harness({write:(_,p)=>isLow(p)&&p.getUint32(2,true)===1?gate.promise:Promise.resolve()},true,0,'pocket');await h.ready();await flush();
+ const order:string[]=[];
+ void h.actor.writeLow(low(1)).then(()=>order.push('low1'));void h.actor.writeLow(low(2)).then(()=>order.push('low2'));await flush();
+ h.actor.request(COMMAND.HAPPY);gate.resolve();await flush();
+ const sent=h.allWrites.filter(p=>isLow(p)||p.getUint8(0)===1&&p.getUint8(6)===COMMAND.HAPPY).map(p=>isLow(p)?'low'+p.getUint32(2,true):'happy');
+ assert.deepEqual(sent.slice(0,2),['low1','happy']);
+ await h.ackLatest();await flush();assert.deepEqual(order,['low1','low2']);h.actor.dispose();
+});
+test('background frames fail when the connection goes away or the app goes to the background; listeners see notifications',async()=>{
+ const h=harness({},true,0,'pocket');await h.ready();await flush();
+ const seen:number[]=[];const stop=h.actor.listen(p=>seen.push(p.getUint8(1)));
+ h.notify(new DataView(new Uint8Array([2,0xA0,1,0,0,0,0x24,0]).buffer));stop();h.notify(new DataView(new Uint8Array([2,0xA0,2,0,0,0,0x24,0]).buffer));
+ assert.deepEqual(seen,[0xA0]);
+ const gate=deferred(),p=harness({write:(_,x)=>isLow(x)?gate.promise:Promise.resolve()},true,0,'pocket');await p.ready();await flush();
+ void p.actor.writeLow(low(1)).catch(()=>{});const queued=p.actor.writeLow(low(2));
+ p.actor.setActive(false);await assert.rejects(queued);
+ await assert.rejects(p.actor.writeLow(low(3)),'not while paused');
+ const gate2=deferred(),e=harness({write:(_,x)=>isLow(x)?gate2.promise:Promise.resolve()},true,0,'pocket');await e.ready();await flush();
+ void e.actor.writeLow(low(1)).catch(()=>{});const waiting=e.actor.writeLow(low(2));e.disconnect();await assert.rejects(waiting);
+ await assert.rejects(e.actor.writeLow(low(3)),'not after a disconnect');
+ h.actor.dispose();await assert.rejects(h.actor.writeLow(low(4)),'not after disposal');
 });
 
 const volumes=(writes:DataView[])=>writes.filter(p=>p.getUint8(0)===1&&p.getUint8(6)===13).map(p=>p.getUint8(7));

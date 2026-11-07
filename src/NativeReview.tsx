@@ -18,7 +18,7 @@ function whenDue(day:string|undefined){
 export function ReviewHomeCard({review,onStart}:{review:ReviewController;onStart:()=>void}){
  if(!review.total)return null;
  const {due}=review;
- return <section className={`native-quick-card is-collapsed native-review-card${due?' is-due':''}`} aria-labelledby="native-review-title"><span className="native-quick-monogram" aria-hidden="true">↻</span><div><h2 id="native-review-title" tabIndex={-1}>Review</h2><p>{due?`${due} ${due===1?'word or phrase is':'words and phrases are'} ready.`:`All caught up. Next review ${whenDue(review.nextDue)}.`}</p></div>{due>0&&<button id="native-review-open" className="native-quick-open" aria-label={`Start review, ${due} due`} onClick={onStart}>Start <span aria-hidden="true">→</span></button>}</section>;
+ return <section className={`native-quick-card is-collapsed native-review-card${due?' is-due':''}`} aria-labelledby="native-review-title"><span className="native-quick-monogram" aria-hidden="true">↻</span><div><h2 id="native-review-title" tabIndex={-1}>Review</h2><p>{due?`${due} ${due===1?'word or phrase is':'words and phrases are'} ready.`:`All caught up. Next review ${whenDue(review.nextDue)}.`}{due>0&&review.onMini>0&&<span className="native-review-mini"> {review.onMini===due?(due===1?'It’s':'All are'):`${review.onMini} are`} on your Mini too.</span>}</p></div>{due>0&&<button id="native-review-open" className="native-quick-open" aria-label={`Start review, ${due} due`} onClick={onStart}>Start <span aria-hidden="true">→</span></button>}</section>;
 }
 
 // One mounted session per started review; hearts are unlimited so review never costs or refills them.

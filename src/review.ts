@@ -1,7 +1,8 @@
 import {nativeLessons} from './curriculum/catalog.ts';
 import type {Exercise,LessonDefinition,Word} from './curriculum/types.ts';
-import {normalizedDisplay} from './companionDisplay.ts';
+import {compactMeaning,normalizedDisplay} from './companionDisplay.ts';
 import {DISPLAY_MODE,validateCard,type LearningCard} from './learningProtocol.ts';
+import {POCKET_LIMITS,pocketText,type PocketAnswer,type PocketEntry} from './pocketProtocol.ts';
 import {shiftDay,validDay} from './nativeStats.ts';
 import {PRODUCT} from './config.ts';
 
@@ -13,7 +14,8 @@ export const LOG_LIMIT=1000;
 export const REVIEW_KEY=`${PRODUCT.storageKey}-native-review`;
 export const REVIEW_LESSON_ID='review';
 
-export type ReviewFormat='original'|'meaning'|'listen'|'recall'|'typed';
+// pocket: a self-graded flashcard answered on the keychain Mini (see the pocket deck below).
+export type ReviewFormat='original'|'meaning'|'listen'|'recall'|'typed'|'pocket';
 export type ReviewItem={box:number;due:string;lapses:number;reviews:number};
 // The log keeps every graded review so a smarter scheduler (e.g. FSRS) can be fitted later.
 export type ReviewLog={key:string;day:string;correct:boolean;format:ReviewFormat};
@@ -161,7 +163,7 @@ export function reviewHomeCard(due:number):LearningCard|undefined{
 }
 
 const validItem=(v:any)=>!!v&&typeof v==='object'&&Number.isInteger(v.box)&&v.box>=0&&v.box<=MAX_BOX&&typeof v.due==='string'&&validDay(v.due)&&Number.isSafeInteger(v.lapses)&&v.lapses>=0&&Number.isSafeInteger(v.reviews)&&v.reviews>=0;
-const formats:readonly ReviewFormat[]=['original','meaning','listen','recall','typed'];
+const formats:readonly ReviewFormat[]=['original','meaning','listen','recall','typed','pocket'];
 const validLog=(v:any)=>!!v&&typeof v.key==='string'&&catalog.byKey.has(v.key)&&typeof v.day==='string'&&validDay(v.day)&&typeof v.correct==='boolean'&&formats.includes(v.format);
 // Invalid or retired entries are dropped one by one; anything unreadable starts fresh and is re-seeded from passed lessons.
 export function restoreReview(raw:string|null):ReviewState{
@@ -171,4 +173,52 @@ export function restoreReview(raw:string|null):ReviewState{
   const items=Object.fromEntries(Object.entries(s.items).filter(([key,item])=>catalog.byKey.has(key)&&validItem(item)).map(([key,item]:[string,any])=>[key,{box:item.box,due:item.due,lapses:item.lapses,reviews:item.reviews}]));
   return {version:1,items,log:s.log.filter(validLog).map((l:any)=>({key:l.key,day:l.day,correct:l.correct,format:l.format})).slice(-LOG_LIMIT)};
  }catch{return emptyReview();}
+}
+
+// ---- Pocket review deck (keychain Mini) ----
+// Today's due words, as self-graded flashcards. New words (box 0-1) show Russian first (recognition);
+// known ones (box 2+) show the meaning first and ask for the Russian (recall), like the app's own formats.
+// Sentences and exercises stay in the app: a flashcard cannot check them.
+export type PocketDeckItem={key:string;box:number;reviews:number};
+export type PocketDeck={id:number;day:string;items:PocketDeckItem[]};
+export function buildPocketDeck(state:ReviewState,today:string,id:number,size:number=POCKET_LIMITS.cards):{deck:PocketDeck;entries:PocketEntry[]}|null{
+ const items:PocketDeckItem[]=[],entries:PocketEntry[]=[];
+ for(const key of dueKeys(state,today)){
+  if(items.length>=size)break;
+  const source=catalog.byKey.get(key),item=state.items[key];
+  if(!source?.word||!item)continue;
+  const russian=pocketText(source.word.text,POCKET_LIMITS.russian),meaning=pocketText(compactMeaning(source.word.meaning),POCKET_LIMITS.meaning);
+  if(!russian||!meaning)continue;
+  const englishFirst=item.box>=2;
+  items.push({key,box:item.box,reviews:item.reviews});
+  entries.push({russian,meaning,englishFirst});
+ }
+ return items.length?{deck:{id,day:today,items},entries}:null;
+}
+// Applies the Mini's answers to the deck it was given. An answer counts only if that word has not been
+// reviewed in the app since the deck was copied (the app's review is newer), each card counts once, and
+// its day is the Mini's stamp, kept between the deck's day and today (unknown: today).
+export type PocketApplied={key:string;knew:boolean;day:string};
+export function applyPocketAnswers(state:ReviewState,deck:PocketDeck,answers:readonly PocketAnswer[],today:string,dayOf:(n:number)=>string|undefined):{state:ReviewState;applied:PocketApplied[]}{
+ const items={...state.items},log=[...state.log],applied:PocketApplied[]=[],seen=new Set<number>();
+ for(const answer of [...answers].sort((a,b)=>(a.day||Infinity)-(b.day||Infinity)||a.card-b.card)){
+  const sent=deck.items[answer.card];
+  if(!sent||seen.has(answer.card))continue;
+  seen.add(answer.card);
+  const item=items[sent.key];
+  if(!item||item.reviews!==sent.reviews)continue;
+  const stamped=dayOf(answer.day),day=!stamped||stamped>today?today:stamped<deck.day?deck.day:stamped;
+  items[sent.key]=promote(item,answer.knew,day);
+  log.push({key:sent.key,day,correct:answer.knew,format:'pocket'});
+  applied.push({key:sent.key,knew:answer.knew,day});
+ }
+ return applied.length?{state:{...state,items,log:log.slice(-LOG_LIMIT)},applied}:{state,applied};
+}
+const validDeckItem=(v:any)=>!!v&&typeof v.key==='string'&&catalog.byKey.has(v.key)&&Number.isInteger(v.box)&&v.box>=0&&v.box<=MAX_BOX&&Number.isSafeInteger(v.reviews)&&v.reviews>=0;
+export function restorePocketDeck(raw:string|null):PocketDeck|undefined{
+ try{
+  const d=raw?JSON.parse(raw):null;
+  if(!d||!Number.isInteger(d.id)||d.id<1||d.id>0xffffffff||typeof d.day!=='string'||!validDay(d.day)||!Array.isArray(d.items)||d.items.length<1||d.items.length>POCKET_LIMITS.cards||!d.items.every(validDeckItem))return undefined;
+  return {id:d.id,day:d.day,items:d.items.map((i:any)=>({key:i.key,box:i.box,reviews:i.reviews}))};
+ }catch{return undefined;}
 }
