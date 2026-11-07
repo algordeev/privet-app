@@ -1,6 +1,7 @@
 // Host checks for firmware/PrivetMini_v0.8/MiniSound.h: every sound plays and ends, glides move
 // between their pitches, rests are silent, the levels get louder and never pass 50 % duty, Off is
-// silent, soft sounds are one level quieter, and a new sound replaces the one playing.
+// silent, soft sounds are one level quieter, a new sound replaces the one playing, and the purr
+// loops until stopped.
 #include <assert.h>
 #include <stdio.h>
 #include "MiniSound.h"
@@ -25,7 +26,7 @@ int main() {
     const Tune t = tune(s);
     assert(t.steps && t.count > 0);
     assert(t.steps[0].from != 0);                 // starts with a tone, not a rest
-    assert(t.steps[t.count - 1].from != 0);       // ends on a tone
+    if (!t.loops) assert(t.steps[t.count - 1].from != 0);  // ends on a tone (a loop may end on a pause)
     const uint32_t ms = length(s);
     assert(ms >= 20 && ms <= 1500);
     for (uint8_t i = 0; i < t.count; i++) {
@@ -47,8 +48,10 @@ int main() {
       assert(p.playing());
     }
     assert(heard);
-    assert(p.update(1000 + ms, MEDIUM).silent());
-    assert(!p.playing());
+    if (!t.loops) {
+      assert(p.update(1000 + ms, MEDIUM).silent());
+      assert(!p.playing());
+    }
     // Off: silent all the way through.
     Player off;
     off.play(s, 0);
@@ -83,6 +86,43 @@ int main() {
     p.play(STREAK, 100);
     p.stop();
     assert(p.update(110, LOUD).silent() && !p.playing());
+  }
+  {  // The purr (the hug): only it loops; it repeats the same pass for as long as it isn't stopped,
+     // flutters (tone and gaps every 10 ms tick, never a long gap mid-breath), and stops at once.
+    for (uint8_t s = NONE + 1; s < SOUNDS; s++) assert(tune(s).loops == (s == HUG));
+    const uint32_t pass = length(HUG);
+    assert(pass >= 600 && pass <= 1200);
+    for (uint8_t i = 0; i < tune(HUG).count; i++) assert(tune(HUG).steps[i].ms % 10 == 0);  // on the input tick
+    Player p;
+    p.play(HUG, 0);
+    int flutters = 0;
+    bool wasOn = false;
+    for (uint32_t at = 0; at < pass; at += 10) {
+      const Output first = p.update(at, LOUD), later = p.update(at + 20 * pass, LOUD);
+      assert(first.hz == later.hz && first.duty == later.duty);  // the 21st pass is the same as the first
+      if (!first.silent()) assert(first.hz <= 800 && first.duty == duty(LOUD, true));
+      if (wasOn && first.silent()) flutters++;
+      wasOn = !first.silent();
+    }
+    assert(flutters >= 15);  // the "rrr"
+    assert(p.playing());
+    p.stop();
+    assert(p.update(pass * 30 + 5, LOUD).silent() && !p.playing());
+  }
+  {  // Flashcards: the flip is one quiet tick; the shuffle three falling ticks with gaps between.
+    assert(tune(FLIP).soft && tune(SHUFFLE).soft);
+    assert(length(FLIP) <= 30 && length(SHUFFLE) <= 150);
+    Player p;
+    p.play(SHUFFLE, 0);
+    int ticks = 0;
+    uint16_t lastHz = 0xFFFF;
+    bool wasOn = false;
+    for (uint32_t at = 0; at < length(SHUFFLE); at += 10) {
+      const Output o = p.update(at, LOUD);
+      if (!o.silent() && !wasOn) { ticks++; assert(o.hz < lastHz); lastHz = o.hz; }
+      wasOn = !o.silent();
+    }
+    assert(ticks == 3);
   }
   {  // Nothing and unknown sounds stay silent.
     Player p;

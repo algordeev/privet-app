@@ -30,19 +30,22 @@ enum Sound : uint8_t {
   WAKE, HAPPY, ENCOURAGE, CELEBRATE, HINT, STREAK, NOD, ON_FIRE,
   // Local faces.
   GIGGLE, HUG, DIZZY, WHEE, STIR,
+  // Flashcards (nothing scored, so small and quiet).
+  FLIP, SHUFFLE,
   SOUNDS
 };
 
 inline const char *soundName(uint8_t sound) {
   static const char *const names[] = {"none", "wake", "happy", "encourage", "celebrate", "hint", "streak", "nod",
-                                      "on fire", "giggle", "hug", "dizzy", "whee", "stir"};
+                                      "on fire", "giggle", "purr", "dizzy", "whee", "stir", "flip", "shuffle"};
   return sound < SOUNDS ? names[sound] : "?";
 }
 
 // from = 0: a rest. to = 0 (or the same as from): a steady tone; otherwise a straight glide.
 struct Step { uint16_t from, to, ms; };
 // soft: one level quieter than the setting (never silent unless the setting is Off).
-struct Tune { const Step *steps; uint8_t count; bool soft; };
+// loops: starts again at the end until stopped (the purr, while the left button is held).
+struct Tune { const Step *steps; uint8_t count; bool soft; bool loops; };
 
 namespace tunes {
 constexpr Step wake[] = {{800, 1600, 90}, {0, 0, 30}, {1800, 0, 70}};
@@ -55,13 +58,30 @@ constexpr Step streak[] = {{1568, 0, 90}, {0, 0, 30}, {1568, 0, 90}, {0, 0, 30},
 constexpr Step nod[] = {{2400, 0, 20}};  // a tiny tick for every match pair
 constexpr Step onFire[] = {{1200, 1700, 50}, {1700, 1200, 50}, {1200, 1700, 50}, {1700, 1200, 50}, {0, 0, 30}, {2093, 0, 180}};
 constexpr Step giggle[] = {{1800, 2300, 50}, {0, 0, 30}, {1900, 2400, 50}, {0, 0, 30}, {2000, 2600, 60}};
-constexpr Step hug[] = {{700, 850, 140}, {0, 0, 40}, {850, 650, 220}};  // a soft "mmm"
+// A cat's "mrrr", for as long as the hug lasts. A small buzzer has no real rumble, so a low tone is
+// chopped on and off about 33 times a second (20 ms on, 10 ms off): that flutter is the "rrr". A
+// short "m" glide, a slightly higher in-breath, a pause, a lower out-breath, a longer pause; 0.9 s,
+// then again. Every step is a multiple of the 10 ms input tick.
+#define MINI_RR(hz) {hz, 0, 20}, {0, 0, 10}
+constexpr Step hug[] = {
+  {600, 720, 80},
+  MINI_RR(720), MINI_RR(715), MINI_RR(710), MINI_RR(705), MINI_RR(700),
+  MINI_RR(700), MINI_RR(695), MINI_RR(690), MINI_RR(685), MINI_RR(680),
+  {0, 0, 60},
+  MINI_RR(650), MINI_RR(645), MINI_RR(640), MINI_RR(640), MINI_RR(635),
+  MINI_RR(630), MINI_RR(625), MINI_RR(620), MINI_RR(615), MINI_RR(610),
+  {0, 0, 120},
+};
+#undef MINI_RR
 constexpr Step dizzy[] = {{2200, 1400, 150}, {1600, 900, 150}, {1100, 650, 200}};
 constexpr Step whee[] = {{700, 2600, 320}};
+// Ticks are 20 ms (two input ticks), so a tick that comes a millisecond late can't skip one.
+constexpr Step flip[] = {{2800, 0, 20}};  // a tick as the meaning appears
+constexpr Step shuffle[] = {{2600, 0, 20}, {0, 0, 30}, {2300, 0, 20}, {0, 0, 30}, {2000, 0, 20}};  // a shake was caught
 constexpr Step stir[] = {{700, 0, 120}, {0, 0, 60}, {700, 950, 130}};  // a drowsy "mm-hm?"
 }  // namespace tunes
 
-#define MINI_TUNE(name, soft) Tune{tunes::name, uint8_t(sizeof tunes::name / sizeof tunes::name[0]), soft}
+#define MINI_TUNE(name, soft) Tune{tunes::name, uint8_t(sizeof tunes::name / sizeof tunes::name[0]), soft, false}
 inline Tune tune(uint8_t sound) {
   switch (sound) {
     case WAKE: return MINI_TUNE(wake, false);
@@ -73,15 +93,22 @@ inline Tune tune(uint8_t sound) {
     case NOD: return MINI_TUNE(nod, true);
     case ON_FIRE: return MINI_TUNE(onFire, false);
     case GIGGLE: return MINI_TUNE(giggle, false);
-    case HUG: return MINI_TUNE(hug, true);
+    case HUG: {  // the purr, looping
+      Tune t = MINI_TUNE(hug, true);
+      t.loops = true;
+      return t;
+    }
     case DIZZY: return MINI_TUNE(dizzy, false);
     case WHEE: return MINI_TUNE(whee, false);
     case STIR: return MINI_TUNE(stir, true);
-    default: return Tune{nullptr, 0, false};
+    case FLIP: return MINI_TUNE(flip, true);
+    case SHUFFLE: return MINI_TUNE(shuffle, true);
+    default: return Tune{nullptr, 0, false, false};
   }
 }
 #undef MINI_TUNE
 
+// One pass; a looping sound repeats it until stopped.
 inline uint32_t length(uint8_t sound) {
   const Tune t = tune(sound);
   uint32_t ms = 0;
@@ -116,6 +143,7 @@ class Player {
     if (!sound_) return out;
     const Tune t = tune(sound_);
     uint32_t at = now - started_;
+    if (t.loops) at %= length(sound_);
     for (uint8_t i = 0; i < t.count; i++) {
       const Step &s = t.steps[i];
       if (at >= s.ms) { at -= s.ms; continue; }
