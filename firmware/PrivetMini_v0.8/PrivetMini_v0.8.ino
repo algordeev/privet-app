@@ -825,6 +825,9 @@ static uint8_t roundAnswered = 0, roundKnown = 0;
 static bool feedbackKnew = false;
 static bool reviewOpen() { return screen >= REVIEW_FRONT && screen <= REVIEW_EMPTY; }
 
+// The purr loops for as long as the hug face is up (see updateOLED).
+static bool purring = false;
+
 static void startLocal(uint8_t face, uint32_t now) {
   localFace = face; localAt = now;
   switch (face) {
@@ -832,7 +835,7 @@ static void startLocal(uint8_t face, uint32_t now) {
     case MiniFaces::WHEE: playSound(MiniSound::WHEE); break;
     case MiniFaces::DIZZY: playSound(MiniSound::DIZZY); break;
     case MiniFaces::GIGGLE: playSound(MiniSound::GIGGLE); break;
-    case MiniFaces::HUG: playSound(MiniSound::HUG); break;
+    case MiniFaces::HUG: playSound(MiniSound::HUG); purring = true; break;
     default: break;  // PROUD: the review's "done" already played its sound
   }
 }
@@ -948,6 +951,7 @@ static void rightPressed(uint32_t now, bool allowed) {
       break;
     case CARDS_FRONT:
       openScreen(CARDS_BACK, now);
+      playSound(MiniSound::FLIP);
       Serial.printf("[CARDS] meaning: %s\n", deck.words[cardIndex].meaning);
       break;
     case CARDS_BACK: showFlashcard(uint8_t((cardIndex + 1) % deck.count), now); break;
@@ -1047,7 +1051,10 @@ static void handleInput(uint8_t event, uint32_t now, bool connected, bool restin
     case SHAKEN:
       if (screen == CARDS_FRONT || screen == CARDS_BACK) {
         Serial.println("[MOTION] shaken: a random flashcard");
-        if (deck.count > 1) showFlashcard(uint8_t((cardIndex + 1 + esp_random() % (deck.count - 1)) % deck.count), now);
+        if (deck.count > 1) {
+          playSound(MiniSound::SHUFFLE);
+          showFlashcard(uint8_t((cardIndex + 1 + esp_random() % (deck.count - 1)) % deck.count), now);
+        }
       } else if (screen != FACE) Serial.println("[MOTION] shaken (ignored: menu open)");
       else if (!connected) { Serial.println("[MOTION] shaken"); stir(now, "MOTION"); }
       else if (resting && localFace != MiniFaces::HUG) { startLocal(MiniFaces::DIZZY, now); Serial.println("[MOTION] shaken: dizzy"); }
@@ -1178,6 +1185,9 @@ static void updateOLED(uint32_t now) {
     localFace = 0;
     power.touch(now);
     Serial.printf("[FACE] %s\n", reactionName(current));
+    // A hug in progress ends here: stop its purr first, so the reaction's own
+    // sound (posted after it) is the one that plays.
+    if (purring) { purring = false; stopSound("hug over"); }
     if (current == LISTENING) stopSound("phone speaking");
     else playSound(reactionSound(current));
   }
@@ -1220,6 +1230,8 @@ static void updateOLED(uint32_t now) {
     handleInput(event, now, connected, resting, wordsAllowed);
   }
   if (localFace && localDuration(localFace) && now - localAt >= localDuration(localFace)) localFace = 0;
+  // The hug ends (left let go, an app command, falling asleep): so does the purr.
+  if (purring && localFace != MiniFaces::HUG) { purring = false; stopSound("hug over"); }
   updateScreens(now);
 
   if (!oledReady || now - lastFrame < (dimmed ? FRAME_DIM_MS : FRAME_MS)) return;
