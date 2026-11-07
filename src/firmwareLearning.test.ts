@@ -67,6 +67,23 @@ test('Privet Mini v0.8 advertises sound only with a working buzzer and accepts S
  assert.match(source,/cmd == SET_VOLUME\) result = !buzzerReady\.load\(\) \? 1 : \(arg & ~VOLUME_PREVIEW\) >= MiniSound::LEVELS \? 2 : 0;/);
  assert.match(source,/if \(current == LISTENING\) stopSound\("phone speaking"\);/);
 });
+test('Privet Mini v0.9 battery (curve, smoothing, no cell, charging, low, the icon, faces clear of its corner) and its copied sound, motion, buttons, words, power and deck pass their host checks',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'privet-mini-v09-'));try{
+  for(const name of ['battery','sound','motion','buttons','words','power','deck']){
+   const compile=spawnSync('c++',['-std=c++17','-Wall','-Wextra','-Werror','-Ifirmware/PrivetMini_v0.9',`scripts/test-mini-${name}.cpp`,'-o',join(dir,name)],{encoding:'utf8'});assert.equal(compile.status,0,compile.stderr||String(compile.error));
+   const run=spawnSync(join(dir,name),[],{encoding:'utf8'});assert.equal(run.status,0,name+': '+run.stdout+run.stderr);
+  }
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+test('Privet Mini v0.9 reads the 10k/10k divider on D0 and draws the battery icon over faces only',()=>{
+ const source=readFileSync('firmware/PrivetMini_v0.9/PrivetMini_v0.9.ino','utf8');
+ assert.match(source,/BATTERY_PIN = 1;\s+\/\/ D0/);
+ assert.match(source,/BATTERY_DIVIDER_FITTED = true;/);
+ assert.match(source,/BATTERY_DIVIDER = 2\.0f;/);
+ assert.match(source,/if \(screen != FACE\) \{ drawScreen\(now\); overFace = screen == REVIEW_FEEDBACK; \}/);
+ assert.match(source,/drawCard\(cardLayout, shownCard\);\s+overFace = false;/);
+ assert.match(source,/if \(overFace\) drawBatteryCorner\(now\);\s+oled\.sendBuffer\(\);/);
+});
 test('S3 servos use one fixed LEDC channel each and release by duty 0, never by detaching',()=>{
  const source=readFileSync('firmware/PrivetBLE_S3/PrivetBLE_S3.ino','utf8');
  assert.doesNotMatch(source,/#include <ESP32Servo\.h>|\.detach\(\)|\.attach\(/);
@@ -82,10 +99,11 @@ test('firmware connection callback cannot independently start CONNECTED; callbac
  assert.match(source,/PrivetMotion::target/);assert.match(source,/updateServo\(millis\(\)\);\s*u8x8_DrawTile/);assert.doesNotMatch(source,/oled\.sendBuffer\(/);assert.match(source,/displayRefresh\.present\(oled\.getBufferPtr\(\)/);
  assert.match(source,/PrivetFaces::roundedRadius\(w,h,r\)/);assert.match(source,/U8G2_R2/);assert.match(source,/SERVO_MIN_US = 1300/);assert.match(source,/SERVO_MAX_US = 1700/);
 });
-test('Privet Mini faces: every reaction and local face draws a face, and the app draws the firmware\'s exact sleeping, CONNECTED and IDLE pixels',async()=>{
+test('Privet Mini faces (v0.6 and v0.9): every reaction and local face draws a face, and the app draws the firmware\'s exact sleeping, CONNECTED and IDLE pixels',async()=>{
  const {renderMiniFace}=await import('./miniFaces.ts');
+ for(const folder of ['PrivetMini_v0.6','PrivetMini_v0.9']){
  const dir=mkdtempSync(join(tmpdir(),'privet-mini-faces-'));try{
-  const compile=spawnSync('c++',['-std=c++17','-Wall','-Wextra','-Werror','-Ifirmware/PrivetMini_v0.6','scripts/test-mini-faces.cpp','-o',join(dir,'faces')],{encoding:'utf8'});assert.equal(compile.status,0,compile.stderr||String(compile.error));
+  const compile=spawnSync('c++',['-std=c++17','-Wall','-Wextra','-Werror',`-Ifirmware/${folder}`,'scripts/test-mini-faces.cpp','-o',join(dir,'faces')],{encoding:'utf8'});assert.equal(compile.status,0,compile.stderr||String(compile.error));
   const cases:[('sleeping'|'connected'|'idle'),number,number][]=[];
   for(let t=0;t<9600;t+=40)cases.push(['sleeping',t,t]);
   for(let t=0;t<2400;t+=10)cases.push(['connected',t,t]);
@@ -94,6 +112,7 @@ test('Privet Mini faces: every reaction and local face draws a face, and the app
   const code={sleeping:'sleeping',connected:'9',idle:'4'};
   const run=spawnSync(join(dir,'faces'),[],{encoding:'utf8',maxBuffer:64<<20,input:cases.map(([face,age,now])=>`${code[face]} ${age} ${now}`).join('\n')+'\n'});assert.equal(run.status,0,run.stdout+run.stderr);
   const frames=run.stdout.trim().split('\n');assert.equal(frames.length,cases.length);
-  cases.forEach(([face,age,now],i)=>assert.equal(Array.from(renderMiniFace(face,age,now)).join(''),frames[i],`${face} at ${age} ms (clock ${now})`));
+  cases.forEach(([face,age,now],i)=>assert.equal(Array.from(renderMiniFace(face,age,now)).join(''),frames[i],`${folder}: ${face} at ${age} ms (clock ${now})`));
  }finally{rmSync(dir,{recursive:true,force:true});}
+ }
 });

@@ -1,7 +1,7 @@
-// Renders the Mini's menu screens (firmware/PrivetMini_v0.8/MiniScreens.h) with the real U8g2 C library
+// Renders the Mini's menu screens (firmware/PrivetMini_v0.9/MiniScreens.h) with the real U8g2 C library
 // and fonts on a computer, for previews and for checking that nothing overlaps or falls off the screen.
 // Prints one line per screen: "name<TAB>1024 hex bytes" (U8g2's SSD1306 page layout).
-// Build: c++ -std=c++17 -Ifirmware/PrivetMini_v0.8 -I<U8g2>/src scripts/render-mini-screens.cpp <U8g2>/src/clib/*.c
+// Build: c++ -std=c++17 -Ifirmware/PrivetMini_v0.9 -I<U8g2>/src scripts/render-mini-screens.cpp <U8g2>/src/clib/*.c
 #include <stdio.h>
 #include "MiniScreens.h"
 using namespace MiniScreens;
@@ -22,7 +22,10 @@ int main() {
   u8g2_Setup_ssd1306_128x64_noname_f(&u, U8G2_R0, u8x8_byte_empty, u8x8_dummy_cb);
   shot("menu-review", [](u8g2_t *g) { menu(g, REVIEW, "7 due", "23", "Medium"); });
   shot("menu-flashcards", [](u8g2_t *g) { menu(g, FLASHCARDS, "done", "23", "Loud"); });
-  shot("menu-status", [](u8g2_t *g) { menu(g, STATUS, "none", "0", "Off"); });
+  shot("menu-status", [](u8g2_t *g) { menu(g, STATUS, "none", "0", "Off", 82); });
+  shot("menu-status-charging", [](u8g2_t *g) { menu(g, STATUS, "none", "0", "Off", 100, true); });
+  shot("menu-battery-low", [](u8g2_t *g) { menu(g, REVIEW, "7 due", "23", "Medium", 8); });
+  shot("menu-no-battery", [](u8g2_t *g) { menu(g, STATUS, "none", "0", "Off"); });
   shot("menu-sound", [](u8g2_t *g) { menu(g, SOUND, "7 due", "23", "Medium"); });
   shot("menu-exit", [](u8g2_t *g) { menu(g, EXIT, "7 due", "23", "Max"); });
   shot("review-front", [](u8g2_t *g) { reviewCard(g, 3, 7, 2, false, false, "Спасибо!", "Thank you!"); });
@@ -38,6 +41,8 @@ int main() {
   shot("flashcards-empty", [](u8g2_t *g) { flashcardsEmpty(g); });
   shot("status", [](u8g2_t *g) { status(g, true, 23, 7, -1); });
   shot("status-battery", [](u8g2_t *g) { status(g, false, 1, 0, 82); });
+  shot("status-battery-low", [](u8g2_t *g) { status(g, false, 1, 0, 6); });
+  shot("status-charging", [](u8g2_t *g) { status(g, true, 23, 7, 97, true); });
   for (int level = 0; level < 5; level++) {
     static const char *const names[] = {"Off", "Quiet", "Medium", "Loud", "Max"};
     static char name[16];
