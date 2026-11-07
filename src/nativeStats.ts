@@ -83,6 +83,18 @@ export function recordReviewFinish(stats:NativeStats,date:Date,xp=0):NativeStats
  const day=resolveToday(stats,date),lastSeenAt=Math.max(stats.lastSeenAt??0,date.getTime());
  return {...stats,days:{...stats.days,[day]:(stats.days[day]??0)+1},xp:xp>0?{...stats.xp,[day]:(stats.xp[day]??0)+xp}:stats.xp,lastSeenAt};
 }
+// Answers from the keychain Mini's pocket deck: each day with answers counts once as a practice day (for
+// the streak), with 1 XP per card the learner knew. Less than an in-app review on purpose: a self-graded
+// flashcard is easier. No gems; `latest` (a lesson receipt) is untouched. Days after today are ignored.
+export const POCKET_XP_PER_CARD=1;
+export function recordPocketReviews(stats:NativeStats,answers:readonly {day:string;knew:boolean}[],date:Date):NativeStats{
+ const today=resolveToday(stats,date),byDay=new Map<string,number>();
+ for(const {day,knew} of answers)if(validDay(day)&&day<=today)byDay.set(day,(byDay.get(day)??0)+(knew?POCKET_XP_PER_CARD:0));
+ if(!byDay.size)return stats;
+ const days={...stats.days},xp={...stats.xp};
+ for(const [day,earned] of byDay){days[day]=(days[day]??0)+1;if(earned>0)xp[day]=(xp[day]??0)+earned;}
+ return {...stats,days,xp,lastSeenAt:Math.max(stats.lastSeenAt??0,date.getTime())};
+}
 export function createStatsTracker(initial:NativeStats,save:(stats:NativeStats)=>void,now:()=>Date){
  let stats=initial;
  const recorded=new Set<string>();
