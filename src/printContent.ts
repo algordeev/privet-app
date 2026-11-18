@@ -79,7 +79,9 @@ function vocabulary(source:readonly LessonDefinition[],names:ReadonlySet<string>
  }
  return [...seen.values()];
 }
-export function practiceStrip(lesson:LessonDefinition,count=3):PracticeStrip{
+// focus: words to blank first, in order (a review strip puts the words you missed first).
+export function practiceStrip(lesson:LessonDefinition,count=3,{focus=[]}:{focus?:readonly string[]}={}):PracticeStrip{
+ const focusRank=(word:string)=>{const i=focus.indexOf(normalizedDisplay(word));return i<0?focus.length:i;};
  const names=courseNames(),sentences=lessonSentences(lesson);
  const own=vocabulary([lesson],names),course=vocabulary(nativeLessons,names).filter(w=>!own.includes(w));
  const lessonWords=new Set(lesson.words.map(w=>normalizedDisplay(w.text)));
@@ -99,7 +101,7 @@ export function practiceStrip(lesson:LessonDefinition,count=3):PracticeStrip{
  const candidates=sentences.flatMap((line,s)=>{
   const tokens=line.russian.split(' ');
   return tokens.map((token,i)=>({line,s,tokens,i,word:bare(token)})).filter(c=>CYRILLIC.test(c.word)&&normalizedDisplay(c.word).length>=2&&!names.has(normalizedDisplay(c.word)));
- }).sort((a,b)=>Number(lessonWords.has(normalizedDisplay(b.word)))-Number(lessonWords.has(normalizedDisplay(a.word)))||b.word.length-a.word.length||hash(lesson.id+a.word)-hash(lesson.id+b.word));
+ }).sort((a,b)=>focusRank(a.word)-focusRank(b.word)||Number(lessonWords.has(normalizedDisplay(b.word)))-Number(lessonWords.has(normalizedDisplay(a.word)))||b.word.length-a.word.length||hash(lesson.id+a.word)-hash(lesson.id+b.word));
  const items:PracticeItem[]=[],usedLines=new Set<number>(),usedWords=new Set<string>();
  const fromLine=(c:typeof candidates[number])=>{
   const token=c.tokens[c.i],at=token.indexOf(c.word),prefix=token.slice(0,at),suffix=token.slice(at+c.word.length);
@@ -107,14 +109,23 @@ export function practiceStrip(lesson:LessonDefinition,count=3):PracticeStrip{
   return item(c.word,(head?head+' ':'')+prefix,suffix+(tail?' '+tail:''),c.line.english,c.line.russian);
  };
  const take=(next:PracticeItem|undefined,word:string,line?:number)=>{if(!next)return;items.push(next);usedWords.add(normalizedDisplay(word));if(line!==undefined)usedLines.add(line);};
+ const fromMeaning=(word:Word)=>{
+  const russian=bare(word.stressed);
+  if(words(word.text).length!==1||usedWords.has(normalizedDisplay(russian))||names.has(normalizedDisplay(russian)))return;
+  take(item(russian,'','',word.meaning,russian),russian);
+ };
+ // With focus words (a review), in their order: each gets a blank in a line, or else a meaning item.
+ for(const f of focus){
+  if(items.length>=count)break;
+  if(usedWords.has(f))continue;
+  const c=candidates.find(c=>normalizedDisplay(c.word)===f&&!usedLines.has(c.s));
+  if(c){take(fromLine(c),c.word,c.s);continue;}
+  const word=lesson.words.find(w=>normalizedDisplay(w.text)===f);
+  if(word)fromMeaning(word);
+ }
  // 1) one blank per line; 2) a single word from its meaning (____ = coffee); 3) a second blank in a line.
  for(const c of candidates)if(items.length<count&&!usedLines.has(c.s)&&!usedWords.has(normalizedDisplay(c.word)))take(fromLine(c),c.word,c.s);
- for(const word of lesson.words){
-  if(items.length>=count)break;
-  const russian=bare(word.stressed);
-  if(words(word.text).length!==1||usedWords.has(normalizedDisplay(russian))||names.has(normalizedDisplay(russian)))continue;
-  take(item(russian,'','',word.meaning,russian),russian);
- }
+ for(const word of lesson.words)if(items.length<count)fromMeaning(word);
  for(const c of candidates)if(items.length<count&&!usedWords.has(normalizedDisplay(c.word)))take(fromLine(c),c.word,c.s);
  const typed=lesson.exercises.find(e=>e.kind==='typed');
  const single=lesson.words.find(w=>words(w.text).length===1);
@@ -122,6 +133,29 @@ export function practiceStrip(lesson:LessonDefinition,count=3):PracticeStrip{
  // The word to trace and write has no stress marks: it is written as it would be by hand.
  const trace=traceWord?{russian:bare(traceWord.text),english:traceWord.meaning}:typed?{russian:typed.answer,english:typed.translation??''}:undefined;
  return {lesson,items,trace,answers:items.map((entry,i)=>`${i+1} ${entry.options[entry.answer]}`)};
+}
+
+// Review strip: the practice strip for a finished review session. Its lines come from the lessons
+// the reviewed words belong to and contain at least one of them; words answered wrong are blanked
+// first and the word to trace is the first one missed (else the first reviewed). No new Russian.
+export type ReviewedItem={key:string;correct:boolean};
+export function reviewStrip(items:readonly ReviewedItem[],today:string,count=3):PracticeStrip{
+ const ordered=[...items.filter(i=>!i.correct),...items.filter(i=>i.correct)];
+ const sources=ordered.map(i=>reviewSource(i.key)).filter((s):s is NonNullable<typeof s>=>!!s);
+ const reviewed:Word[]=[],seen=new Set<string>();
+ for(const s of sources)if(s.word&&!seen.has(normalizedDisplay(s.word.text))){seen.add(normalizedDisplay(s.word.text));reviewed.push(s.word);}
+ const tokens=new Set(reviewed.flatMap(w=>words(w.text)));
+ const lessons=[...new Set(sources.map(s=>s.lesson))];
+ // Lines of those lessons that use a reviewed word (or come from a reviewed exercise).
+ const exerciseLessons=new Set(sources.filter(s=>!s.word).map(s=>s.lesson));
+ const lines=lessons.flatMap(lesson=>lessonSentences(lesson).filter(line=>exerciseLessons.has(lesson)||words(line.russian).some(t=>tokens.has(t))));
+ const single=reviewed.find(w=>words(w.text).length===1);
+ const label=new Date(`${today}T12:00:00`).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+ const lesson:LessonDefinition={id:'review',number:'',title:`Review · ${label}`,description:'',icon:'↻',motivationTags:[],skills:[],prerequisiteIds:[],words:reviewed,
+  exercises:[...lines.map((line,i)=>({id:`line-${i}`,kind:'sentence' as const,title:'',instruction:'',prompt:line.russian,translation:line.english,answer:'',review:'',success:''})),
+   ...(single?[{id:'trace',kind:'typed' as const,title:'',instruction:'',prompt:single.text,answer:single.text,translation:single.meaning,review:'',success:''}]:[])],
+  summary:'',completionTip:''};
+ return practiceStrip(lesson,count,{focus:[...new Set(reviewed.flatMap(w=>words(w.text)))]});
 }
 
 // Progress receipt.

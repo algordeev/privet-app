@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {nativeLessons} from './curriculum/catalog.ts';
-import {exampleFor,practiceStrip,progressReceipt,wordOfTheDay} from './printContent.ts';
+import {exampleFor,practiceStrip,progressReceipt,reviewStrip,wordOfTheDay} from './printContent.ts';
 import {emptyReview,type ReviewState} from './review.ts';
 import {emptyStats,localDay} from './nativeStats.ts';
 import {normalizedDisplay} from './companionDisplay.ts';
@@ -71,4 +71,18 @@ test('the receipt counts today only: streak week Mon–Sun, new words, reviews, 
  assert.equal(receipt.todayXp,20);assert.equal(receipt.totalXp,35);
  const empty=progressReceipt(emptyStats(),emptyReview(),[],now);
  assert.equal(empty.accuracy,null);assert.equal(empty.words.length,0);assert.equal(empty.streak,0);
+});
+test('a review strip puts the missed words first, traces the first one missed and uses only lesson lines',()=>{
+ const strip=reviewStrip([{key:'cafe/w/tea',correct:true},{key:'cafe/w/coffee',correct:false},{key:'cafe/w/thanks',correct:false},{key:'around-town/w/excuse',correct:true}],'2026-11-19');
+ assert.equal(strip.lesson.number,'');assert.match(strip.lesson.title,/^Review · /);
+ const answers=strip.items.map(i=>plain(i.options[i.answer]));
+ assert.deepEqual(answers.slice(0,2),['кофе','спасибо']);
+ assert.equal(strip.trace?.russian,'кофе');
+ assert.equal(strip.items.length,3);
+ for(const item of strip.items){assert.equal(new Set(item.options.map(plain)).size,3);assert.ok(item.english);}
+ // Every blanked line is a real line of one of the reviewed lessons.
+ for(const item of strip.items.filter(i=>i.before||i.after))assert.ok([...nativeLessons].some(l=>[...l.words.map(w=>plain(w.text)),...l.exercises.map(e=>plain(e.prompt)),...l.exercises.map(e=>plain(e.exchange?.text??''))].includes(plain(item.before+item.options[item.answer]+item.after))),item.before+'…'+item.after);
+ const allRight=reviewStrip([{key:'shopping/w/bread',correct:true},{key:'daily-life/w/morning',correct:true}],'2026-11-19');
+ assert.equal(allRight.trace?.russian,'хлеб');assert.ok(allRight.items.length>=2);
+ assert.equal(reviewStrip([],'2026-11-19').items.length,0);
 });

@@ -172,8 +172,10 @@ export function renderWordCard(card:WordCard):Rendered{
 
 export function renderPracticeStrip(strip:PracticeStrip):Rendered{
  const c=new Card(),ctx=c.ctx;
- c.header(`Lesson ${strip.lesson.number} · ${strip.lesson.title}`);c.gap(10);
- c.banner('PRACTICE · FILL THE GAP');
+ // A review strip has no lesson number; its title is "Review · <date>".
+ const review=!strip.lesson.number;
+ c.header(review?strip.lesson.title:`Lesson ${strip.lesson.number} · ${strip.lesson.title}`);c.gap(10);
+ c.banner(review?'REVIEW · FILL THE GAP':'PRACTICE · FILL THE GAP');
  strip.items.forEach((item,index)=>{
   c.gap(16);
   // Number badge, then the line with a blank.
