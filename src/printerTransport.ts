@@ -17,8 +17,9 @@ export interface PrinterDriver {
 }
 export type PrinterPhase='disconnected'|'scanning'|'connecting'|'connected'|'printing'|'unavailable'|'permission-denied'|'error';
 // quiet: the app's own background look for the remembered printer; it shows nothing and ends silently.
+// offer: that quiet look may show a printer it finds in the "printer found" card (home only).
 // auto: the connection was started by the app itself (from a quiet look), not by the user.
-export type PrinterState={phase:PrinterPhase;message:string;devices:PrinterDevice[];device?:PrinterDevice;progress?:{sent:number;total:number};busy:boolean;paused?:boolean;quiet?:boolean;auto?:boolean};
+export type PrinterState={phase:PrinterPhase;message:string;devices:PrinterDevice[];device?:PrinterDevice;progress?:{sent:number;total:number};busy:boolean;paused?:boolean;quiet?:boolean;offer?:boolean;auto?:boolean};
 export type PrintResult='done'|'cancelled'|'failed';
 export const PRINTER_IDLE='No printer connected.';
 // The printer takes one connection at a time: while iPrint (or another phone) holds it, it can't be
@@ -64,7 +65,7 @@ export function createPrinterTransport(driver:PrinterDriver,emit:(state:PrinterS
   // A running job sees the new generation and stops before its next packet.
   if(job){job.cancelled=true;job.wake?.();}
   const id=state.device?.deviceId;
-  update({phase,message,devices:[],device:undefined,progress:undefined,paused:false,quiet:false,auto:false});cleanup(id);
+  update({phase,message,devices:[],device:undefined,progress:undefined,paused:false,quiet:false,offer:false,auto:false});cleanup(id);
  }
  function failure(error:unknown,g:number,fallback:string){
   if(!current(g))return;
@@ -76,19 +77,19 @@ export function createPrinterTransport(driver:PrinterDriver,emit:(state:PrinterS
  // target: the remembered printer, connected to as soon as it's seen.
  // quiet: the app's own background look (see discover); it shows nothing, never reports errors (except
  // a permission denial) and ends silently after a short window.
- async function scan({target,quiet=false}:{target?:string;quiet?:boolean}={}){
+ async function scan({target,quiet=false,offer=false}:{target?:string;quiet?:boolean;offer?:boolean}={}){
   // Connect or Print during a quiet look: the same scan becomes the visible one, keeping what it found.
   if(!quiet&&alive&&state.phase==='scanning'&&state.quiet){
    const g=generation;clearScanTimer();
    scanTimer=timer.set(()=>{if(current(g)&&state.phase==='scanning')invalidate('disconnected',state.devices.length?'Scan finished. Tap Connect to look again.':`No printer found. Turn it on and keep it close. ${PRINTER_BUSY_HINT}`);},time.scan);
-   update({quiet:false,message:'Looking for your printer…'});
+   update({quiet:false,offer:false,message:'Looking for your printer…'});
    return;
   }
   if(!alive||(quiet&&!active)||state.busy||['scanning','connecting','connected','printing'].includes(state.phase))return;
   if(options.supported&&!options.supported()){if(!quiet)update({phase:'unavailable',message:'Printing works only in the Privet iPhone app on a real device.'});return;}
   const g=++generation;touched=true;
   const stop=(phase:PrinterPhase,message:string)=>invalidate(quiet?'disconnected':phase,quiet?PRINTER_IDLE:message);
-  update({phase:'scanning',message:quiet?PRINTER_IDLE:'Preparing Bluetooth…',devices:[],device:undefined,progress:undefined,quiet,auto:false});
+  update({phase:'scanning',message:quiet?PRINTER_IDLE:'Preparing Bluetooth…',devices:[],device:undefined,progress:undefined,quiet,offer:quiet&&offer,auto:false});
   try{
    await bounded(driver.initialize(),time.initialize,'Bluetooth took too long. Try again.');
    if(!current(g))return;
@@ -100,7 +101,7 @@ export function createPrinterTransport(driver:PrinterDriver,emit:(state:PrinterS
     if(!current(g)||state.phase!=='scanning')return;
     if(state.quiet){invalidate('disconnected',PRINTER_IDLE);return;}
     invalidate('disconnected',state.devices.length?'Scan finished. Tap Connect to look again.':`No printer found. Turn it on and keep it close. ${PRINTER_BUSY_HINT}`);
-   },quiet?time.lookup:time.scan);
+   },quiet&&!offer?time.lookup:time.scan);
    await bounded(driver.scan(device=>{
     if(!current(g)||state.phase!=='scanning')return;
     const devices=[...state.devices.filter(d=>d.deviceId!==device.deviceId),device];
@@ -115,10 +116,16 @@ export function createPrinterTransport(driver:PrinterDriver,emit:(state:PrinterS
  }
  // The app's own look for the remembered printer, only while nothing else is under way and the app is
  // in the foreground. The caller decides that Bluetooth was granted before (a printer is remembered).
- function discover(target:string){
-  if(!alive||!active||state.busy||!['disconnected','error','unavailable'].includes(state.phase))return Promise.resolve();
-  return scan({target,quiet:true});
+ // - target: the remembered printer, connected to as soon as it is seen.
+ // - offer: home's look for any other printer, for the "printer found" card.
+ function discover({target,offer=false}:{target?:string;offer?:boolean}){
+  if(!alive||!active||state.busy||!['disconnected','error','unavailable'].includes(state.phase)||(!target&&!offer))return Promise.resolve();
+  return scan({target,quiet:true,offer});
  }
+ // While the "printer found" card is showing, the scan window must not expire under it.
+ function holdScan(){if(state.phase==='scanning')clearScanTimer();}
+ // "Not now" on the card, or leaving home: end a quiet look without a trace.
+ function stopDiscovery(){if(state.phase==='scanning'&&state.quiet)invalidate('disconnected',PRINTER_IDLE);}
  // auto: started by the app itself (a quiet look found the remembered printer); its failures end quietly.
  async function connect(deviceId:string,auto=false){
   const device=state.devices.find(d=>d.deviceId===deviceId);
@@ -208,7 +215,7 @@ export function createPrinterTransport(driver:PrinterDriver,emit:(state:PrinterS
   if(running){running.cancelled=true;running.wake?.();await running.done;}
   if(state.phase!=='disconnected'||state.device)invalidate('disconnected',message);
  }
- return {scan,discover,connect:(deviceId:string)=>connect(deviceId),print,cancel,disconnect,getState:()=>state,
+ return {scan,discover,holdScan,stopDiscovery,connect:(deviceId:string)=>connect(deviceId),print,cancel,disconnect,getState:()=>state,
   // In the background iOS suspends the web view, so a job would stall: finish it cleanly and release
   // the printer (it takes one connection, e.g. for iPrint).
   setActive(value:boolean){

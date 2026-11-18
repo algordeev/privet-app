@@ -1,10 +1,10 @@
 import {useEffect,useRef,useState} from 'react';
-import {createRobotScene,type RobotMood,type RobotScene} from './robotScene';
-import type {CompanionModel} from './bleProtocol';
+import {createRobotScene,type FigureModel,type RobotMood,type RobotScene} from './robotScene';
+import {PrintIcon} from './Icons';
 import {OledFace} from './OledFace';
 
 // Loaded lazily (three.js stays out of the main bundle). Without WebGL it falls back to the flat face.
-export default function Robot3D({mood,model='desk'}:{mood:RobotMood;model?:CompanionModel}){
+export default function Robot3D({mood,model='desk'}:{mood:RobotMood;model?:FigureModel}){
  const canvas=useRef<HTMLCanvasElement>(null),scene=useRef<RobotScene|null>(null);
  const [failed,setFailed]=useState(false),[ready,setReady]=useState(false);
  useEffect(()=>{
@@ -18,5 +18,6 @@ export default function Robot3D({mood,model='desk'}:{mood:RobotMood;model?:Compa
   return ()=>{observer.disconnect();scene.current=null;robot.dispose();};
  },[model]);
  useEffect(()=>{scene.current?.setMood(mood);},[mood,model]);
- return failed?<OledFace mood={mood} model={model}/>:<canvas ref={canvas} className="robot-3d" data-ready={ready} aria-hidden="true"/>;
+ // The printer has no screen: without WebGL it shows a printer icon instead.
+ return failed?(model==='printer'?<span className="robot-3d-fallback-printer"><PrintIcon/></span>:<OledFace mood={mood} model={model}/>):<canvas ref={canvas} className="robot-3d" data-ready={ready} aria-hidden="true"/>;
 }

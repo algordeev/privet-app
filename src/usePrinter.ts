@@ -5,6 +5,7 @@ import {appStorage} from './previewStorage';
 import {PRODUCT} from './config';
 import {DEFAULT_ENERGY,ENERGY,printJob} from './printerProtocol';
 import {createNativePrinterDriver} from './printerDriver';
+import {BLE_USED_KEY} from './usePhysicalCompanion';
 import {createPrinterTransport,initialPrinterState,type PrinterDevice,type PrinterState,type PrinterTransport} from './printerTransport';
 
 // The thermal printer remembered by itself, apart from the companion (COMPANION_KEY), so the companion's
@@ -31,6 +32,9 @@ export function autoReconnectPrinter():PrinterDevice|undefined{
  try{if(appStorage.getItem(PRINTER_AUTO_OFF_KEY)==='1')return undefined;}catch{return undefined;}
  return rememberedPrinter();
 }
+// Bluetooth was granted before (a companion or a printer connected): only then may home look for a new
+// printer by itself, without a permission prompt.
+function bluetoothUsed(){try{return appStorage.getItem(BLE_USED_KEY)==='1'||!!rememberedPrinter();}catch{return false;}}
 export const printingSupported=()=>Capacitor.isNativePlatform()&&Capacitor.getPlatform()==='ios'&&Capacitor.isPluginAvailable('BluetoothLe');
 
 export function usePrinter(){
@@ -41,13 +45,25 @@ export function usePrinter(){
  // Rows waiting for a connection: Print while disconnected connects first, then prints.
  const pending=useRef<Uint8Array[]|undefined>(undefined);
  const reconnect=useRef<{timer?:ReturnType<typeof setTimeout>;lostAt:number;running:boolean}>({lostAt:Date.now(),running:false});
+ // Home's quiet look for a printer the app doesn't know yet, for the "printer found" card. "Not now"
+ // (or Disconnect) ends it for this app session.
+ const discovery=useRef<{wanted:boolean;dismissed:boolean}>({wanted:false,dismissed:false});
  const lookAgain=useCallback(()=>{
-  const r=reconnect.current;clearTimeout(r.timer);r.timer=undefined;
+  const r=reconnect.current,d=discovery.current;clearTimeout(r.timer);r.timer=undefined;
   if(!r.running)return;
-  const target=autoReconnectPrinter()?.deviceId;
-  if(target)void transport.current?.discover(target);
-  r.timer=setTimeout(lookAgain,Date.now()-r.lostAt<LOOK_FAST_FOR_MS?LOOK_FAST_MS:LOOK_SLOW_MS);
+  const target=autoReconnectPrinter()?.deviceId,offer=d.wanted&&!d.dismissed&&bluetoothUsed();
+  if(target||offer)void transport.current?.discover({target,offer});
+  r.timer=setTimeout(lookAgain,offer||Date.now()-r.lostAt<LOOK_FAST_FOR_MS?LOOK_FAST_MS:LOOK_SLOW_MS);
  },[]);
+ // Home calls this while it is open; the returned function stops it.
+ const discover=useCallback(()=>{
+  const d=discovery.current;d.wanted=true;lookAgain();
+  return ()=>{d.wanted=false;transport.current?.stopDiscovery();};
+ },[lookAgain]);
+ const dismissDiscovery=useCallback(()=>{discovery.current.dismissed=true;transport.current?.stopDiscovery();},[]);
+ const holdScan=useCallback(()=>{transport.current?.holdScan();},[]);
+ // Closing the card mid-connection: that attempt only (auto-reconnect is unchanged).
+ const cancelConnection=useCallback(()=>{pending.current=undefined;transport.current?.cancel();},[]);
  const getState=useCallback(()=>store.current!.state,[]);
  const subscribe=useCallback((listener:()=>void)=>{store.current!.listeners.add(listener);return ()=>{store.current!.listeners.delete(listener);};},[]);
  const start=useCallback((rows:Uint8Array[])=>{void transport.current?.print(printJob(rows,{energy:savedEnergy()}));},[]);
@@ -56,6 +72,7 @@ export function usePrinter(){
   store.current!.state=next;
   if(next.phase==='connected'&&previous.phase==='connecting'&&next.device){
    try{
+    appStorage.setItem(BLE_USED_KEY,'1');
     appStorage.setItem(PRINTER_KEY,JSON.stringify({deviceId:next.device.deviceId,name:next.device.name}));
     // Connected by hand: reconnecting by itself is on again.
     if(!next.auto)appStorage.removeItem(PRINTER_AUTO_OFF_KEY);
@@ -105,13 +122,13 @@ export function usePrinter(){
  const cancel=useCallback(()=>{pending.current=undefined;transport.current?.cancel();},[]);
  // Disconnect by hand: the app stops reconnecting by itself until the next connection by hand.
  const disconnect=useCallback(()=>{
-  pending.current=undefined;
+  pending.current=undefined;discovery.current.dismissed=true;
   try{appStorage.setItem(PRINTER_AUTO_OFF_KEY,'1');}catch{/* Reconnecting stays on. */}
   void transport.current?.disconnect();
  },[]);
  const setEnergy=useCallback((value:number)=>{if(!energies.includes(value))return;try{appStorage.setItem(PRINTER_ENERGY_KEY,String(value));}catch{/* Used for this print only. */}},[]);
  const forget=useCallback(()=>{try{appStorage.removeItem(PRINTER_KEY);}catch{/* Nothing to forget. */}},[]);
- return {getState,subscribe,connect,choose,print,cancel,disconnect,energy:savedEnergy,setEnergy,remembered:rememberedPrinter,autoTarget:autoReconnectPrinter,forget,supported:printingSupported};
+ return {getState,subscribe,connect,choose,discover,dismissDiscovery,holdScan,cancelConnection,print,cancel,disconnect,energy:savedEnergy,setEnergy,remembered:rememberedPrinter,autoTarget:autoReconnectPrinter,forget,supported:printingSupported};
 }
 export type PrinterController=ReturnType<typeof usePrinter>;
 export function usePrinterState(controller:PrinterController){return useSyncExternalStore(controller.subscribe,controller.getState,controller.getState);}

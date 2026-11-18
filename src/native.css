@@ -729,3 +729,5 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .vocab-print svg { width: 24px; height: 24px; }
 .native-app .native-profile-print { width: 100%; margin-top: 16px; }
 .native-app .native-print-practice svg, .native-app .native-profile-print svg { width: 20px; height: 20px; vertical-align: -4px; margin-right: 6px; }
+.robot-3d-fallback-printer { display: grid; place-items: center; height: 100%; color: #3f7fd0; }
+.robot-3d-fallback-printer svg { width: 96px; height: 96px; }
