@@ -45,7 +45,7 @@ test('a scan lists printers once each and connects to the remembered printer as 
  const auto=harness();await auto.actor.scan({target:'printer-a'});auto.found('other','MX10');auto.found();await flush();
  assert.equal(auto.state.phase,'connected');assert.equal(auto.state.device?.deviceId,'printer-a');
 });
-test('no printer found, or a failed connection, explains the one-connection limit (iPrint)',async()=>{
+test('no printer found, or a failed connection, explains the one-connection limit',async()=>{
  const h=harness();await h.actor.scan();await h.tick(PRINTER_TIMEOUTS.scan);
  assert.equal(h.state.phase,'disconnected');assert.match(h.state.message,/No printer found/);assert.ok(h.state.message.includes(PRINTER_BUSY_HINT));
  const never=harness({connect:()=>new Promise(()=>{})});await never.actor.scan();never.found();void never.actor.connect('printer-a');await flush();await never.tick(PRINTER_TIMEOUTS.connect);

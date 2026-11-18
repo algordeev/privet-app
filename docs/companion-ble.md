@@ -298,7 +298,7 @@ Authenticated ownership/pairing, broader recovery and process-termination restor
 - `src/bleProtocol.ts`: unchanged UUIDs/version, commands 1–9, binary codec and process-wide IDs.
 - `src/learningProtocol.ts`: separate capability control, v2 codecs, CRC and scalar-safe byte limits.
 - `src/companionDisplay.ts`: pure safe content generation and compact ID-keyed metadata.
-- `src/bleDriver.ts`: installed plugin adapter, supported native connection queries and existing listener/subscription ownership.
+- `src/bleDriver.ts`: installed plugin adapter, supported native connection queries and existing listener/subscription ownership. Initialization, scanning and the Bluetooth-enabled listener go through the shared layer in `src/bleShared.ts` (created in `src/bleNative.ts`), shared with the thermal printer: the companion's scan is a lease on one shared native scan, and its cleanup releases only its own lease and listeners, never the printer's ([thermal-printer.md, *Shared Bluetooth state*](thermal-printer.md#shared-bluetooth-state)).
 - `src/bleTransport.ts`: app-wide connection state, separate lifecycle revisions, foreground reconciliation, bounded scheduler and cancellation.
 - `src/physicalLessonEvents.ts`: accepted lesson transition mapping and duplicate-event suppression.
 - `src/usePhysicalCompanion.ts`: root ownership, lifecycle and semantic event wiring.
@@ -313,7 +313,7 @@ Authenticated ownership/pairing, broader recovery and process-termination restor
 - `firmware/PrivetBLE_Servo/PrivetBLE_Servo.ino`: legacy commands-1–4 BLE/OLED/servo variant with clamped pulse targets, loop-driven slew and PWM release.
 - `firmware/PrivetBLE_Lessons/PrivetBLE_Lessons.ino`: retained OLED-only baseline; same packet contract, earlier celebration duration.
 
-The existing local Swift package `CapacitorCommunityBluetoothLe` remains in `ios/App/CapApp-SPM/Package.swift`. `NSBluetoothAlwaysUsageDescription` is unchanged; `UIBackgroundModes` now includes `bluetooth-central`. No signing/app-ID change, new plugin, network service, `server.url` or plugin fork was introduced. Native content remains bundled locally; GitHub Pages keeps its own base path.
+The existing local Swift package `CapacitorCommunityBluetoothLe` remains in `ios/App/CapApp-SPM/Package.swift`. `NSBluetoothAlwaysUsageDescription` now also mentions the thermal printer; `UIBackgroundModes` includes `bluetooth-central`. No signing/app-ID change, new plugin, network service, `server.url` or plugin fork was introduced. Native content remains bundled locally; GitHub Pages keeps its own base path.
 
 ## Rebuild and sync
 

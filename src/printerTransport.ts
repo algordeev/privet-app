@@ -22,9 +22,9 @@ export type PrinterPhase='disconnected'|'scanning'|'connecting'|'connected'|'pri
 export type PrinterState={phase:PrinterPhase;message:string;devices:PrinterDevice[];device?:PrinterDevice;progress?:{sent:number;total:number};busy:boolean;paused?:boolean;quiet?:boolean;offer?:boolean;auto?:boolean};
 export type PrintResult='done'|'cancelled'|'failed';
 export const PRINTER_IDLE='No printer connected.';
-// The printer takes one connection at a time: while iPrint (or another phone) holds it, it can't be
+// The printer takes one connection at a time: while another app or phone holds it, it can't be
 // found or won't connect.
-export const PRINTER_BUSY_HINT='If iPrint or another phone is connected to the printer, disconnect it there, then try again.';
+export const PRINTER_BUSY_HINT='If another app or phone is connected to the printer, disconnect it there, then try again.';
 export const initialPrinterState=():PrinterState=>({phase:'disconnected',message:PRINTER_IDLE,devices:[],busy:false});
 // pace: the gap after each packet, so iOS doesn't drop writes without response.
 // stall: how long a flow-control pause may last before the job gives up.
@@ -217,7 +217,7 @@ export function createPrinterTransport(driver:PrinterDriver,emit:(state:PrinterS
  }
  return {scan,discover,holdScan,stopDiscovery,connect:(deviceId:string)=>connect(deviceId),print,cancel,disconnect,getState:()=>state,
   // In the background iOS suspends the web view, so a job would stall: finish it cleanly and release
-  // the printer (it takes one connection, e.g. for iPrint).
+  // the printer (it takes one connection, e.g. for another app).
   setActive(value:boolean){
    active=value;
    if(value)return;

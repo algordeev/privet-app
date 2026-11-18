@@ -65,15 +65,23 @@ On return, the app waits boundedly for any already-submitted native write, check
 
 `bluetooth-central` enables native Core Bluetooth support, not continuous WKWebView JavaScript execution. iOS, range or power loss can interrupt the connection. While the app is in the foreground it reconnects to the last companion by itself when it is nearby (see [docs/companion-ble.md](docs/companion-ble.md), *Automatic reconnect*; Disconnect turns that off until the next connection by hand). There is no background reconnection, polling of a connected companion, heartbeat, background speech or process-termination restoration, and no promise of uninterrupted connectivity or persistence after force-quit/OS termination.
 
+## Thermal printer
+
+The native app can print learning cards on a 57 mm Bluetooth thermal "cat" printer (tested on an SC03h; the same protocol is used by GB01–GB03, GT01, MX05–MX11 and YT01). Connect it in **Settings → Printer** (disconnect it from any other app first: the printer takes one connection at a time). While it is connected, print buttons appear on revealed vocabulary words (a word card), the end-of-lesson summary (a practice strip with fill-in-the-blank items, trace & write and upside-down answers), Profile (a progress receipt with streak, words, accuracy and weekly XP) and Settings → Printer (word of the day, test page). Each print shows a preview, a Light/Normal/Dark darkness setting and rows-sent progress with Cancel. Like the companions, the app remembers the printer and reconnects to it by itself while it is open (Disconnect turns that off), and home offers a nearby printer in a "printer found" card with a 3D model of it. The printer and a companion can be connected at the same time. See [docs/thermal-printer.md](docs/thermal-printer.md) for the protocol, connection rules, how the cards are built and what has been verified.
+
+[![Privet thermal printer concept body: before connecting, and printing a Privet strip](public/images/printer-concept.webp)](public/images/printer-concept.webp)
+
+The pictured Privet body (white front with the printed cat face and the Privet wordmark, mint shell and ears) is a concept, rendered from the app's 3D model; the app works with an ordinary SC03h-type printer as it is.
+
 ## Companion concept illustrations
 
-White and coral explorations of the optional desk companion, showing a possible enclosure and internal arrangement, and the Privet Mini keychain. The ESP32/OLED/servo and Mini electronics prototypes are implemented; the pictured enclosures and internal arrangement remain concepts. These are concept illustrations, not photographs of a completed device. The interactive website companion remains a browser simulation.
+White and coral explorations of the optional desk companion, showing a possible enclosure and internal arrangement, the Privet Mini keychain, and a Privet concept body for the pocket thermal printer. The ESP32/OLED/servo and Mini electronics prototypes are implemented; the pictured enclosures and internal arrangement remain concepts. These are concept illustrations, not photographs of a completed device. The interactive website companion remains a browser simulation.
 
-| Warm white | Soft coral | Privet Mini |
-| --- | --- | --- |
-| [![White desk companion concept with enclosed and open rear views](public/images/companion-white.webp)](public/images/companion-white.webp) | [![Coral desk companion concept with enclosed and open rear views](public/images/companion-coral.webp)](public/images/companion-coral.webp) | [![Privet Mini keychain companion concept with its key ring](public/images/companion-mini.webp)](public/images/companion-mini.webp) |
+| Warm white | Soft coral | Privet Mini | Privet printer |
+| --- | --- | --- | --- |
+| [![White desk companion concept with enclosed and open rear views](public/images/companion-white.webp)](public/images/companion-white.webp) | [![Coral desk companion concept with enclosed and open rear views](public/images/companion-coral.webp)](public/images/companion-coral.webp) | [![Privet Mini keychain companion concept with its key ring](public/images/companion-mini.webp)](public/images/companion-mini.webp) | [![Privet thermal printer concept body, before connecting and printing a Privet strip](public/images/printer-concept.webp)](public/images/printer-concept.webp) |
 
-Illustrations supplied by the project creator. The images live in `public/images/`; the two desk companion ones also appear in the website’s companion gallery. On the website, click an illustration to open a same-page image viewer and switch between Warm white and Soft coral. Close with the close button, Escape, or the backdrop; left/right arrow keys also switch images. README image links open the original files.
+Illustrations supplied by the project creator, except the printer, which is rendered from the app's own 3D model (the one in its "printer found" card). The images live in `public/images/`; the two desk companion ones also appear in the website’s companion gallery. On the website, click an illustration to open a same-page image viewer and switch between Warm white and Soft coral. Close with the close button, Escape, or the backdrop; left/right arrow keys also switch images. README image links open the original files.
 
 ## Run locally
 
@@ -150,7 +158,10 @@ Statistics use `privet-demo-v1-native-stats`; resumable sessions have separate k
 | `src/companionDisplay.ts` | Pure app-owned answer safety and compact display metadata, independent of lesson prose |
 | `src/bleDriver.ts`, `src/usePhysicalCompanion.ts` | Installed BLE plugin adapter and app-wide native lifecycle wiring |
 | `src/physicalLessonEvents.ts`, `src/PhysicalCompanionSettings.tsx` | Accepted lesson-to-BLE mapping; connection/test UI, companion list and home status |
-| `src/CompanionFoundCard.tsx`, `src/Robot3D.tsx`, `src/robotScene.ts` | "Companion found" card with a lazily loaded three.js figure of the desk robot or the keychain Mini and its wake-up animation |
+| `src/CompanionFoundCard.tsx`, `src/Robot3D.tsx`, `src/robotScene.ts` | "Companion found" card with a lazily loaded three.js figure of the desk robot, the keychain Mini or the thermal printer and its wake-up animation |
+| `src/printerProtocol.ts`, `src/printerTransport.ts`, `src/printerDriver.ts`, `src/usePrinter.ts` | Thermal printer protocol, paced sending with flow control, plugin adapter and app-wide hook (remembered printer, darkness, auto-reconnect); see [docs/thermal-printer.md](docs/thermal-printer.md) |
+| `src/bleShared.ts`, `src/bleNative.ts` | The BLE plugin's shared state: one initialization, one shared scan with per-device leases, the Bluetooth-enabled fan-out |
+| `src/printContent.ts`, `src/printRender.ts`, `src/PrinterScreen.tsx`, `src/PrinterFoundCard.tsx`, `src/foundCards.ts` | Printed card content and canvas drawing; Settings → Printer and the print sheet; "printer found" card |
 | `src/oledFaces.ts`, `src/miniFaces.ts`, `src/OledFace.tsx` | Pixel ports of the desk robot's and the Mini's sleeping/CONNECTED/IDLE faces for the figure; flat face without WebGL |
 | `firmware/PrivetBLE_Servo_New_Emotions_v2/PrivetBLE_Servo_New_Emotions_v2.ino` | Commands 1–9, separate capability control, fixed-buffer receiver and U8g2 Cyrillic OLED/servo rendering; cards await hardware verification |
 | `firmware/PrivetBLE_S3/PrivetBLE_S3.ino` | Same protocol/commands/cards ported to ESP32-S3 N16R8, SH1106 SPI OLED and a pan/tilt head; servos on direct LEDC PWM |
