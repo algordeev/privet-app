@@ -4,9 +4,9 @@ The native iOS app prints learning cards on a cheap 57 mm Bluetooth LE thermal "
 
 Tested on an **SC03h** printer (advertised as `SC03h-438F`).
 
-[![Privet thermal printer concept body: before connecting, and printing a Privet strip](../public/images/printer-concept.webp)](../public/images/printer-concept.webp)
+[![Privet Printer pocket thermal printer concept body with its cat face and Privet wordmark](../public/images/printer-concept.webp)](../public/images/printer-concept.webp)
 
-*Privet concept body for an SC03h-type printer, rendered from the app's 3D model: before connecting (left) and printing (right). The app works with the printer as it is; the Privet body is a concept.* The same protocol is used by GB01, GB02, GB03, GT01, MX05, MX06, MX08, MX10, MX11 and YT01 printers; only the SC03h has been tried.
+*Privet concept body for an SC03h-type printer, rendered from the app's 3D model. The app works with the printer as it is; the Privet body is a concept.* The same protocol is used by GB01, GB02, GB03, GT01, MX05, MX06, MX08, MX10, MX11 and YT01 printers; only the SC03h has been tried.
 
 ## Using it
 
