@@ -124,3 +124,33 @@ test('rows go two per write by default: same bytes in the same order, half the r
  const progress=h.states.filter(s=>s.progress).map(s=>s.progress!.sent);assert.equal(progress.at(-1),9);
  for(let i=1;i<h.writes.length;i++)assert.ok(h.writes[i].at-h.writes[i-1].at>=PRINTER_TIMEOUTS.pace);
 });
+test('a quiet look shows nothing, connects to the remembered printer as soon as it is seen, and marks it automatic',async()=>{
+ const h=harness();await h.actor.discover('printer-a');
+ assert.equal(h.state.phase,'scanning');assert.equal(h.state.quiet,true);assert.equal(h.state.message,'No printer connected.');
+ h.found('other','MX10');assert.equal(h.state.phase,'scanning');
+ h.found();await flush();
+ assert.equal(h.state.phase,'connected');assert.equal(h.state.auto,true);assert.equal(h.state.quiet,false);
+ assert.ok(h.states.every(s=>!/Looking|Preparing/.test(s.message)));
+});
+test('a quiet look ends silently after the short window, and its failures stay silent (except a permission denial)',async()=>{
+ const h=harness();await h.actor.discover('printer-a');await h.tick(PRINTER_TIMEOUTS.lookup);
+ assert.equal(h.state.phase,'disconnected');assert.equal(h.state.message,'No printer connected.');assert.equal(h.state.quiet,false);
+ const off=harness({async isEnabled(){return false;}});await off.actor.discover('printer-a');assert.equal(off.state.phase,'disconnected');assert.equal(off.state.message,'No printer connected.');
+ const broken=harness({async scan(){throw new Error('Could not start');}});await broken.actor.discover('printer-a');assert.equal(broken.state.phase,'disconnected');assert.equal(broken.state.message,'No printer connected.');
+ const refused=harness({async connect(){throw new Error('Peripheral rejected');}});await refused.actor.discover('printer-a');refused.found();await flush();
+ assert.equal(refused.state.phase,'disconnected');assert.equal(refused.state.message,'No printer connected.');
+ const denied=harness({async initialize(){throw new Error('BLE permission denied');}});await denied.actor.discover('printer-a');assert.equal(denied.state.phase,'permission-denied');
+});
+test('Connect during a quiet look turns it into the visible scan, keeping what it found',async()=>{
+ const h=harness();await h.actor.discover('printer-a');h.found('other','GB01');
+ await h.actor.scan();
+ assert.equal(h.state.quiet,false);assert.equal(h.state.message,'Looking for your printer…');assert.deepEqual(h.state.devices.map(d=>d.deviceId),['other']);
+ await h.tick(PRINTER_TIMEOUTS.lookup);assert.equal(h.state.phase,'scanning');
+ await h.actor.connect('other');await flush();assert.equal(h.state.phase,'connected');assert.equal(h.state.auto,false);
+});
+test('no quiet look while connected, already looking, or in the background',async()=>{
+ const h=harness();await h.ready();const before=h.initializations;await h.actor.discover('printer-a');assert.equal(h.state.phase,'connected');assert.equal(h.initializations,before);
+ const away=harness();away.actor.setActive(false);await away.actor.discover('printer-a');assert.equal(away.state.phase,'disconnected');assert.equal(away.initializations,0);
+ away.actor.setActive(true);await away.actor.discover('printer-a');assert.equal(away.state.phase,'scanning');
+ away.actor.setActive(false);assert.equal(away.state.phase,'disconnected');assert.equal(away.state.message,'No printer connected.');
+});

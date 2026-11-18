@@ -4,17 +4,22 @@ export {PrintIcon} from './Icons';
 import {ENERGY} from './printerProtocol';
 import {rowsToDataUrl,type Rendered} from './printRender';
 import {usePrinterState,type PrinterController} from './usePrinter';
-import type {PrinterState} from './printerTransport';
+import {PRINTER_IDLE,type PrinterState} from './printerTransport';
+// The app's own quiet look for the remembered printer is invisible: it reads as not connected.
+const shown=(state:PrinterState):PrinterState=>state.quiet&&state.phase==='scanning'?{...state,phase:'disconnected',message:PRINTER_IDLE,devices:[]}:state;
 
 const phases={disconnected:'Not connected',scanning:'Looking for printer',connecting:'Connecting',connected:'Connected',printing:'Printing',unavailable:'Bluetooth unavailable','permission-denied':'Permission denied',error:'Printer error'} as const;
 const darkness=[['Light',ENERGY.light],['Normal',ENERGY.normal],['Dark',ENERGY.dark]] as const;
 
-function PrinterStatus({state,remembered}:{state:PrinterState;remembered?:string}){
+// waiting: the printer the app reconnects to by itself, while it isn't connected.
+function PrinterStatus({state,remembered,waiting}:{state:PrinterState;remembered?:string;waiting?:string}){
  const searching=state.phase==='scanning'||state.phase==='connecting';
+ const idle=state.phase==='disconnected'||state.phase==='error'||state.phase==='unavailable';
  return <div className="native-physical-status" data-phase={state.phase==='printing'?'connected':state.phase} data-searching={searching} role="status" aria-live="polite" aria-atomic="true">
   <strong key={state.phase}><i className="native-physical-dot" aria-hidden="true"/>{phases[state.phase]}</strong>
   {(state.device?.name||remembered)&&<span>{state.device?.name||remembered}</span>}
-  <p>{state.paused?'Printer is catching up…':state.message}</p>
+  {waiting&&idle&&state.phase==='disconnected'&&state.message===PRINTER_IDLE?<p>{waiting} will reconnect by itself when it’s nearby.</p>:<p>{state.paused?'Printer is catching up…':state.message}</p>}
+  {waiting&&idle&&!(state.phase==='disconnected'&&state.message===PRINTER_IDLE)&&<p>{waiting} will reconnect by itself when it’s nearby.</p>}
  </div>;
 }
 function DevicePicker({printer,state}:{printer:PrinterController;state:PrinterState}){
@@ -33,7 +38,7 @@ function Progress({state}:{state:PrinterState}){
 
 // Preview of exactly what will print (the 1-bit image), then Print / Cancel with progress.
 export function PrinterSheet({printer,title,render,onClose}:{printer:PrinterController;title:string;render:()=>Rendered;onClose:()=>void}){
- const state=usePrinterState(printer);
+ const state=shown(usePrinterState(printer));
  const [card,setCard]=useState<{rows:Uint8Array[];url:string}|null>(null);
  const [problem,setProblem]=useState('');
  useEffect(()=>{
@@ -51,7 +56,7 @@ export function PrinterSheet({printer,title,render,onClose}:{printer:PrinterCont
  return <NativeSheet id="native-printer-sheet" title={title} onClose={()=>{if(busy)printer.cancel();onClose();}}>
   <div className="native-sheet-scroll native-printer-sheet">
    <div className="native-printer-preview">{card?<img src={card.url} alt={`Preview of the printed ${title.toLowerCase()}`}/>:<p>{problem||'Preparing preview…'}</p>}</div>
-   <PrinterStatus state={state} remembered={printer.remembered()?.name}/>
+   <PrinterStatus state={state} remembered={printer.remembered()?.name} waiting={printer.autoTarget()?(printer.autoTarget()!.name||'Your printer'):undefined}/>
    <DevicePicker printer={printer} state={state}/>
    <Progress state={state}/>
    <Darkness printer={printer}/>
@@ -62,13 +67,13 @@ export function PrinterSheet({printer,title,render,onClose}:{printer:PrinterCont
 
 // Settings → Printer.
 export function PrinterSettings({printer,onClose,onWordOfTheDay,onTestPage}:{printer:PrinterController;onClose:()=>void;onWordOfTheDay:()=>void;onTestPage:()=>void}){
- const state=usePrinterState(printer);
+ const state=shown(usePrinterState(printer));
  const inSession=state.phase!=='disconnected'&&state.phase!=='error'&&state.phase!=='unavailable'&&state.phase!=='permission-denied';
  return <div className="native-physical-scroll">
   <header className="native-profile-navigation"><button className="app-icon-button" onClick={onClose} aria-label="Back to settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><h1 id="native-printer-title" tabIndex={-1}>Printer</h1><span aria-hidden="true"/></header>
   <section className="native-physical-intro"><span className="native-kicker">POCKET THERMAL PRINTER</span><h2>Learning cards on paper.</h2><p>Print the word of the day, practice strips and a progress receipt on a 57 mm Bluetooth printer.</p></section>
   <section className="native-physical-card" aria-label="Printer connection">
-   <PrinterStatus state={state} remembered={printer.remembered()?.name}/>
+   <PrinterStatus state={state} remembered={printer.remembered()?.name} waiting={printer.autoTarget()?(printer.autoTarget()!.name||'Your printer'):undefined}/>
    <DevicePicker printer={printer} state={state}/>
    <Progress state={state}/>
    <div className="native-physical-actions">{inSession?<button className="native-physical-disconnect" onClick={state.phase==='connected'?printer.disconnect:printer.cancel}>{state.phase==='scanning'?'Stop looking':state.phase==='connecting'?'Cancel':state.phase==='printing'?'Cancel printing':'Disconnect'}</button>:<button className="button teal" onClick={printer.connect} disabled={state.busy}>Connect <span aria-hidden="true">→</span></button>}</div>
@@ -82,7 +87,7 @@ export function PrinterSettings({printer,onClose,onWordOfTheDay,onTestPage}:{pri
 }
 
 export function PrinterSettingsButton({printer,onOpen}:{printer:PrinterController;onOpen:()=>void}){
- const state=usePrinterState(printer);
+ const state=shown(usePrinterState(printer));
  return <button id="native-printer-open" className="native-text-button native-physical-home" onClick={onOpen} aria-label={`Printer: ${phases[state.phase]}. Open printer settings.`}><span>Printer settings</span><span className="native-physical-home-status"><i aria-hidden="true" data-connected={state.phase==='connected'||state.phase==='printing'}/>{phases[state.phase]}</span></button>;
 }
 
