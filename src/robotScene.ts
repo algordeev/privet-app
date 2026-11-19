@@ -1,4 +1,4 @@
-import {NeutralToneMapping,CanvasTexture,CapsuleGeometry,CircleGeometry,CylinderGeometry,DirectionalLight,ExtrudeGeometry,Group,Mesh,MeshBasicMaterial,MeshPhysicalMaterial,MeshStandardMaterial,PerspectiveCamera,PlaneGeometry,PMREMGenerator,Scene,Shape,ShapeGeometry,SphereGeometry,SRGBColorSpace,TorusGeometry,WebGLRenderer,type BufferGeometry,type Material} from 'three';
+import {Color,Float32BufferAttribute,NeutralToneMapping,CanvasTexture,CapsuleGeometry,CircleGeometry,CylinderGeometry,DirectionalLight,ExtrudeGeometry,Group,Mesh,MeshBasicMaterial,MeshPhysicalMaterial,MeshStandardMaterial,PerspectiveCamera,PlaneGeometry,PMREMGenerator,Scene,Shape,ShapeGeometry,SphereGeometry,SRGBColorSpace,TorusGeometry,WebGLRenderer,type BufferGeometry,type Material} from 'three';
 import {RoomEnvironment} from 'three/examples/jsm/environments/RoomEnvironment.js';
 import {mergeVertices} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {CONNECTED_FACE_MS,OLED_HEIGHT,OLED_WIDTH,renderFirmwareFace,type FirmwareFace} from './oledFaces';
@@ -12,10 +12,15 @@ import {renderMiniFace} from './miniFaces';
 // mini: the white keychain (≈40×42×18 mm) with a cream top button, a lug with its split ring and
 //   key ring, a slide switch and vents on the right. No servo: it hops and its ring swings.
 //   Its screen shows the Mini's own faces (miniFaces.ts), not the desk robot's.
+// printer: the pocket thermal printer standing upright: one soft rounded body, glossy white at the
+//   front and mint at the back, meeting flush round the sides; the paper slot across the front, two
+//   mint cat ears and vent holes on top. No screen: on
+//   connect it hops, the LED on top lights and a paper strip printed "Privet" feeds out of the slot.
 export type RobotMood='sleeping'|'connected';
+export type FigureModel=CompanionModel|'printer';
 export type RobotScene={setMood:(mood:RobotMood)=>void;resize:(width:number,height:number)=>void;dispose:()=>void};
 
-const CORAL=0xd8684f,CREAM=0xeee2c6,WHITE=0xf3f1ec;
+const CORAL=0xd8684f,CREAM=0xeee2c6,WHITE=0xf3f1ec,PRINTER_MINT=0xa9e5e3;
 const DOT=4; // texture pixels per OLED pixel: a 3 px lit dot and a 1 px gap, like the real panel.
 
 function roundedRect(width:number,height:number,radius:number){
@@ -28,9 +33,10 @@ function roundedRect(width:number,height:number,radius:number){
 }
 // A rounded slab fitted exactly to width×height×depth (bevels included), smooth-shaded.
 // vertical: extruded upward (a base seen from above); otherwise extruded toward the viewer (a head).
-function slab(width:number,height:number,depth:number,radius:number,bevel:number,vertical:boolean){
+// steps: segments along the depth (more lets a colour split run cleanly round the sides).
+function slab(width:number,height:number,depth:number,radius:number,bevel:number,vertical:boolean,steps=1){
  const across=vertical?depth:height;
- const geometry:BufferGeometry=new ExtrudeGeometry(roundedRect(width,across,radius),{depth:1,bevelEnabled:true,bevelThickness:bevel,bevelSize:bevel*.9,bevelSegments:10,curveSegments:14});
+ const geometry:BufferGeometry=new ExtrudeGeometry(roundedRect(width,across,radius),{depth:1,steps,bevelEnabled:true,bevelThickness:bevel,bevelSize:bevel*.9,bevelSegments:10,curveSegments:14});
  if(vertical)geometry.rotateX(-Math.PI/2);
  geometry.computeBoundingBox();const box=geometry.boundingBox!;
  geometry.translate(-(box.min.x+box.max.x)/2,-(vertical?box.min.y:(box.min.y+box.max.y)/2),-(box.min.z+box.max.z)/2);
@@ -178,8 +184,111 @@ function miniFigure({glass,reducedMotion}:Parts):Figure{
  }};
 }
 
+// Printer proportions (upright, about 80 × 92 × 45 mm).
+const PRINTER_W=1.66,PRINTER_H=1.92,PRINTER_D=.92,SLOT_Y=.84,PAPER_LENGTH=.58;
+// The face printed on the upper front, after the real printer's: round eyes with highlights, two
+// whisker strokes beside each and an "ω" mouth. It is printed on, so it never changes.
+function printerFace(){
+ const canvas=document.createElement('canvas');canvas.width=320;canvas.height=180;
+ const ctx=canvas.getContext('2d')!;ctx.clearRect(0,0,320,180);
+ ctx.fillStyle=ctx.strokeStyle='#5b2e2c';ctx.lineCap='round';ctx.lineJoin='round';
+ for(const [x,side] of [[100,-1],[220,1]] as const){
+  ctx.beginPath();ctx.arc(x,70,34,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x+11,57,12,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(x-12,84,5.5,0,Math.PI*2);ctx.fill();ctx.fillStyle='#5b2e2c';
+  // Whiskers: two short waves on the outer side of each eye.
+  ctx.lineWidth=6;
+  for(const dy of [-9,9]){
+   const x0=x+side*48,x1=x+side*78;
+   ctx.beginPath();ctx.moveTo(x0,70+dy);ctx.quadraticCurveTo((x0+x1)/2,70+dy-8,x1,70+dy+(dy<0?-4:4));ctx.stroke();
+  }
+ }
+ // The "ω" mouth between and below the eyes.
+ ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(136,124);ctx.quadraticCurveTo(144,152,160,134);ctx.quadraticCurveTo(176,152,184,124);ctx.stroke();
+ const texture=new CanvasTexture(canvas);texture.colorSpace=SRGBColorSpace;return texture;
+}
+// The Privet wordmark on the lower front: teal with the coral dot.
+function printerLogo(){
+ const canvas=document.createElement('canvas');canvas.width=256;canvas.height=72;
+ const ctx=canvas.getContext('2d')!;ctx.clearRect(0,0,256,72);
+ ctx.font='800 50px system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif';ctx.textBaseline='middle';ctx.textAlign='left';
+ const width=ctx.measureText('Privet').width,x=(256-width-14)/2;
+ ctx.fillStyle='#246653';ctx.fillText('Privet',x,38);
+ ctx.fillStyle='#df795f';ctx.beginPath();ctx.arc(x+width+8,52,6,0,Math.PI*2);ctx.fill();
+ const texture=new CanvasTexture(canvas);texture.colorSpace=SRGBColorSpace;return texture;
+}
+const decal=(map:CanvasTexture)=>new MeshStandardMaterial({map,transparent:true,roughness:.4,polygonOffset:true,polygonOffsetFactor:-2,depthWrite:false});
+// The strip that feeds out: "Privet" with a little robot, printed in black on white thermal paper.
+function paperTexture(){
+ const canvas=document.createElement('canvas');canvas.width=256;canvas.height=180;
+ const ctx=canvas.getContext('2d')!;ctx.fillStyle='#fbfbf8';ctx.fillRect(0,0,256,180);ctx.fillStyle='#1d1d1d';
+ ctx.font='800 46px system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif';ctx.textAlign='center';ctx.fillText('Privet',140,66);
+ ctx.beginPath();ctx.roundRect(22,30,40,32,8);ctx.fill();ctx.fillStyle='#fbfbf8';ctx.beginPath();ctx.roundRect(28,36,28,19,5);ctx.fill();
+ ctx.fillStyle='#1d1d1d';ctx.beginPath();ctx.arc(37,45,3,0,Math.PI*2);ctx.arc(47,45,3,0,Math.PI*2);ctx.fill();
+ for(const [y,w] of [[100,180],[120,140],[140,160],[160,120]])ctx.fillRect(128-w/2,y,w,5);
+ const texture=new CanvasTexture(canvas);texture.colorSpace=SRGBColorSpace;return texture;
+}
+function printerFigure({reducedMotion}:Parts):Figure{
+ const root=new Group(),device=new Group();root.add(device);
+ const W=PRINTER_W,H=PRINTER_H,D=PRINTER_D,FRONT=D/2;
+ // One body: white in front of the split, mint behind it, blended over a hair so the line is clean.
+ const body=slab(W,H,D,.5,.22,false,40);
+ const SPLIT=D*.1,BLEND=.012,position=body.getAttribute('position'),colors:number[]=[];
+ // Vertex colours are linear: Color converts the sRGB hex.
+ const mintLinear=new Color(PRINTER_MINT),whiteColor=[1,1,1],mintColor=[mintLinear.r,mintLinear.g,mintLinear.b];
+ for(let i=0;i<position.count;i++){
+  const t=Math.min(1,Math.max(0,(position.getZ(i)-SPLIT+BLEND)/(2*BLEND))),k=t*t*(3-2*t);
+  colors.push(...mintColor.map((m,c)=>m+(whiteColor[c]-m)*k));
+ }
+ body.setAttribute('color',new Float32BufferAttribute(colors,3));
+ const shell=new MeshPhysicalMaterial({vertexColors:true,roughness:.3,clearcoat:.7,clearcoatRoughness:.18});
+ add(device,new Mesh(body,shell),0,H/2);
+ // The paper slot: a dark groove under the lid's edge, almost the full width of the front.
+ const slot=add(device,new Mesh(new CapsuleGeometry(.022,W-.5,6,16),new MeshStandardMaterial({color:0x3a3e43,roughness:.8})),0,SLOT_Y,FRONT-.005);slot.rotation.z=Math.PI/2;
+ const lip=add(device,new Mesh(new CapsuleGeometry(.018,W-.46,6,16),shell),0,SLOT_Y+.035,FRONT-.002);lip.rotation.z=Math.PI/2;
+ // Cat ears on the mint top corners, vent holes and the status LED between them.
+ const mint=new MeshPhysicalMaterial({color:PRINTER_MINT,roughness:.32,clearcoat:.6,clearcoatRoughness:.2});
+ // Ears: full rounded domes sunk well into the shell, so they grow out of the top with no gap.
+ for(const x of [-W/2+.4,W/2-.4]){const ear=add(device,new Mesh(new SphereGeometry(.2,40,24),mint),x,H-.06,-D*.12);ear.scale.set(1,.92,.78);}
+ const hole=new MeshStandardMaterial({color:0x5a6d6c,roughness:.9});
+ for(const [x,z] of [[-.12,-.24],[0,-.24],[.12,-.24]]){const dot=add(device,new Mesh(new CircleGeometry(.026,16),hole),x,H+.001,z);dot.rotation.x=-Math.PI/2;}
+ const led=new MeshStandardMaterial({color:0xdff3f1,roughness:.35,emissive:0x3fd6c8,emissiveIntensity:0});
+ const ledDome=add(device,new Mesh(new SphereGeometry(.035,24,12,0,Math.PI*2,0,Math.PI/2),led),.26,H,-.24);ledDome.scale.set(1,.5,1);
+ // The printed face on the upper front and the Privet wordmark below the slot.
+ add(device,new Mesh(new PlaneGeometry(1.3,.73),decal(printerFace())),0,1.33,FRONT+.004);
+ add(device,new Mesh(new PlaneGeometry(.76,.21),decal(printerLogo())),0,.36,FRONT+.004);
+ // The white slide switch on the left side.
+ const switchCap=add(device,new Mesh(slab(.04,.2,.12,.02,.012,false),new MeshPhysicalMaterial({color:0xffffff,roughness:.3})),-W/2-.005,H-.62,-.02);switchCap.rotation.y=Math.PI/2;
+ // Paper strip from the slot. The print moves with the paper: the bottom lines come out first and
+ // travel down, "Privet" comes out last, just under the slot. A short strip sticks out of the slot and
+ // droops onto the lower front as it gets longer.
+ const texture=paperTexture();
+ const paperGeometry=new PlaneGeometry(W-.42,1);paperGeometry.translate(0,-.5,0);
+ const hinge=new Group();hinge.position.set(0,SLOT_Y,FRONT+.03);device.add(hinge);
+ const paper=add(hinge,new Mesh(paperGeometry,new MeshStandardMaterial({map:texture,roughness:.85,side:2})),0,0,0);
+ const feed=(fraction:number)=>{
+  const f=Math.max(.001,Math.min(1,fraction));
+  paper.visible=fraction>0;paper.scale.y=f*PAPER_LENGTH;
+  // Plane bottom (free end) shows the texture's bottom; its top, at the slot, the line printed last.
+  texture.repeat.set(1,f);texture.offset.set(0,0);
+  hinge.rotation.x=-(.95-.8*f);
+ };
+ feed(0);
+ const blank:Uint8Array=new Uint8Array(OLED_WIDTH*OLED_HEIGHT);
+ return {root,camera:{x:0,y:2.1,z:6.6,target:1.06},shadow:1.05,face:(()=>blank) as typeof renderFirmwareFace,animate(mood,since){
+  const connected=mood==='connected';
+  // A small hop like the Mini's (no shake or lean), then the LED and the paper feed.
+  const lift=connected&&!reducedMotion?hop(since):0;
+  led.emissiveIntensity=connected?Math.min(1,Math.max(0,(since-300)/250))*4.5:0;
+  const x=reducedMotion?1:Math.min(1,Math.max(0,(since-700)/1300));
+  feed(connected?1-Math.pow(1-x,2):0);
+  device.position.y=lift;
+  return lift;
+ }};
+}
+
 // onReady: called once the first frame is on the canvas; the entrance starts from that frame.
-export function createRobotScene(canvas:HTMLCanvasElement,{model='desk',reducedMotion=false,onReady}:{model?:CompanionModel;reducedMotion?:boolean;onReady?:()=>void}={}):RobotScene{
+export function createRobotScene(canvas:HTMLCanvasElement,{model='desk',reducedMotion=false,onReady}:{model?:FigureModel;reducedMotion?:boolean;onReady?:()=>void}={}):RobotScene{
  const renderer=new WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:'low-power'});
  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
  renderer.outputColorSpace=SRGBColorSpace;renderer.toneMapping=NeutralToneMapping;renderer.toneMappingExposure=.95;
@@ -192,7 +301,7 @@ export function createRobotScene(canvas:HTMLCanvasElement,{model='desk',reducedM
  const faceCanvas=document.createElement('canvas');faceCanvas.width=OLED_WIDTH*DOT;faceCanvas.height=OLED_HEIGHT*DOT;
  const faceCtx=faceCanvas.getContext('2d')!;const faceTexture=new CanvasTexture(faceCanvas);faceTexture.colorSpace=SRGBColorSpace;faceTexture.anisotropy=4;
  const glass=new MeshPhysicalMaterial({color:0x000000,roughness:.12,clearcoat:1,clearcoatRoughness:.05,emissive:0xffffff,emissiveMap:faceTexture,emissiveIntensity:1.35});
- const figure=(model==='mini'?miniFigure:deskFigure)({glass,reducedMotion});
+ const figure=(model==='printer'?printerFigure:model==='mini'?miniFigure:deskFigure)({glass,reducedMotion});
  const robot=figure.root;scene.add(robot);
  const camera=new PerspectiveCamera(25,1,.1,50);camera.position.set(figure.camera.x,figure.camera.y,figure.camera.z);camera.lookAt(0,figure.camera.target,0);
  const shadow=new Mesh(new PlaneGeometry(3*figure.shadow,2.2*figure.shadow),new MeshBasicMaterial({map:shadowTexture(),transparent:true,depthWrite:false}));
