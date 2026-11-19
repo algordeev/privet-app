@@ -4,23 +4,27 @@ import {mergeVertices} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {CONNECTED_FACE_MS,OLED_HEIGHT,OLED_WIDTH,renderFirmwareFace,type FirmwareFace} from './oledFaces';
 import type {CompanionModel} from './bleProtocol';
 import {renderMiniFace} from './miniFaces';
+import {figurePalette,type DeviceColour,type FigurePalette} from './figureColours';
 
 // The physical companions as a small WebGL scene for the "companion found" card, each modelled on
 // its enclosure concept, with an OLED that shows the firmware's own faces.
-// desk: tapered coral PLA base on a screwed bottom lid, cream button, servo neck and a head that
+// Each figure comes in warm white or soft coral (figureColours.ts).
+// desk: tapered PLA base on a screwed bottom lid, cream button, servo neck and a head that
 //   turns with the firmware's servo curve.
-// mini: the white keychain (≈40×42×18 mm) with a cream top button, a lug with its split ring and
-//   key ring, a slide switch and vents on the right. No servo: it hops and its ring swings.
+// mini: the keychain (≈40×42×18 mm), after its concept illustration: a wide glossy glass panel
+//   low on the front with the OLED inset, a big cream top button, a lug with its split ring and
+//   key ring, and on the right a framed slide switch, vents and the charging port. No servo: it
+//   hops and its ring swings.
 //   Its screen shows the Mini's own faces (miniFaces.ts), not the desk robot's.
 // printer: the pocket thermal printer standing upright: one soft rounded body, glossy white at the
-//   front and mint at the back, meeting flush round the sides; the paper slot across the front, two
-//   mint cat ears and vent holes on top. No screen: on
+//   front and mint (or soft coral) at the back, meeting flush round the sides; the paper slot across the front, two
+//   cat ears in the shell colour and vent holes on top. No screen: on
 //   connect it hops, the LED on top lights and a paper strip printed "Privet" feeds out of the slot.
 export type RobotMood='sleeping'|'connected';
 export type FigureModel=CompanionModel|'printer';
 export type RobotScene={setMood:(mood:RobotMood)=>void;resize:(width:number,height:number)=>void;dispose:()=>void};
 
-const CORAL=0xd8684f,CREAM=0xeee2c6,WHITE=0xf3f1ec,PRINTER_MINT=0xa9e5e3;
+const CREAM=0xeee2c6;
 const DOT=4; // texture pixels per OLED pixel: a 3 px lit dot and a 1 px gap, like the real panel.
 
 function roundedRect(width:number,height:number,radius:number){
@@ -73,10 +77,10 @@ const add=<T extends Mesh>(parent:Group,mesh:T,x=0,y=0,z=0)=>{mesh.position.set(
 // animate: since = ms in the current mood; t = s since the entrance began. Returns the lift above the floor.
 // face: that companion's firmware faces.
 type Figure={root:Group;camera:{x:number;y:number;z:number;target:number};shadow:number;face:typeof renderFirmwareFace;animate:(mood:RobotMood,since:number,t:number)=>number};
-type Parts={glass:Material;reducedMotion:boolean};
+type Parts={glass:Material;reducedMotion:boolean;palette:FigurePalette};
 
-function deskFigure({glass,reducedMotion}:Parts):Figure{
- const plastic=pla(CORAL);
+function deskFigure({glass,reducedMotion,palette}:Parts):Figure{
+ const plastic=pla(palette.plastic);
  const robot=new Group();
  // Base: a pillowy body, wider at the bottom with a sloped front. Its rounded lower edge sits
  // into a flush bottom lid, leaving the slight overhang and seam of the printed enclosure.
@@ -129,29 +133,31 @@ function hop(since:number){
  const arc=(t:number,start:number,duration:number,height:number)=>{const x=(t-start)/duration;return x>0&&x<1?height*4*x*(1-x):0;};
  return arc(since,120,420,.2)+arc(since,540,200,.035);
 }
-function miniFigure({glass,reducedMotion}:Parts):Figure{
- const plastic=pla(WHITE);
+function miniFigure({glass,reducedMotion,palette}:Parts):Figure{
+ const plastic=pla(palette.plastic);
  const root=new Group(),device=new Group();root.add(device);
  const W=MINI_WIDTH,H=MINI_HEIGHT,D=MINI_DEPTH,FRONT=D/2,SIDE=W/2;
  add(device,new Mesh(slab(W,H,D,.36,.16,false),plastic),0,H/2);
- // Front: the OLED module behind a glossy black window, two blush cheeks and the status LED.
- const SCREEN_Y=1.08;
- const bezel=new MeshPhysicalMaterial({color:0x0b0a0a,roughness:.18,clearcoat:1,clearcoatRoughness:.08});
- add(device,new Mesh(slab(1.2,.9,.03,.07,.012,false),bezel),0,SCREEN_Y,FRONT);
- add(device,new Mesh(new ShapeGeometry(roundedRect(.98,.56,.03),6),new MeshStandardMaterial({color:0x151617,roughness:.4})),0,SCREEN_Y+.01,FRONT+.018);
- add(device,new Mesh(new PlaneGeometry(.92,.46),glass),0,SCREEN_Y+.01,FRONT+.021);
- const blush=new MeshStandardMaterial({color:0xf5d3c8,roughness:.8,transparent:true,opacity:.5});
- for(const x of [-.5,.5])add(device,new Mesh(new CircleGeometry(.11,40),blush),x,.34,FRONT+.001);
+ // Front, after the concept illustration: a wide glossy black glass panel set low on the front, with
+ // a bevelled rim catching the light, the 2:1 OLED inset in it, faint cheeks and the status LED.
+ const SCREEN_Y=.96,PANEL_W=W*.88,PANEL_H=H*.58;
+ const bezel=new MeshPhysicalMaterial({color:0x080707,roughness:.14,clearcoat:1,clearcoatRoughness:.05});
+ add(device,new Mesh(slab(PANEL_W,PANEL_H,.04,.07,.016,false),bezel),0,SCREEN_Y,FRONT-.012);
+ add(device,new Mesh(new ShapeGeometry(roundedRect(PANEL_W*.8,PANEL_W*.4,.02),6),new MeshStandardMaterial({color:0x1c1d1f,roughness:.5})),0,SCREEN_Y+.02,FRONT+.026);
+ add(device,new Mesh(new PlaneGeometry(PANEL_W*.76,PANEL_W*.38),glass),0,SCREEN_Y+.02,FRONT+.029);
+ const blush=new MeshStandardMaterial({color:palette.blush??0xf2cfc4,roughness:.8,transparent:true,opacity:.22});
+ for(const x of [-.56,.56])add(device,new Mesh(new CircleGeometry(.12,40),blush),x,.24,FRONT+.001);
  const led=new MeshStandardMaterial({color:0xf8c4a6,roughness:.35,emissive:0xff7a3a,emissiveIntensity:0});
- const ledDome=add(device,new Mesh(new SphereGeometry(.036,24,12,0,Math.PI*2,0,Math.PI/2),led),0,.3,FRONT);ledDome.rotation.x=Math.PI/2;ledDome.scale.set(1,.5,1);
- // Top right: the big click button, a cream cap on a raised white boss.
+ const ledDome=add(device,new Mesh(new SphereGeometry(.034,24,12,0,Math.PI*2,0,Math.PI/2),led),0,.24,FRONT);ledDome.rotation.x=Math.PI/2;ledDome.scale.set(1,.5,1);
+ // Top right: the big click button, a thick cream cap on a wide, low white collar.
  const cream=new MeshPhysicalMaterial({color:CREAM,roughness:.38,clearcoat:.35,clearcoatRoughness:.4});
- add(device,new Mesh(new CylinderGeometry(.25,.27,.07,48),plastic),.3,H+.015);
- add(device,new Mesh(new CylinderGeometry(.185,.19,.08,48),cream),.3,H+.085);
- const cap=add(device,new Mesh(new SphereGeometry(.185,48,16,0,Math.PI*2,0,Math.PI/2),cream),.3,H+.124);cap.scale.set(1,.16,1);
+ const BUTTON_X=.34,BUTTON_Z=-.04;
+ add(device,new Mesh(new CylinderGeometry(.33,.34,.06,56),plastic),BUTTON_X,H+.01,BUTTON_Z);
+ add(device,new Mesh(new CylinderGeometry(.245,.25,.13,56),cream),BUTTON_X,H+.1,BUTTON_Z);
+ const cap=add(device,new Mesh(new SphereGeometry(.245,56,16,0,Math.PI*2,0,Math.PI/2),cream),BUTTON_X,H+.163,BUTTON_Z);cap.scale.set(1,.12,1);
  // Top left: the keyring lug with its hole, a small split ring through it and the big key ring.
  const LUG_X=-.46,HOLE_Y=H+.13;
- add(device,new Mesh(slab(.42,.4,.3,.15,.06,false),plastic),LUG_X,H+.1);
+ add(device,new Mesh(slab(.32,.42,.28,.15,.06,false),plastic),LUG_X,H+.1);
  const hole=new MeshStandardMaterial({color:0x6b625c,roughness:.9});
  for(const z of [.151,-.151]){const disc=add(device,new Mesh(new CircleGeometry(.062,24),hole),LUG_X,HOLE_Y,z);if(z<0)disc.rotation.y=Math.PI;}
  const metal=new MeshStandardMaterial({color:0xd8d8d4,metalness:1,roughness:.22});
@@ -159,11 +165,23 @@ function miniFigure({glass,reducedMotion}:Parts):Figure{
  // The key ring hangs from the top of the loop, leaning left and back; it swings about that point.
  const pivot=new Group();pivot.position.set(LUG_X,HOLE_Y+2*LOOP-.02,0);device.add(pivot);
  const ring=add(pivot,new Mesh(new TorusGeometry(RING_RADIUS,.036,20,120),metal),0,RING_RADIUS);ring.rotation.y=.25;
- // Right side: slide switch in its slot and three vent ribs.
- const dark=new MeshStandardMaterial({color:0x1d1b1a,roughness:.7});
- add(device,new Mesh(slab(.03,.3,.12,.012,.006,false),dark),SIDE-.008,.98);
- add(device,new Mesh(slab(.08,.13,.09,.03,.014,false),cream),SIDE+.012,1.02);
- for(const y of [.5,.6,.7]){const rib=add(device,new Mesh(new CapsuleGeometry(.022,.22,6,16),plastic),SIDE-.004,y);rib.rotation.x=Math.PI/2;}
+ // Right side: the slide switch in a raised white frame (cream knob at the top of its track), three
+ // vent ribs below it and the USB-C charging port, all on the flat part of the side.
+ const recess=new MeshStandardMaterial({color:0xd6d2cb,roughness:.7});
+ // Side parts are front-facing slabs turned a quarter: their rounding then faces sideways.
+ const side=(w:number,h:number,t:number,r:number,material:Material,x:number,y:number,z=0)=>{const part=add(device,new Mesh(slab(w,h,t,r,Math.min(r,t)*.4,false),material),x,y,z);part.rotation.y=Math.PI/2;return part;};
+ side(.2,.42,.05,.08,plastic,SIDE-.006,1.1);
+ side(.11,.34,.03,.05,recess,SIDE+.012,1.1);
+ side(.1,.13,.09,.04,cream,SIDE+.03,1.19);
+ for(const y of [.62,.72,.82]){const rib=add(device,new Mesh(new CapsuleGeometry(.022,.26,6,16),plastic),SIDE-.004,y,.06);rib.rotation.x=Math.PI/2;}
+ // USB-C, set into the side (8.4 × 2.6 mm at this scale): the dark stadium opening, a thin metal
+ // shell round it and the contact tongue inside, lying on the surface rather than standing off it.
+ const PORT_W=.34,PORT_H=.105,usb=new Group();usb.position.set(SIDE+.001,.44,0);usb.rotation.y=Math.PI/2;device.add(usb);
+ const stadium=(w:number,h:number)=>roundedRect(w,h,h/2*.999);
+ const shellShape=stadium(PORT_W+.032,PORT_H+.032);shellShape.holes.push(stadium(PORT_W,PORT_H));
+ add(usb,new Mesh(new ShapeGeometry(stadium(PORT_W,PORT_H),16),new MeshStandardMaterial({color:0x0c0c0d,roughness:.6})),0,0,0);
+ add(usb,new Mesh(new ShapeGeometry(shellShape,16),new MeshStandardMaterial({color:0xbdbcb8,metalness:.9,roughness:.3})),0,0,.002);
+ add(usb,new Mesh(new ShapeGeometry(roundedRect(PORT_W*.62,.026,.01),4),new MeshStandardMaterial({color:0x3a3a3c,roughness:.5})),0,0,.003);
 
  let swing=0,swingVelocity=0,last=0;
  return {root,camera:{x:0,y:2,z:7.6,target:1.38},shadow:1.15,face:renderMiniFace,animate(mood,since,t){
@@ -228,14 +246,15 @@ function paperTexture(){
  for(const [y,w] of [[100,180],[120,140],[140,160],[160,120]])ctx.fillRect(128-w/2,y,w,5);
  const texture=new CanvasTexture(canvas);texture.colorSpace=SRGBColorSpace;return texture;
 }
-function printerFigure({reducedMotion}:Parts):Figure{
+function printerFigure({reducedMotion,palette}:Parts):Figure{
+ const SHELL=palette.shell??0xa9e5e3;
  const root=new Group(),device=new Group();root.add(device);
  const W=PRINTER_W,H=PRINTER_H,D=PRINTER_D,FRONT=D/2;
  // One body: white in front of the split, mint behind it, blended over a hair so the line is clean.
  const body=slab(W,H,D,.5,.22,false,40);
  const SPLIT=D*.1,BLEND=.012,position=body.getAttribute('position'),colors:number[]=[];
  // Vertex colours are linear: Color converts the sRGB hex.
- const mintLinear=new Color(PRINTER_MINT),whiteColor=[1,1,1],mintColor=[mintLinear.r,mintLinear.g,mintLinear.b];
+ const mintLinear=new Color(SHELL),frontLinear=new Color(palette.plastic),whiteColor=[frontLinear.r,frontLinear.g,frontLinear.b],mintColor=[mintLinear.r,mintLinear.g,mintLinear.b];
  for(let i=0;i<position.count;i++){
   const t=Math.min(1,Math.max(0,(position.getZ(i)-SPLIT+BLEND)/(2*BLEND))),k=t*t*(3-2*t);
   colors.push(...mintColor.map((m,c)=>m+(whiteColor[c]-m)*k));
@@ -247,12 +266,12 @@ function printerFigure({reducedMotion}:Parts):Figure{
  const slot=add(device,new Mesh(new CapsuleGeometry(.022,W-.5,6,16),new MeshStandardMaterial({color:0x3a3e43,roughness:.8})),0,SLOT_Y,FRONT-.005);slot.rotation.z=Math.PI/2;
  const lip=add(device,new Mesh(new CapsuleGeometry(.018,W-.46,6,16),shell),0,SLOT_Y+.035,FRONT-.002);lip.rotation.z=Math.PI/2;
  // Cat ears on the mint top corners, vent holes and the status LED between them.
- const mint=new MeshPhysicalMaterial({color:PRINTER_MINT,roughness:.32,clearcoat:.6,clearcoatRoughness:.2});
+ const mint=new MeshPhysicalMaterial({color:SHELL,roughness:.32,clearcoat:.6,clearcoatRoughness:.2});
  // Ears: full rounded domes sunk well into the shell, so they grow out of the top with no gap.
  for(const x of [-W/2+.4,W/2-.4]){const ear=add(device,new Mesh(new SphereGeometry(.2,40,24),mint),x,H-.06,-D*.12);ear.scale.set(1,.92,.78);}
- const hole=new MeshStandardMaterial({color:0x5a6d6c,roughness:.9});
+ const hole=new MeshStandardMaterial({color:palette.holes??0x5a6d6c,roughness:.9});
  for(const [x,z] of [[-.12,-.24],[0,-.24],[.12,-.24]]){const dot=add(device,new Mesh(new CircleGeometry(.026,16),hole),x,H+.001,z);dot.rotation.x=-Math.PI/2;}
- const led=new MeshStandardMaterial({color:0xdff3f1,roughness:.35,emissive:0x3fd6c8,emissiveIntensity:0});
+ const led=new MeshStandardMaterial({color:palette.led??0xdff3f1,roughness:.35,emissive:0x3fd6c8,emissiveIntensity:0});
  const ledDome=add(device,new Mesh(new SphereGeometry(.035,24,12,0,Math.PI*2,0,Math.PI/2),led),.26,H,-.24);ledDome.scale.set(1,.5,1);
  // The printed face on the upper front and the Privet wordmark below the slot.
  add(device,new Mesh(new PlaneGeometry(1.3,.73),decal(printerFace())),0,1.33,FRONT+.004);
@@ -288,7 +307,7 @@ function printerFigure({reducedMotion}:Parts):Figure{
 }
 
 // onReady: called once the first frame is on the canvas; the entrance starts from that frame.
-export function createRobotScene(canvas:HTMLCanvasElement,{model='desk',reducedMotion=false,onReady}:{model?:FigureModel;reducedMotion?:boolean;onReady?:()=>void}={}):RobotScene{
+export function createRobotScene(canvas:HTMLCanvasElement,{model='desk',colour,reducedMotion=false,onReady}:{model?:FigureModel;colour?:DeviceColour;reducedMotion?:boolean;onReady?:()=>void}={}):RobotScene{
  const renderer=new WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:'low-power'});
  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
  renderer.outputColorSpace=SRGBColorSpace;renderer.toneMapping=NeutralToneMapping;renderer.toneMappingExposure=.95;
@@ -301,7 +320,7 @@ export function createRobotScene(canvas:HTMLCanvasElement,{model='desk',reducedM
  const faceCanvas=document.createElement('canvas');faceCanvas.width=OLED_WIDTH*DOT;faceCanvas.height=OLED_HEIGHT*DOT;
  const faceCtx=faceCanvas.getContext('2d')!;const faceTexture=new CanvasTexture(faceCanvas);faceTexture.colorSpace=SRGBColorSpace;faceTexture.anisotropy=4;
  const glass=new MeshPhysicalMaterial({color:0x000000,roughness:.12,clearcoat:1,clearcoatRoughness:.05,emissive:0xffffff,emissiveMap:faceTexture,emissiveIntensity:1.35});
- const figure=(model==='printer'?printerFigure:model==='mini'?miniFigure:deskFigure)({glass,reducedMotion});
+ const figure=(model==='printer'?printerFigure:model==='mini'?miniFigure:deskFigure)({glass,reducedMotion,palette:figurePalette(model,colour)});
  const robot=figure.root;scene.add(robot);
  const camera=new PerspectiveCamera(25,1,.1,50);camera.position.set(figure.camera.x,figure.camera.y,figure.camera.z);camera.lookAt(0,figure.camera.target,0);
  const shadow=new Mesh(new PlaneGeometry(3*figure.shadow,2.2*figure.shadow),new MeshBasicMaterial({map:shadowTexture(),transparent:true,depthWrite:false}));
