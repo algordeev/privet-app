@@ -71,17 +71,19 @@ The native app can print learning cards on a 57 mm Bluetooth thermal "cat" print
 
 [![Privet Printer pocket thermal printer concept body with its cat face and Privet wordmark](public/images/printer-concept.webp)](public/images/printer-concept.webp)
 
-The pictured Privet body (white front with the printed cat face and the Privet wordmark, mint shell and ears) is a concept, rendered from the app's 3D model; the app works with an ordinary SC03h-type printer as it is.
+The pictured Privet body (white front with the printed cat face and the Privet wordmark, mint shell and ears; there is also a soft coral version below) is a concept, rendered from the app's 3D model; the app works with an ordinary SC03h-type printer as it is.
 
 ## Companion concept illustrations
 
-White and coral explorations of the optional desk companion, showing a possible enclosure and internal arrangement, the Privet Mini keychain, and a Privet concept body for the pocket thermal printer. The ESP32/OLED/servo and Mini electronics prototypes are implemented; the pictured enclosures and internal arrangement remain concepts. These are concept illustrations, not photographs of a completed device. The interactive website companion remains a browser simulation.
+Warm white and soft coral explorations of each device: the optional desk companion (a possible enclosure and internal arrangement), the Privet Mini keychain, and a Privet concept body for the pocket thermal printer. The ESP32/OLED/servo and Mini electronics prototypes are implemented; the pictured enclosures and internal arrangement remain concepts. These are concept illustrations, not photographs of a completed device. The interactive website companion remains a browser simulation.
 
-| Warm white | Soft coral | Privet Mini | Privet printer |
-| --- | --- | --- | --- |
-| [![White desk companion concept with enclosed and open rear views](public/images/companion-white.webp)](public/images/companion-white.webp) | [![Coral desk companion concept with enclosed and open rear views](public/images/companion-coral.webp)](public/images/companion-coral.webp) | [![Privet Mini keychain companion concept with its key ring](public/images/companion-mini.webp)](public/images/companion-mini.webp) | [![Privet Printer pocket thermal printer concept body with its cat face and Privet wordmark](public/images/printer-concept.webp)](public/images/printer-concept.webp) |
+| | Warm white | Soft coral |
+| --- | --- | --- |
+| Desk companion | [![White desk companion concept with enclosed and open rear views](public/images/companion-white.webp)](public/images/companion-white.webp) | [![Coral desk companion concept with enclosed and open rear views](public/images/companion-coral.webp)](public/images/companion-coral.webp) |
+| Privet Mini | [![White Privet Mini keychain companion concept with its key ring](public/images/companion-mini.webp)](public/images/companion-mini.webp) | [![Soft coral Privet Mini keychain companion concept with its key ring](public/images/companion-mini-coral.webp)](public/images/companion-mini-coral.webp) |
+| Privet printer | [![Privet printer concept body with its cat face, Privet wordmark and mint shell](public/images/printer-concept.webp)](public/images/printer-concept.webp) | [![Privet printer concept body with its cat face, Privet wordmark and soft coral shell](public/images/printer-concept-coral.webp)](public/images/printer-concept-coral.webp) |
 
-Illustrations supplied by the project creator, except the printer, which is rendered from the app's own 3D model (the one in its "printer found" card). The images live in `public/images/`; all four also appear in the website’s concept gallery. On the website, click an illustration to open a same-page image viewer and switch between them. Close with the close button, Escape, or the backdrop; left/right arrow keys also switch images. README image links open the original files.
+The desk companion pictures and the white Mini were supplied by the project creator. The soft coral Mini is that same illustration with the body recoloured (screen, ring, button and background untouched), matched to the coral desk companion. Both printer pictures are rendered from the app's own 3D model (the one in its "printer found" card); the coral one swaps the mint shell and ears for soft coral. The images live in `public/images/`. On the website, the concept gallery shows one card per device with a Warm white / Soft coral switch; click a picture to open a same-page viewer with the same switch. Close with the close button, Escape, or the backdrop; left/right arrow keys move between devices. README image links open the original files.
 
 ## Website
 
@@ -93,7 +95,7 @@ The public site (`npm run dev`, GitHub Pages) is one page:
 4. **02 The course:** the Cyrillic quick start and all eight lessons with their line icons, word and step counts, plus the six exercise kinds.
 5. **03 How you learn:** alphabet, stress and pronunciation help, grammar, review, exercise kinds and rewards.
 6. **04 Inside the app:** six real screens (Home, Lesson, Review, АБВ guide, Profile, Gems) that cycle in a phone while on screen; tabs or arrow keys pick one.
-7. **05 The Privet family:** the desk companion, Privet Mini and the printer, each with the app's own 3D figure (three.js, loaded only near the screen), a *Simulate a connection* button that wakes it, what it does, its parts and what is real versus concept. Below, three cards drawn by the app's print renderer (word of the day, practice strip, progress receipt) print out line by line, then the four concept illustrations.
+7. **05 The Privet family:** the desk companion, Privet Mini and the printer, each with the app's own 3D figure (three.js, loaded only near the screen), a *Simulate a connection* button that wakes it, what it does, its parts and what is real versus concept. Below, three cards drawn by the app's print renderer (word of the day, practice strip, progress receipt) print out line by line, then the concept gallery: one card per device with a Warm white / Soft coral switch.
 8. **06 Plans:** Free, Privet Plus (monthly/annual toggle) and the companion bundle as paper receipts, with the gem rules. All prices are the app's concept prices, marked as such; nothing is sold.
 9. **Closing** with the roadmap.
 
