@@ -31,3 +31,18 @@ test('idle face blinks every 4.3 s and glances sideways in its first minute',()=
  assert.ok(lit(glance,28+5+19,20)&&!lit(glance,28,20),'eyes moved 5 px');
  assert.ok(!lit(renderFirmwareFace('idle',2000),64,5),'no connection pulse once idle');
 });
+
+test('reaction faces follow the firmware: joyful eyes and smile, celebrate bobs and sparkles, encourage droops and recovers',()=>{
+ const lit=(face:Parameters<typeof renderFirmwareFace>[0],age:number,x:number,y:number)=>renderFirmwareFace(face,age)[y*128+x]===1;
+ // HAPPY: "^" eyes (the flat top of each at y=19) instead of the round idle eyes, and the smile.
+ assert.ok(lit('happy',100,40,19)&&lit('happy',90,19+0,19)===false);
+ assert.ok(!lit('happy',100,38,30),'no filled idle eye');
+ assert.ok(lit('happy',100,60,48),'smile');
+ // CELEBRATE: the whole face bobs every 180 ms, and the sparkles pulse.
+ assert.notDeepEqual(renderFirmwareFace('celebrate',100),renderFirmwareFace('celebrate',300));
+ assert.ok(lit('celebrate',100,11,19)&&lit('celebrate',100,64,10));
+ // ENCOURAGE: the sad eyes sit 2 px lower mid-way, and are back by 2.2 s.
+ assert.ok(lit('encourage',0,28,29)&&lit('encourage',1000,28,31));
+ assert.deepEqual(renderFirmwareFace('encourage',2300),renderFirmwareFace('encourage',0));
+ for(const face of ['happy','encourage','celebrate'] as const)assert.ok(lit(face,0,122,4),'connected dot');
+});

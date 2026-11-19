@@ -5,6 +5,7 @@ import {CONNECTED_FACE_MS,OLED_HEIGHT,OLED_WIDTH,renderFirmwareFace,type Firmwar
 import type {CompanionModel} from './bleProtocol';
 import {renderMiniFace} from './miniFaces';
 import {figurePalette,type DeviceColour,type FigurePalette} from './figureColours';
+import {REACTION_MS,TILT_HOME_DEG,headPose,type Reaction} from './servoMotion';
 
 // The physical companions as a small WebGL scene for the "companion found" card, each modelled on
 // its enclosure concept, with an OLED that shows the firmware's own faces.
@@ -22,7 +23,10 @@ import {figurePalette,type DeviceColour,type FigurePalette} from './figureColour
 //   connect it hops, the LED on top lights and a paper strip printed "Privet" feeds out of the slot.
 export type RobotMood='sleeping'|'connected';
 export type FigureModel=CompanionModel|'printer';
-export type RobotScene={setMood:(mood:RobotMood)=>void;resize:(width:number,height:number)=>void;dispose:()=>void};
+// react: plays a reaction the way the device does (desk: the firmware's face and head gesture; Mini: a hop).
+// showScreen: shows a 128×64 1-bit image on the OLED instead of the face (e.g. a learning card); null = face.
+// print (printer only): feeds a printed card (its image, black on white) out of the slot over `ms`.
+export type RobotScene={setMood:(mood:RobotMood)=>void;react:(reaction:Reaction)=>void;showScreen:(pixels:Uint8Array|null)=>void;print:(image:HTMLCanvasElement,ms:number)=>void;resize:(width:number,height:number)=>void;dispose:()=>void};
 
 const CREAM=0xeee2c6;
 const DOT=4; // texture pixels per OLED pixel: a 3 px lit dot and a 1 px gap, like the real panel.
@@ -76,7 +80,8 @@ const add=<T extends Mesh>(parent:Group,mesh:T,x=0,y=0,z=0)=>{mesh.position.set(
 // A figure: its meshes (the OLED glass placed by the builder), framing and its own motion.
 // animate: since = ms in the current mood; t = s since the entrance began. Returns the lift above the floor.
 // face: that companion's firmware faces.
-type Figure={root:Group;camera:{x:number;y:number;z:number;target:number};shadow:number;face:typeof renderFirmwareFace;animate:(mood:RobotMood,since:number,t:number)=>number};
+type Playing={name:Reaction;age:number};
+type Figure={root:Group;camera:{x:number;y:number;z:number;target:number};shadow:number;face:typeof renderFirmwareFace;animate:(mood:RobotMood,since:number,t:number,reaction?:Playing)=>number;print?:(image:HTMLCanvasElement,ms:number)=>void};
 type Parts={glass:Material;reducedMotion:boolean;palette:FigurePalette};
 
 function deskFigure({glass,reducedMotion,palette}:Parts):Figure{
@@ -117,11 +122,16 @@ function deskFigure({glass,reducedMotion,palette}:Parts):Figure{
  add(head,new Mesh(slab(1.12,HEAD_HEIGHT,HEAD_DEPTH,.2,.08,false),plastic),0,HEAD_HEIGHT/2);
  add(head,new Mesh(new ShapeGeometry(roundedRect(.8,.5,.06),8),new MeshStandardMaterial({color:0x2a2c2c,roughness:.5})),0,HEAD_HEIGHT/2,HEAD_DEPTH/2+.001);
  add(head,new Mesh(new PlaneGeometry(.74,.44),glass),0,HEAD_HEIGHT/2,HEAD_DEPTH/2+.003);
- let yaw=0;
- return {root:robot,camera:{x:0,y:1.5,z:6.1,target:.93},shadow:1,face:renderFirmwareFace,animate(mood,since){
-  // Head: the firmware's CONNECTED servo curve, followed with a little inertia like a real servo.
-  const target=mood==='connected'&&!reducedMotion?servoAngle(since):0;
-  yaw+=(target-yaw)*(reducedMotion?1:.32);head.rotation.y=yaw;
+ let yaw=0,pitch=0;
+ const rad=(deg:number)=>deg*Math.PI/180;
+ return {root:robot,camera:{x:0,y:1.5,z:6.1,target:.93},shadow:1,face:renderFirmwareFace,animate(mood,since,_t,reaction){
+  // Head: a reaction's firmware gesture (pan and tilt), else the CONNECTED servo curve, followed
+  // with a little inertia like a real servo. Tilt + is head up.
+  const pose=reaction&&!reducedMotion?headPose(reaction.name,reaction.age):undefined;
+  const targetYaw=pose?rad(pose.pan):mood==='connected'&&!reducedMotion?servoAngle(since):0;
+  const targetPitch=pose?-rad(pose.tilt-TILT_HOME_DEG):0;
+  const k=reducedMotion?1:.32;
+  yaw+=(targetYaw-yaw)*k;pitch+=(targetPitch-pitch)*k;head.rotation.set(pitch,yaw,0);
   return 0;
  }};
 }
@@ -184,8 +194,9 @@ function miniFigure({glass,reducedMotion,palette}:Parts):Figure{
  add(usb,new Mesh(new ShapeGeometry(roundedRect(PORT_W*.62,.026,.01),4),new MeshStandardMaterial({color:0x3a3a3c,roughness:.5})),0,0,.003);
 
  let swing=0,swingVelocity=0,last=0;
- return {root,camera:{x:0,y:2,z:7.6,target:1.38},shadow:1.15,face:renderMiniFace,animate(mood,since,t){
-  const lift=mood==='connected'&&!reducedMotion?hop(since):0;
+ return {root,camera:{x:0,y:2,z:7.6,target:1.38},shadow:1.15,face:renderMiniFace,animate(mood,since,t,reaction){
+  // A reaction (no servo on the Mini): the same happy hop, from when it starts.
+  const lift=reducedMotion?0:reaction?hop(reaction.age):mood==='connected'?hop(since):0;
   device.position.y=lift;
   // A little lean into the jump and back on landing.
   device.rotation.z=mood==='connected'&&!reducedMotion&&since<760?-.06*Math.sin(Math.PI*Math.min(1,since/760)):0;
@@ -293,8 +304,44 @@ function printerFigure({reducedMotion,palette}:Parts):Figure{
   hinge.rotation.x=-(.95-.8*f);
  };
  feed(0);
+ // A print job: a whole card fed out of the slot. It hangs down the front, curves at the bottom and
+ // lies on the table towards the viewer, like a real receipt. The card's bottom comes out first, so
+ // it reads the right way up both where it hangs and where it lies.
+ const CARD_W=W-.42,SEGMENTS=72,TOP=SLOT_Y,FLOOR=.004,BEND=.22,OUT=FRONT+.026;
+ const cardGeometry=new PlaneGeometry(CARD_W,1,1,SEGMENTS);
+ const cardMaterial=new MeshStandardMaterial({color:0xfbf9f2,roughness:.82,side:2});
+ const card=new Mesh(cardGeometry,cardMaterial);card.visible=false;device.add(card);
+ let job:{texture:CanvasTexture;length:number;start:number;ms:number}|null=null;
+ // Point at distance s along the paper from the slot: down the front, a quarter turn, then flat.
+ const drop=TOP-FLOOR-BEND,arc=Math.PI/2*BEND;
+ const path=(s:number):[number,number]=>{
+  if(s<=drop)return [TOP-s,OUT+.03*Math.sin(Math.PI*Math.min(1,s/Math.max(drop,.001)))];
+  if(s<=drop+arc){const a=(s-drop)/BEND;return [FLOOR+BEND-BEND*Math.sin(a),OUT+BEND-BEND*Math.cos(a)];}
+  return [FLOOR,OUT+BEND+(s-drop-arc)];
+ };
+ function shapeCard(fed:number,length:number){
+  const position=cardGeometry.getAttribute('position'),uv=cardGeometry.getAttribute('uv');
+  for(let i=0;i<=SEGMENTS;i++){
+   const s=fed*i/SEGMENTS,[y,z]=path(s),v=(fed-s)/length; // v: 0 = the card's bottom (out first)
+   for(const [column,x] of [[0,-CARD_W/2],[1,CARD_W/2]] as const){const k=i*2+column;position.setXYZ(k,x,y,z);uv.setXY(k,column,v);}
+  }
+  position.needsUpdate=true;uv.needsUpdate=true;cardGeometry.computeVertexNormals();cardGeometry.computeBoundingSphere();
+ }
  const blank:Uint8Array=new Uint8Array(OLED_WIDTH*OLED_HEIGHT);
- return {root,camera:{x:0,y:2.1,z:6.6,target:1.06},shadow:1.05,face:(()=>blank) as typeof renderFirmwareFace,animate(mood,since){
+ return {root,camera:{x:0,y:2.1,z:6.6,target:1.06},shadow:1.05,face:(()=>blank) as typeof renderFirmwareFace,print(image,ms){
+  job?.texture.dispose();
+  const texture=new CanvasTexture(image);texture.colorSpace=SRGBColorSpace;texture.anisotropy=8;
+  cardMaterial.map=texture;cardMaterial.needsUpdate=true;
+  job={texture,length:CARD_W*image.height/image.width,start:performance.now(),ms};
+ },animate(mood,since){
+  if(job){
+   // Printing: the LED glows and the card feeds out at an even pace, easing in and out.
+   const x=Math.min(1,Math.max(0,(performance.now()-job.start)/job.ms)),eased=x*x*(3-2*x);
+   card.visible=x>0;if(card.visible)shapeCard(Math.max(.002,eased*job.length),job.length);
+   led.emissiveIntensity=x<1?4.5:Math.max(0,4.5-(performance.now()-job.start-job.ms)/200);
+   feed(0);device.position.y=0;
+   return 0;
+  }
   const connected=mood==='connected';
   // A small hop like the Mini's (no shake or lean), then the LED and the paper feed.
   const lift=connected&&!reducedMotion?hop(since):0;
@@ -326,9 +373,9 @@ export function createRobotScene(canvas:HTMLCanvasElement,{model='desk',colour,r
  const shadow=new Mesh(new PlaneGeometry(3*figure.shadow,2.2*figure.shadow),new MeshBasicMaterial({map:shadowTexture(),transparent:true,depthWrite:false}));
  shadow.rotation.x=-Math.PI/2;shadow.position.y=.001;scene.add(shadow);
 
- let previous='';
+ let previous='',screen:Uint8Array|null=null,playing:{name:Reaction;at:number}|null=null;
  function drawFace(face:FirmwareFace,age:number,clock:number){
-  const pixels=figure.face(face,age,clock);
+  const pixels=screen??figure.face(face,age,clock);
   const signature=pixels.join('');if(signature===previous)return;previous=signature;
   faceCtx.fillStyle='#000';faceCtx.fillRect(0,0,faceCanvas.width,faceCanvas.height);
   faceCtx.fillStyle='#e9f5ff';
@@ -347,10 +394,15 @@ export function createRobotScene(canvas:HTMLCanvasElement,{model='desk',colour,r
   robot.rotation.y=-.34+(1-intro)*-.95+(reducedMotion?0:.13*Math.sin(t*.62)*intro);
   robot.position.y=reducedMotion?0:(1-intro)*-.18+.022*Math.sin(t*1.25)*intro;
   robot.scale.setScalar(.9+.1*intro);
-  const lift=figure.animate(mood,since,t);
+  const age=playing?now-playing.at:0;
+  if(playing&&(mood==='sleeping'||age>=REACTION_MS[playing.name]))playing=null;
+  const reaction=playing?{name:playing.name,age}:undefined;
+  const lift=figure.animate(mood,since,t,reaction);
   shadow.scale.setScalar(1-(robot.position.y+lift)*.6);
-  const face:FirmwareFace=mood==='sleeping'?'sleeping':since<CONNECTED_FACE_MS?'connected':'idle';
-  drawFace(face,face==='sleeping'?now-start:face==='connected'?since:since-CONNECTED_FACE_MS,now-start);
+  // The desk robot shows the reaction's own face; the Mini keeps its face and hops.
+  const reactionFace=reaction&&figure.face===renderFirmwareFace&&(reaction.name==='happy'||reaction.name==='encourage'||reaction.name==='celebrate')?reaction.name:undefined;
+  const face:FirmwareFace=mood==='sleeping'?'sleeping':reactionFace??(since<CONNECTED_FACE_MS?'connected':'idle');
+  drawFace(face,face==='sleeping'?now-start:reactionFace?age:face==='connected'?since:since-CONNECTED_FACE_MS,now-start);
   renderer.render(scene,camera);
   if(first)onReady?.();
  }
@@ -358,6 +410,9 @@ export function createRobotScene(canvas:HTMLCanvasElement,{model='desk',colour,r
  frame=requestAnimationFrame(loop);
  return {
   setMood(next){if(next===mood)return;mood=next;moodAt=performance.now();},
+  react(name){if(mood==='connected')playing={name,at:performance.now()};},
+  showScreen(pixels){screen=pixels;previous='';},
+  print(image,ms){figure.print?.(image,ms);},
   resize(width,height){renderer.setSize(width,height,false);camera.aspect=width/Math.max(1,height);camera.updateProjectionMatrix();sized=true;render();},
   dispose(){
    disposed=true;cancelAnimationFrame(frame);
