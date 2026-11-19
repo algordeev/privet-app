@@ -1,22 +1,25 @@
 import type {PluginListenerHandle} from '@capacitor/core';
 import {BleClient,BluetoothLe} from '@capacitor-community/bluetooth-le';
 import {BLE_COMMAND,BLE_SERVICE,BLE_STATUS} from './bleProtocol';
+import {nativeBleShared} from './bleNative';
 import type {BleDriver} from './bleTransport';
 
-// This adapter is the only owner of the BLE plugin. No initialization at import
-// or mount: only the explicit Connect action may request Bluetooth permission.
+// Both companions advertise the Privet service and a Privet- name (see bleProtocol.ts). The name also
+// counts while another driver keeps the shared scan unfiltered and an advertisement omits the UUID.
+const isCompanion=(result:{name?:string;uuids?:string[]})=>!!result.uuids?.some(uuid=>uuid.toLowerCase()===BLE_SERVICE)||!!result.name?.startsWith('Privet-');
+
+// This adapter owns only the companion's own plugin resources. No initialization at import or mount:
+// only the explicit Connect action may request Bluetooth permission.
 export function createNativeBleDriver():BleDriver {
- let epoch=0,initialized=false;
+ let epoch=0;
  const disconnectListeners=new Set<PluginListenerHandle>();
+ // Its own scan lease and enabled watches: cleanup releases these, never another driver's.
+ let releaseScan:(()=>Promise<void>)|undefined;
+ const unwatch=new Set<()=>Promise<void>>();
+ const stopScan=async()=>{const release=releaseScan;releaseScan=undefined;await release?.();};
  return {
-  async initialize(){
-   if(initialized)return;
-   // The transport serializes writes itself. Let cancellation/cleanup reach the
-   // native plugin immediately rather than queue behind an unresolved operation.
-   BleClient.disableQueue();
-   await BleClient.initialize();
-   initialized=true;
-  },
+  // The transport serializes writes itself; the shared layer disables the plugin queue once.
+  initialize:()=>nativeBleShared().initialize(),
   isEnabled:()=>BleClient.isEnabled(),
   async connected(id){
    const started=epoch;
@@ -30,9 +33,20 @@ export function createNativeBleDriver():BleDriver {
    return !!service?.characteristics.some(c=>c.uuid.toLowerCase()===BLE_COMMAND&&c.properties.write)
     &&!!service.characteristics.some(c=>c.uuid.toLowerCase()===BLE_STATUS&&c.properties.notify);
   },
-  watchEnabled:callback=>BleClient.startEnabledNotifications(callback),
-  scan:(service,callback)=>BleClient.requestLEScan({services:[service]},result=>callback({deviceId:result.device.deviceId,name:result.localName||result.device.name})),
-  stopScan:()=>BleClient.stopLEScan(),
+  async watchEnabled(callback){
+   const started=epoch;
+   const remove=await nativeBleShared().watchEnabled(callback);
+   if(started!==epoch){await remove();throw new Error('Connection cancelled');}
+   unwatch.add(remove);
+  },
+  async scan(service,callback){
+   await stopScan();
+   const started=epoch;
+   const release=await nativeBleShared().acquireScan({services:[service],accept:isCompanion,callback:result=>callback({deviceId:result.deviceId,name:result.name})});
+   if(started!==epoch){await release();throw new Error('Scan cancelled');}
+   releaseScan=release;
+  },
+  stopScan,
   async connect(id,disconnected,timeout){
    const started=epoch;
    // BleClient's convenience onDisconnect callback has no removal API in
@@ -47,11 +61,12 @@ export function createNativeBleDriver():BleDriver {
   async cleanup(id){
    epoch++;
    const listeners=[...disconnectListeners];disconnectListeners.clear();
+   const watches=[...unwatch];unwatch.clear();
    // Each cleanup is safe if initialization/subscription never finished. The
    // transport also cleans up after late native promise settlement before reuse.
    await Promise.allSettled([
     ...listeners.map(listener=>listener.remove()),
-    BleClient.stopLEScan(),BleClient.stopEnabledNotifications(),
+    stopScan(),...watches.map(remove=>remove()),
     ...(id?[BleClient.stopNotifications(id,BLE_SERVICE,BLE_STATUS),BleClient.disconnect(id)]:[])
    ]);
   }

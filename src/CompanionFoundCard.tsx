@@ -2,6 +2,7 @@ import {lazy,Suspense,useEffect,useRef,useState} from 'react';
 import {NativeSheet} from './NativeSheet';
 import {BLE_NAME,companionModel} from './bleProtocol';
 import {playHaptic} from './nativeHaptics';
+import {foundCardFree,holdFoundCard} from './foundCards';
 import type {PhysicalDevice} from './bleTransport';
 import {useBleState,type PhysicalCompanionController} from './usePhysicalCompanion';
 
@@ -25,10 +26,11 @@ export function CompanionFoundCard({controller,where}:{controller:PhysicalCompan
  const picked=where==='physical'&&state.phase==='connecting'&&!state.auto?state.device:undefined;
  useEffect(()=>{
   if(state.phase!=='scanning'&&state.phase!=='connecting'&&!card)dismissedScan.current=false;
-  if(card||dismissedScan.current)return;
+  if(card||dismissedScan.current||!foundCardFree('companion'))return;
   if(offer){buzzed.current=false;setLeaving(false);setCard({device:state.devices[0],quiet:true,attempted:false});controller.holdScan();}
   else if(picked){buzzed.current=false;setLeaving(false);setCard({device:picked,quiet:false,attempted:true});}
  },[offer,picked,state.phase,card,controller]);
+ useEffect(()=>{holdFoundCard('companion',!!card);return ()=>holdFoundCard('companion',false);},[card]);
  const stage:Stage|null=!card?null
   :state.phase==='connected'&&state.ready&&state.device?.deviceId===card.device.deviceId?'connected'
   :state.phase==='connecting'&&state.device?.deviceId===card.device.deviceId?'connecting'

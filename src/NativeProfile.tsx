@@ -1,3 +1,4 @@
+import {PrintIcon} from './Icons';
 import {lessonById} from './lessons';
 import {CountedNumber} from './FirstRunArt';
 import type {NativeStatsController} from './useNativeStats';
@@ -12,7 +13,7 @@ function displayDate(day:string,options:Intl.DateTimeFormatOptions){
  if(!format){format=new Intl.DateTimeFormat('en',options);formatters.set(key,format);}
  return format.format(new Date(`${day}T12:00:00`));
 }
-export function NativeProfile({activity,subscription,onPlus,onClose}:{activity:NativeStatsController;subscription:SubscriptionController;onPlus:()=>void;onClose:()=>void}){
+export function NativeProfile({activity,subscription,onPlus,onClose,onPrint}:{activity:NativeStatsController;subscription:SubscriptionController;onPlus:()=>void;onClose:()=>void;onPrint?:()=>void}){
  const {stats,summary,persistent}=activity;
  return <div className="native-profile-scroll">
   <header className="native-profile-navigation"><button className="app-icon-button" onClick={onClose} aria-label="Back to home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><h1 id="native-profile-title" tabIndex={-1}>Profile</h1><span aria-hidden="true"/></header>
@@ -27,6 +28,7 @@ export function NativeProfile({activity,subscription,onPlus,onClose}:{activity:N
    <div className="native-stat-xp"><dt>Total XP</dt><dd><strong><CountedNumber value={summary.totalXp} delay={400}/></strong></dd><p>Recorded locally</p></div>
   </dl>
   <section className="native-profile-week" aria-labelledby="native-week-title"><h2 id="native-week-title">Your last seven days</h2><ol aria-label="Daily lesson finishes">{summary.week.map(day=><li key={day.day} className={`${day.finishes?'practised':''} ${day.today?'today':''}`} aria-label={`${displayDate(day.day,{weekday:'long',month:'short',day:'numeric'})}${day.today?', today':''}: ${day.finishes} ${day.finishes===1?'lesson finish':'lesson finishes'}, ${day.xp} XP`}><span aria-hidden="true">{displayDate(day.day,{weekday:'short'})}</span><i aria-hidden="true">{day.finishes?<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m5 10 3 3 7-7"/></svg>:new Date(`${day.day}T12:00:00`).getDate()}</i><small>{day.xp} XP</small></li>)}</ol></section>
+  {onPrint&&<button className="native-text-button native-profile-print" id="native-profile-print" onClick={onPrint}><PrintIcon/> Print today’s progress receipt</button>}
   <section className="native-profile-result" aria-labelledby="native-result-title"><div><span>LATEST ATTEMPT</span><h2 id="native-result-title">{lessonById(stats.latest?.lessonId).title}</h2></div>{stats.latest?<><p className="native-profile-score"><strong>{stats.latest.firstTry}<span>/{lessonById(stats.latest?.lessonId).exercises.length}</span></strong><span>Correct on first<br/>submission</span></p><p>{stats.latest.day?displayDate(stats.latest.day,{month:'long',day:'numeric',year:'numeric'}):'Earlier result · Practice date not recorded'}</p></>:<p>Finish the lesson to see your first result here.</p>}</section>
   <footer className="native-profile-footer"><p>{persistent?'Your statistics stay on this iPhone. No account needed.':'Local saving is unavailable. These statistics last for this session.'}</p></footer>
  </div>;
