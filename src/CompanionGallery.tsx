@@ -10,8 +10,8 @@ export const conceptDevices=[
   coral:{src:'images/companion-coral.webp',alt:'Coral desk companion concept, showing the enclosed smiling robot alongside an open rear view of a conceptual OLED, head servo, and ESP32 layout.'},
  }},
  {id:'mini',name:'Privet Mini',images:{
-  white:{src:'images/companion-mini.webp',alt:'White Privet Mini keychain companion concept: a small body with a black OLED face, a cream top button and a key ring.'},
-  coral:{src:'images/companion-mini-coral.webp',alt:'Soft coral Privet Mini keychain companion concept: a small body with a black OLED face, a cream top button and a key ring.'},
+  white:{src:'images/companion-mini-white.webp',alt:'Warm white Privet Mini keychain companion concept, rendered from the app’s 3D model: a wide glass screen with a smiling OLED face, a big cream top button, a side switch and a key ring.'},
+  coral:{src:'images/companion-mini-coral.webp',alt:'Soft coral Privet Mini keychain companion concept, rendered from the app’s 3D model: a wide glass screen with a smiling OLED face, a big cream top button, a side switch and a key ring.'},
  }},
  {id:'printer',name:'Printer body',images:{
   white:{src:'images/printer-concept.webp',alt:'Privet printer concept body, rendered from the app’s 3D model: a white front with a printed cat face and the Privet wordmark, mint shell and ears.'},
