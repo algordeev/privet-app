@@ -35,7 +35,7 @@ try {
  const {sessionKey}=await server.ssrLoadModule('/src/session.ts');
  Capacitor.isNativePlatform=()=>false;
  const website=renderToStaticMarkup(createElement(RuntimeApp));
- for(const marker of ['class="site-header wrap"','class="hero wrap"','class="lesson-phone"','class="ios-status-bar"','id="companion"'])assert.ok(website.includes(marker),marker);
+ for(const marker of ['class="site-header wrap"','class="hero wrap"','class="lesson-phone"','class="ios-status-bar"','id="course"','id="app"','id="devices"','id="plans"','class="site-ticker"'])assert.ok(website.includes(marker),marker);
  assert.ok(!website.includes('class="native-app"'));
  const baseline=process.env.PRIVET_BROWSER_BASELINE;
  if(baseline&&existsSync(baseline)){assert.equal(website.replace('class="app-audio-note" role="status" aria-live="polite" aria-atomic="true"','class="app-audio-note"'),readFileSync(baseline,'utf8'));console.log('PASS: browser markup preserved, with accessible audio status attributes added.');}
@@ -224,13 +224,15 @@ try {
  console.log('PASS: listen questions fall back to a written sound guide without a voice and hide option readings until answered; match pairs render both columns, restored locks and a fixed English scramble.');
  Capacitor.isNativePlatform=()=>false;
  const unchangedWebsite=renderToStaticMarkup(createElement(RuntimeApp));
- assert.ok(unchangedWebsite.includes('STEP 1 OF 5'));assert.ok(!unchangedWebsite.includes('Nice to meet you'));
+ assert.ok(unchangedWebsite.includes('STEP 1 OF 5'));
+ // The demo itself stays the café lesson; other lessons appear only in the course overview.
+ const demo=unchangedWebsite.slice(unchangedWebsite.indexOf('id="demo"'),unchangedWebsite.indexOf('id="course"'));assert.ok(demo.includes('Café essentials'));assert.ok(!demo.includes('Nice to meet you'));assert.ok(unchangedWebsite.includes('Nice to meet you'));
 
  for(const html of [website,home]){
   assert.ok(!html.includes('Duolingo'));assert.ok(!html.includes('comparison-table'));assert.ok(!html.includes('native-compare'));assert.ok(!html.includes('href="#why"'));
  }
- assert.ok(website.includes('20 gems'));assert.ok(website.includes('30 gems'));assert.ok(website.includes('no payment processing'));
- assert.ok(website.includes('robot on this website is simulated'));assert.ok(website.includes('working iPhone + ESP32 prototype'));
+ for(const text of ['−20','Refill your hearts','−30','A streak freeze for a missed day','$4.99','$39.99','$59.99','Concept pricing · no checkout','Lifetime Privet Plus included','Planned'])assert.ok(website.includes(text),text);
+ assert.ok(website.includes('The robots on this page are simulated'));assert.ok(website.includes('class="companion-gallery"'));assert.ok(!website.includes('id="companion"'));assert.ok(website.includes('Working prototype'));assert.ok(website.includes('Privet body is a concept'));assert.ok(!/iprint/i.test(website));
  function Plus(){const subscription=useSubscription();return createElement(PlusScreen,{subscription,onClose:()=>{}});}
  storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));assert.ok(renderToStaticMarkup(createElement(Plus)).includes('Activate Plus demo'));
  storage.set(SUBSCRIPTION_KEY,JSON.stringify({version:1,plan:'monthly',since:'2026-10-18'}));
@@ -255,7 +257,7 @@ try {
  for(const [status,page,action] of [['skipped',0,'Open'],['started',1,'Continue'],['completed',3,'Review']]){
   storage.set(CYRILLIC_KEY,JSON.stringify({version:1,status,page}));Capacitor.isNativePlatform=()=>true;const compactHome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(compactHome.includes('native-quick-card is-collapsed'));assert.ok(compactHome.includes(`${action} Cyrillic quick start`));assert.ok(!compactHome.includes('Skip for now'));assert.ok(!compactHome.includes('RECOMMENDED · ABOUT 3 MIN'));
  }Capacitor.isNativePlatform=()=>false;
- assert.ok(!website.includes('Cyrillic quick start'));assert.ok(!website.includes('Open Cyrillic guide'));
+ assert.ok(!website.includes('native-quick-card'));assert.ok(!website.includes('Open Cyrillic guide'));
  storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));
  function QuickStart(){const onboarding=useCyrillicProgress();const controller=useLesson();return createElement(NativeCyrillicQuickStart,{onboarding,speech:controller.speech,onClose:noOp,onLesson:noOp});}
  for(const [status,page] of [['started',0],['started',1],['started',2],['started',3],['completed',3]]){

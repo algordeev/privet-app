@@ -4,7 +4,7 @@ Privet is a React + TypeScript + Vite learning prototype with a native Capacitor
 
 | Part | Current experience |
 | --- | --- |
-| Browser website | Landing page, interactive café lesson inside a decorative phone, simulated robot, and enclosure concept gallery. No real Bluetooth connection. |
+| Browser website | Promo page for the whole project: the course, real app screens, the device family (live 3D figures and printed cards), concept plans, an interactive café lesson inside a decorative phone, a simulated robot and the concept gallery. No real Bluetooth connection. See [Website](#website). |
 | Native iOS app | Capacitor selects an app home, profile/statistics and eight full-screen lessons using `Capacitor.isNativePlatform()`. Content is bundled locally. |
 | Virtual companion | Coral SVG/CSS robot with predefined greetings and reactions; works independently of physical hardware. |
 | Optional physical companion | ESP32 (ESP-32S or ESP32-S3) with an SSD1306 or SH1106 128×64/1.3" OLED and SG90-targeted servo firmware, receiving emotion commands and negotiated, answer-safe learning cards over native iOS BLE. |
@@ -14,7 +14,7 @@ The **phone** owns lessons, answer checking, progress/statistics and optional sy
 
 ## Beginner curriculum
 
-The native app and native browser preview use one canonical course. The public website retains its café demo.
+The native app and native browser preview use one canonical course. The public website retains its café demo and lists the whole course.
 
 | Lesson | Practical outcome |
 | --- | --- |
@@ -81,7 +81,23 @@ White and coral explorations of the optional desk companion, showing a possible 
 | --- | --- | --- | --- |
 | [![White desk companion concept with enclosed and open rear views](public/images/companion-white.webp)](public/images/companion-white.webp) | [![Coral desk companion concept with enclosed and open rear views](public/images/companion-coral.webp)](public/images/companion-coral.webp) | [![Privet Mini keychain companion concept with its key ring](public/images/companion-mini.webp)](public/images/companion-mini.webp) | [![Privet Printer pocket thermal printer concept body with its cat face and Privet wordmark](public/images/printer-concept.webp)](public/images/printer-concept.webp) |
 
-Illustrations supplied by the project creator, except the printer, which is rendered from the app's own 3D model (the one in its "printer found" card). The images live in `public/images/`; the two desk companion ones also appear in the website’s companion gallery. On the website, click an illustration to open a same-page image viewer and switch between Warm white and Soft coral. Close with the close button, Escape, or the backdrop; left/right arrow keys also switch images. README image links open the original files.
+Illustrations supplied by the project creator, except the printer, which is rendered from the app's own 3D model (the one in its "printer found" card). The images live in `public/images/`; all four also appear in the website’s concept gallery. On the website, click an illustration to open a same-page image viewer and switch between them. Close with the close button, Escape, or the backdrop; left/right arrow keys also switch images. README image links open the original files.
+
+## Website
+
+The public site (`npm run dev`, GitHub Pages) is one page:
+
+1. **Hero:** the lesson phone, the simulated robot and a small printer feeding out a word card. The simulated robot also reacts to your answers beside the café demo.
+2. **Ticker** of what's in the project.
+3. **01 Try it:** the interactive café lesson, unchanged.
+4. **02 The course:** the Cyrillic quick start and all eight lessons with their line icons, word and step counts, plus the six exercise kinds.
+5. **03 How you learn:** alphabet, stress and pronunciation help, grammar, review, exercise kinds and rewards.
+6. **04 Inside the app:** six real screens (Home, Lesson, Review, АБВ guide, Profile, Gems) that cycle in a phone while on screen; tabs or arrow keys pick one.
+7. **05 The Privet family:** the desk companion, Privet Mini and the printer, each with the app's own 3D figure (three.js, loaded only near the screen), a *Simulate a connection* button that wakes it, what it does, its parts and what is real versus concept. Below, three cards drawn by the app's print renderer (word of the day, practice strip, progress receipt) print out line by line, then the four concept illustrations.
+8. **06 Plans:** Free, Privet Plus (monthly/annual toggle) and the companion bundle as paper receipts, with the gem rules. All prices are the app's concept prices, marked as such; nothing is sold.
+9. **Closing** with the roadmap.
+
+What the page says about lessons, prices, gem rules and devices comes from `src/siteContent.ts`, which reads the app's catalogue, `subscription.ts` and `GEM_RULES`, so the site can't drift from the app (`src/siteContent.test.ts` checks it). The app screenshots in `public/images/screens/` were captured from the native browser preview (`?native=1`) at 390×844 @2x with a seeded learner and stress marks off (Chromium places the combining accent beside the vowel), then saved as 600 px WebP. Sections fade in once as they scroll into view; with reduced motion everything is shown at once and the ticker, printer feed and autoplay stop.
 
 ## Run locally
 
@@ -138,6 +154,7 @@ Statistics use `privet-demo-v1-native-stats`; resumable sessions have separate k
 | --- | --- |
 | `src/config.ts` | Temporary product name/storage key |
 | `src/RuntimeApp.tsx`, `src/App.tsx` | Native runtime selection; browser landing/demo/gallery |
+| `src/SiteSections.tsx`, `src/siteContent.ts` | Website course, app screens, device family with 3D figures and printed cards, plans; content built from the app's own data |
 | `src/NativeApp.tsx`, `src/native.css`, `src/useNativeViewport.ts` | Native home/navigation, root ownership, safe areas and keyboard layout |
 | `src/curriculum/types.ts`, `catalog.ts`, `motivation.ts`, `lessons/*.ts` | Reusable content types, canonical catalogue, future recommendation ranking, and individual lesson data |
 | `src/lesson.ts`, `src/lessons.ts`, `src/engine.ts` | Compatibility exports and unchanged answer normalization/checking and reducer transitions |
@@ -175,7 +192,7 @@ Statistics use `privet-demo-v1-native-stats`; resumable sessions have separate k
 | `firmware/PrivetBLE_Servo/PrivetBLE_Servo.ino` | Legacy commands-1–4 servo variant: loop-driven pulse gestures, centering and PWM release |
 | `firmware/PrivetBLE_Lessons/PrivetBLE_Lessons.ino` | OLED-only baseline with the same BLE protocol |
 | `src/*.test.ts`, `scripts/check-shells.mjs` | Focused regressions and rendered browser/native shell checks |
-| `src/styles.css`, `src/iphone.css`, `src/gallery.css` | Website layout, decorative phone, gallery, focus/reduced-motion styles |
+| `src/styles.css`, `src/iphone.css`, `src/gallery.css`, `src/site.css` | Website layout, decorative phone, gallery, the newer site sections, focus/reduced-motion styles |
 | `vite.config.ts`, `capacitor.config.ts` | Separate browser/native builds and local Capacitor content |
 
 Answer normalization ignores case, stress accents, surrounding/repeated spaces and terminal punctuation while preserving letters such as й; incorrect words are not accepted through fuzzy matching.
