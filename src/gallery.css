@@ -38,7 +38,6 @@
   .concept-gallery-heading p { font-size: 11px; }
   .concept-gallery-images { grid-template-columns: minmax(0, 1fr); gap: 26px; }
   .concept-gallery-images figcaption { font-size: 10px; margin-top: 10px; }
-  .companion-section .companion-gallery { order: -1; }
 }
 .concept-lightbox {
   width: min(1100px, calc(100vw - 48px));
@@ -81,3 +80,5 @@
   .concept-image-count { font-size: 9px; width: 100%; }
   .concept-lightbox-figure img { max-height: max(110px, calc(100svh - 255px)); }
 }
+.concept-swatch.mini { background: #fbfaf6; border-color: #2b2f2c; }
+.concept-swatch.printer { background: #a9e5e3; border-color: #7fc6c3; }

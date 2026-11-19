@@ -4,6 +4,7 @@ import {RuntimeApp,isNativeLayout} from './RuntimeApp';
 import './styles.css';
 import './iphone.css';
 import './gallery.css';
+import './site.css';
 import './native.css';
 import {PRODUCT} from './config';
 import {restoreStorageMirror} from './previewStorage';
