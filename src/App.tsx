@@ -53,7 +53,7 @@ function App(){
       <div className="phone-home"/>
      </div>
      <HeroPrinter/>
-     <div className="hero-robot"><div className="speech-bubble" lang="ru">Привет! <span>Hi, you.</span></div><Companion/><div className="simulation-tag"><span/> Simulated companion</div></div>
+     <div className="hero-robot"><div className="speech-bubble" lang="ru">Привет! <span>Hi, you.</span></div><Companion/></div>
      <span className="hand-note note-bottom">A little company.<br/>A lot of encouragement.</span>
     </div>
    </section>
