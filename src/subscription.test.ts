@@ -1,21 +1,55 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {PRODUCT} from './config.ts';
 import {cancel,emptySubscription,isPlus,restoreSubscription,subscribe,SUBSCRIPTION_KEY,PLUS_MONTHLY_PRICE,PLUS_YEARLY_PRICE} from './subscription.ts';
 
-test('annual concept pricing is below twelve monthly payments',()=>{
- assert.ok(Number(PLUS_YEARLY_PRICE.slice(1))/12<Number(PLUS_MONTHLY_PRICE.slice(1)));
+const none={version:1,plan:null,since:null};
+
+test('the Plus choice is saved under the product key the check scripts use',()=>{
+ assert.equal(SUBSCRIPTION_KEY,`${PRODUCT.storageKey}-subscription`);
+ assert.equal(SUBSCRIPTION_KEY,'privet-demo-v1-subscription');
 });
 
-test('subscriptions start empty and use the product-specific local key',()=>{
- assert.deepEqual(emptySubscription(),{version:1,plan:null,since:null});assert.equal(isPlus(emptySubscription()),false);assert.equal(SUBSCRIPTION_KEY,'privet-demo-v1-subscription');
+test('nothing saved means no Plus',()=>{
+ assert.deepEqual(emptySubscription(),none);
+ assert.equal(isPlus(emptySubscription()),false);
+ assert.deepEqual(restoreSubscription(null),none);
 });
-test('monthly and yearly subscriptions restore and identify Plus',()=>{
- for(const plan of ['monthly','yearly'] as const){const sub=subscribe(plan,'2026-10-18');assert.deepEqual(sub,{version:1,plan,since:'2026-10-18'});assert.equal(isPlus(sub),true);assert.deepEqual(restoreSubscription(JSON.stringify(sub)),sub);}
+
+test('a started plan is Plus from its first day and survives a reload',()=>{
+ for(const plan of ['monthly','yearly'] as const){
+  const started=subscribe(plan,'2026-11-20');
+  assert.deepEqual(started,{version:1,plan,since:'2026-11-20'});
+  assert.equal(isPlus(started),true);
+  assert.deepEqual(restoreSubscription(JSON.stringify(started)),started);
+ }
 });
-test('malformed or incomplete subscription data restores as unsubscribed',()=>{
- for(const raw of ['not JSON','null','{}',JSON.stringify({version:2,plan:'yearly',since:'2026-10-18'}),JSON.stringify({version:1,plan:'annual',since:'2026-10-18'}),JSON.stringify({version:1,plan:'monthly',since:'not-a-date'}),JSON.stringify({version:1,plan:'yearly',since:'2026-02-30'}),JSON.stringify({version:1,plan:null,since:'2026-10-18'}),JSON.stringify({version:1,plan:'monthly',since:null})])assert.deepEqual(restoreSubscription(raw),emptySubscription());
- assert.deepEqual(restoreSubscription(null),emptySubscription());
+
+test('saved data counts only as version 1 with a known plan and a real calendar day',()=>{
+ const damaged=[
+  'garbage','null','[]','{}','"monthly"','42',
+  JSON.stringify({plan:'monthly',since:'2026-11-20'}),
+  JSON.stringify({version:2,plan:'monthly',since:'2026-11-20'}),
+  JSON.stringify({version:1,plan:'weekly',since:'2026-11-20'}),
+  JSON.stringify({version:1,plan:'monthly',since:'2026-13-01'}),
+  JSON.stringify({version:1,plan:'yearly',since:'2026-02-30'}),
+  JSON.stringify({version:1,plan:'yearly',since:'20-11-2026'}),
+  JSON.stringify({version:1,plan:'yearly',since:20261120}),
+  JSON.stringify({version:1,plan:null,since:'2026-11-20'}),
+  JSON.stringify({version:1,plan:'monthly',since:null}),
+ ];
+ for(const saved of damaged)assert.deepEqual(restoreSubscription(saved),none,saved);
 });
-test('cancel clears the subscription and invalid dates cannot create Plus',()=>{
- assert.deepEqual(cancel(),emptySubscription());assert.deepEqual(subscribe('monthly','invalid'),emptySubscription());
+
+test('starting needs a real day (leap days included); cancelling always clears',()=>{
+ assert.deepEqual(subscribe('yearly','2026-02-29'),none);
+ assert.deepEqual(subscribe('monthly','someday'),none);
+ assert.deepEqual(subscribe('yearly','2028-02-29'),{version:1,plan:'yearly',since:'2028-02-29'});
+ assert.deepEqual(cancel(),none);
+ assert.equal(isPlus(cancel()),false);
+});
+
+test('the yearly plan costs less than twelve monthly payments',()=>{
+ const dollars=(price:string)=>Number(price.replace('$',''));
+ assert.ok(dollars(PLUS_YEARLY_PRICE)<12*dollars(PLUS_MONTHLY_PRICE));
 });
