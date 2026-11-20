@@ -21,6 +21,37 @@ export type LessonSnapshot={progress:Progress;selected:string;tokens:string[];ma
 export function freshSession():LessonSnapshot {
  return {progress:initialProgress(),selected:'',tokens:[],matches:[],revealed:[],hintAt:null,vocabularyWord:null};
 }
+const isWholeNumberIn=(value:unknown,min:number,max:number):value is number=>Number.isInteger(value)&&(value as number)>=min&&(value as number)<=max;
+
+// Attempts saved before hearts existed lack the heart fields: they get a fresh attempt's values,
+// added after the saved fields so the stored text stays the same when it is written back.
+function withHeartDefaults(saved:unknown):unknown{
+ if(!saved||typeof saved!=='object')return saved;
+ const defaults={hearts:MAX_HEARTS,combo:0,bestCombo:0,failed:false};
+ return {...saved,...Object.fromEntries(Object.entries(defaults).filter(([field])=>!Object.hasOwn(saved,field)))};
+}
+
+// Every rule a saved attempt on a lesson of `steps` steps must follow; anything else starts the lesson fresh.
+function validProgress(p:any,steps:number):p is Progress{
+ if(!p||typeof p!=='object')return false;
+ const position=isWholeNumberIn(p.index,0,steps)&&typeof p.complete==='boolean'&&p.complete===(p.index===steps)
+  &&Array.isArray(p.results)&&p.results.length===p.index&&p.results.every((r:unknown)=>typeof r==='boolean');
+ const answer=isWholeNumberIn(p.attempts,0,Infinity)&&[null,'correct','incorrect'].includes(p.feedback)&&(p.feedback===null||p.attempts>0);
+ const hearts=isWholeNumberIn(p.hearts,0,MAX_HEARTS)&&typeof p.failed==='boolean'&&p.failed===(p.hearts===0);
+ const run=isWholeNumberIn(p.combo,0,steps)&&isWholeNumberIn(p.bestCombo,p.combo,steps);
+ // A finished attempt has nothing pending; a failed one is mid-lesson, showing its wrong answer.
+ const finished=!p.complete||(p.feedback===null&&p.attempts===0&&!p.failed);
+ const failed=!p.failed||(!p.complete&&p.feedback==='incorrect');
+ return position&&answer&&hearts&&run&&finished&&failed;
+}
+
+// A finished lesson rebuilt from its completion record, with the hearts and best run if they were saved.
+function finishedProgress(completion:NonNullable<Saved['completion']>,steps:number):Progress{
+ const hearts=isWholeNumberIn(completion.hearts,0,MAX_HEARTS)?completion.hearts:MAX_HEARTS;
+ const bestCombo=isWholeNumberIn(completion.bestCombo,0,steps)?completion.bestCombo:0;
+ return {...initialProgress(),index:steps,results:completion.results,complete:true,hearts,bestCombo};
+}
+
 // Only native mode restores an in-progress session. The browser demo keeps
 // its existing start-fresh behavior and completion/preferences storage.
 export function restoreSession(serialized:string|null,definition:LessonDefinition=cafeLesson):LessonSnapshot {
@@ -30,18 +61,9 @@ export function restoreSession(serialized:string|null,definition:LessonDefinitio
  try {
   if(!serialized) return freshSession();
   const s=JSON.parse(serialized);
-  const raw=s.progress;
   const matches=s.matches??[];
-  const p=raw&&typeof raw==='object'?{...raw,hearts:Object.hasOwn(raw,'hearts')?raw.hearts:MAX_HEARTS,combo:Object.hasOwn(raw,'combo')?raw.combo:0,bestCombo:Object.hasOwn(raw,'bestCombo')?raw.bestCombo:0,failed:Object.hasOwn(raw,'failed')?raw.failed:false}:raw;
-  if(!p||!Number.isInteger(p.index)||p.index<0||p.index>lesson.length||
-   typeof p.complete!=='boolean'||p.complete!==(p.index===lesson.length)||
-   !Number.isInteger(p.hearts)||p.hearts<0||p.hearts>MAX_HEARTS||!Number.isInteger(p.combo)||p.combo<0||p.combo>lesson.length||!Number.isInteger(p.bestCombo)||p.bestCombo<p.combo||p.bestCombo>lesson.length||typeof p.failed!=='boolean'||p.failed!==(p.hearts===0)||
-   !Number.isInteger(p.attempts)||p.attempts<0||
-   ![null,'correct','incorrect'].includes(p.feedback)||
-   (p.feedback!==null&&p.attempts===0)||
-   (p.complete&&(p.feedback!==null||p.attempts!==0||p.failed))||
-   (p.failed&&(p.complete||p.feedback!=='incorrect'))||
-   !Array.isArray(p.results)||p.results.length!==p.index||!p.results.every((r:unknown)=>typeof r==='boolean')||
+  const p=withHeartDefaults(s.progress);
+  if(!validProgress(p,lesson.length)||
    typeof s.selected!=='string'||s.selected.length>1000||
    !validSentenceTokens(s.tokens,allowedTokens)||
    !Array.isArray(matches)||new Set(matches).size!==matches.length||!matches.every((ru:unknown)=>pairsAt(p.index).some(([text])=>text===ru))||
@@ -58,18 +80,17 @@ export function loadSession(enabled:boolean,definition:LessonDefinition=cafeLess
   const stored=appStorage.getItem(sessionKey(definition));
   if(stored)return restoreSession(stored,definition);
   const completion=readSaved(definition).completion;
-  if(!completion)return freshSession();
-  const hearts=completion.hearts,bestCombo=completion.bestCombo;
-  return {...freshSession(),progress:{...freshSession().progress,index:lesson.length,attempts:0,results:completion.results,feedback:null,complete:true,hearts:hearts!==undefined&&Number.isInteger(hearts)&&hearts>=0&&hearts<=MAX_HEARTS?hearts:MAX_HEARTS,bestCombo:bestCombo!==undefined&&Number.isInteger(bestCombo)&&bestCombo>=0&&bestCombo<=lesson.length?bestCombo:0,combo:0}};
+  return completion?{...freshSession(),progress:finishedProgress(completion,lesson.length)}:freshSession();
  }catch{return freshSession();}
 }
 export function readSaved(definition:LessonDefinition=cafeLesson):Saved {
  try {
   const data=JSON.parse(appStorage.getItem(savedKey(definition))||'{}');
-  const completion=data.completion;
-  const validCompletion=Array.isArray(completion?.results)&&completion.results.length===definition.exercises.length&&completion.results.every((v:unknown)=>typeof v==='boolean')&&typeof completion.date==='string'&&
-   (completion.hearts===undefined||Number.isInteger(completion.hearts)&&completion.hearts>=0&&completion.hearts<=MAX_HEARTS)&&
-   (completion.bestCombo===undefined||Number.isInteger(completion.bestCombo)&&completion.bestCombo>=0&&completion.bestCombo<=definition.exercises.length);
+  const {completion}=data,steps=definition.exercises.length;
+  // hearts and bestCombo are optional (older records lack them) but must be possible values when present.
+  const absentOrWithin=(value:unknown,max:number)=>value===undefined||isWholeNumberIn(value,0,max);
+  const validCompletion=Array.isArray(completion?.results)&&completion.results.length===steps&&completion.results.every((v:unknown)=>typeof v==='boolean')
+   &&typeof completion.date==='string'&&absentOrWithin(completion.hearts,MAX_HEARTS)&&absentOrWithin(completion.bestCombo,steps);
   return {preferences:{stress:data.preferences?.stress===true,pronunciation:data.preferences?.pronunciation!==false},completion:validCompletion?completion:undefined,...(validCompletion?{bestFirstTry:Math.max(completion.results.filter(Boolean).length,Number.isInteger(data.bestFirstTry)&&data.bestFirstTry>=0&&data.bestFirstTry<=definition.exercises.length?data.bestFirstTry:0)}:{})};
  }catch{return {preferences:{stress:false,pronunciation:true}};}
 }

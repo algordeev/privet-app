@@ -1,0 +1,72 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {freshSession,loadSession,readSaved,restoreSession} from './session.ts';
+import {initialProgress,type Progress} from './engine.ts';
+import {PRODUCT} from './config.ts';
+
+// The café lesson has 5 steps. A valid saved attempt on step 2 after one right answer:
+const onStep2:Progress={...initialProgress(),index:1,results:[true],hearts:2,combo:1,bestCombo:1};
+const saved=(progress:object)=>JSON.stringify({...freshSession(),progress});
+const restored=(progress:object)=>restoreSession(saved(progress)).progress;
+
+// loadSession/readSaved read localStorage; give them one key at a time.
+function withStorage(entries:Record<string,unknown>,run:()=>void){
+ const descriptor=Object.getOwnPropertyDescriptor(globalThis,'localStorage');
+ const data=new Map(Object.entries(entries).map(([key,value])=>[key,JSON.stringify(value)]));
+ Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:(key:string)=>data.get(key)??null}});
+ try{run();}finally{if(descriptor)Object.defineProperty(globalThis,'localStorage',descriptor);else Reflect.deleteProperty(globalThis,'localStorage');}
+}
+const results=[true,false,true,true,true];
+
+test('a valid saved attempt comes back as it was, including a failed one waiting on Try again',()=>{
+ assert.deepEqual(restored(onStep2),onStep2);
+ const failed={...onStep2,attempts:1,feedback:'incorrect',hearts:0,combo:0,failed:true};
+ assert.deepEqual(restored(failed),failed);
+});
+
+test('an attempt saved before hearts existed gets a fresh attempt’s heart values',()=>{
+ const {hearts,combo,bestCombo,failed,...old}=onStep2;
+ assert.deepEqual(restored(old),{...old,hearts:3,combo:0,bestCombo:0,failed:false});
+ assert.deepEqual(restored({...old,hearts:2}),{...old,hearts:2,combo:0,bestCombo:0,failed:false});
+});
+
+test('loading and saving again leaves the stored text unchanged (fields keep their order)',()=>{
+ for(const progress of [initialProgress(),onStep2]){const text=saved(progress);assert.equal(JSON.stringify(restoreSession(text)),text);}
+ const {hearts,combo,bestCombo,failed,...old}=onStep2;
+ const upgraded=JSON.stringify(restoreSession(saved(old)).progress);
+ assert.ok(upgraded.startsWith(JSON.stringify(old).slice(0,-1)),'saved fields first, defaults after');
+});
+
+test('heart, run and failure values that break the rules start the lesson fresh',()=>{
+ const broken:object[]=[
+  {...onStep2,hearts:4},{...onStep2,hearts:-1},{...onStep2,hearts:1.5},{...onStep2,hearts:null},
+  {...onStep2,combo:-1},{...onStep2,combo:6,bestCombo:6},{...onStep2,combo:2,bestCombo:1},{...onStep2,bestCombo:6},
+  {...onStep2,failed:'no'},{...onStep2,failed:true},{...onStep2,hearts:0},
+  {...onStep2,attempts:1,feedback:null,hearts:0,failed:true},
+  {...initialProgress(),index:5,results,complete:true,hearts:0,failed:true},
+ ];
+ for(const progress of broken)assert.deepEqual(restoreSession(saved(progress)),freshSession(),JSON.stringify(progress));
+});
+
+test('a finished lesson is rebuilt from its completion record with the hearts and best run saved there',()=>{
+ withStorage({[PRODUCT.storageKey]:{completion:{results,date:'2026-11-20',hearts:1,bestCombo:3}}},()=>{
+  const progress=loadSession(true).progress;
+  assert.deepEqual(progress,{...initialProgress(),index:5,results,complete:true,hearts:1,bestCombo:3});
+ });
+ withStorage({[PRODUCT.storageKey]:{completion:{results,date:'2026-11-20'}}},()=>{
+  const progress=loadSession(true).progress;
+  assert.equal(progress.complete,true);assert.equal(progress.hearts,3);assert.equal(progress.bestCombo,0);
+ });
+});
+
+test('a completion record with impossible hearts or best run is ignored',()=>{
+ for(const extra of [{hearts:null},{hearts:4},{hearts:-1},{hearts:2.5},{bestCombo:6},{bestCombo:-1},{bestCombo:'3'}]){
+  withStorage({[PRODUCT.storageKey]:{completion:{results,date:'2026-11-20',...extra}}},()=>{
+   assert.equal(readSaved().completion,undefined,JSON.stringify(extra));
+   assert.equal(loadSession(true).progress.complete,false);
+  });
+ }
+ withStorage({[PRODUCT.storageKey]:{completion:{results,date:'2026-11-20',hearts:0,bestCombo:5}}},()=>{
+  assert.deepEqual(readSaved().completion,{results,date:'2026-11-20',hearts:0,bestCombo:5},'edge values are fine');
+ });
+});
