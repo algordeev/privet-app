@@ -1,0 +1,40 @@
+/* Gems screen: a warm balance card, earning rows, shop cards. */
+.native-app .native-gems-scroll { --gem-ink:#7a5b0c; --gem-soft:#fff4cf; --gem-line:#f0dc9a; }
+
+.native-app .gems-balance { position:relative; display:grid; justify-items:center; gap:2px; margin:22px 0 26px; padding:22px 20px 18px; overflow:hidden; border-radius:24px; background:radial-gradient(120% 90% at 50% 0%,#fff9e3 0%,#fdeec0 70%,#f9e3a6 100%); box-shadow:inset 0 0 0 1px var(--gem-line),0 10px 24px #c9a23a1f; text-align:center; }
+.native-app .gems-balance .native-gems-icon { display:block; }
+.native-app .gems-big { display:block; width:64px; height:64px; filter:drop-shadow(0 6px 10px #d29a2240); }
+.native-app .gems-balance strong { margin-top:4px; color:#4f3b06; font-size:40px; font-weight:600; line-height:1.1; letter-spacing:-1.2px; font-variant-numeric:tabular-nums; }
+.native-app .gems-balance p { margin:0; color:#7a6a3e; font-size:13px; }
+.native-app .gems-today { margin-top:8px; padding:4px 10px; border-radius:999px; background:#fffdf7; color:#2f6b4f; font-size:12px; font-weight:600; box-shadow:0 2px 6px #c9a23a22; }
+.native-app .gems-goal { display:grid; gap:7px; width:100%; margin-top:16px; color:var(--gem-ink); font-size:12px; font-weight:600; }
+.native-app .gems-goal-bar { height:8px; overflow:hidden; border-radius:999px; background:#ffffffa8; box-shadow:inset 0 0 0 1px #ecd590; }
+.native-app .gems-goal-bar i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#f2c14e,#e3a62b); transition:width 500ms var(--ease,ease); }
+
+.native-app .gems-group { margin:0 0 22px; }
+.native-app .gems-group h2 { margin:0 0 10px; color:#25372d; font-size:17px; font-weight:600; line-height:1.4; letter-spacing:-.3px; }
+.native-app .gems-list { display:grid; gap:8px; margin:0; padding:0; list-style:none; }
+
+.native-app .gems-row, .native-app .native-gem-shop-card.gems-row { display:flex; align-items:center; gap:12px; margin:0 0 8px; padding:12px 14px; border:1px solid #e3e9da; border-radius:16px; background:#fffdf7; }
+.native-app .gems-list .gems-row { margin:0; }
+.native-app .gems-row-icon { display:grid; place-items:center; flex-shrink:0; width:38px; height:38px; border-radius:12px; background:#edf1e6; color:#397756; }
+.native-app .gems-row-icon svg { width:20px; height:20px; }
+.native-app .gems-row.is-perfect .gems-row-icon { background:var(--gem-soft); color:#c08a12; }
+.native-app .gems-row.is-streak .gems-row-icon { background:#fde8df; color:#d0603f; }
+.native-app .gems-row.is-freeze .gems-row-icon { background:#e3f0f7; color:#3f7fa6; }
+.native-app .gems-row.is-heart .gems-row-icon { background:#fbe4e2; color:#b9504b; }
+.native-app .gems-row-text { display:grid; flex:1; gap:2px; min-width:0; }
+.native-app .gems-row-text strong { color:#315a3c; font-size:15px; font-weight:600; line-height:1.3; }
+.native-app .gems-row-text small { color:#68785e; font-size:12px; line-height:1.4; }
+
+.native-app .gems-amount { display:inline-flex; align-items:center; gap:4px; flex-shrink:0; padding:5px 9px; border:1px solid var(--gem-line); border-radius:999px; background:var(--gem-soft); color:var(--gem-ink); font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; }
+.native-app .gems-glyph { width:11px; height:11px; fill:#e0a52a; }
+
+.native-app .gems-slots { display:flex; gap:5px; margin-top:4px; }
+.native-app .gems-slots i { width:18px; height:6px; border-radius:999px; background:#dfe7ea; }
+.native-app .gems-slots i.is-full { background:#5d9cc4; }
+.native-app .gems-buy { display:grid; justify-items:end; gap:7px; flex-shrink:0; }
+.native-app .gems-buy .button { min-height:36px; padding:8px 13px; font-size:13px; }
+.native-app .gems-buy .button:disabled { opacity:.45; cursor:default; }
+
+.native-app .gems-footer { margin:26px 0 10px; color:#7c8a72; font-size:12px; text-align:center; }
