@@ -1,6 +1,6 @@
 import {PrintIcon} from './Icons';
 import {lessonById} from './lessons';
-import {CountedNumber} from './FirstRunArt';
+import {CountedNumber} from './CountedNumber';
 import type {NativeStatsController} from './useNativeStats';
 import type {SubscriptionController} from './useSubscription';
 

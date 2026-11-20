@@ -1,5 +1,5 @@
 import {GEM_RULES} from './nativeStats';
-import {CountedNumber} from './FirstRunArt';
+import {CountedNumber} from './CountedNumber';
 import type {NativeStatsController} from './useNativeStats';
 
 export function GemsScreen({activity,onClose}:{activity:NativeStatsController;onClose:()=>void}){

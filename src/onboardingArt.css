@@ -1,0 +1,32 @@
+/* Pictures for the welcome stories, the companion's faces on the offer card, and the sparkle band. */
+
+/* Story picture box (the letter tile and robot inside it are styled in firstRun.css). */
+.native-app .first-story-art { position:relative; display:flex; align-items:center; justify-content:center; gap:12px; height:185px; margin:4px 0 20px; overflow:hidden; border-radius:26px; background:linear-gradient(150deg,#eef2e7,#dbeadc); color:#246653; }
+.native-app .first-story-art.is-speak b { font-size:25px; }
+.native-app .voice-bars { display:flex; align-items:center; gap:11px; }
+.native-app .voice-bars i { display:block; width:7px; height:35px; border-radius:8px; background:#63a184; animation:voice-bar 880ms ease-in-out infinite alternate; }
+.native-app .voice-bars i:nth-child(2) { height:53px; animation-delay:110ms; }
+.native-app .voice-bars i:nth-child(3) { height:42px; animation-delay:220ms; }
+@keyframes voice-bar { to { transform:scaleY(.55); opacity:.65; } }
+
+/* The companion's faces: small dark screens on light cards. */
+.native-app .face-strip { position:relative; z-index:1; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; width:100%; margin:10px 0 0; padding:0; list-style:none; }
+.native-app .face-strip > li { display:flex; flex-direction:column; align-items:center; gap:5px; min-width:0; padding:7px 4px 6px; border-radius:14px; background:#fffdf7; box-shadow:0 3px 10px #31513a10; color:#46624f; font-size:11px; line-height:1.2; text-align:center; overflow-wrap:anywhere; animation:face-card-in 240ms cubic-bezier(.2,.8,.2,1) both; }
+.native-app .face-strip > li:nth-child(2) { animation-delay:110ms; }
+.native-app .face-strip > li:nth-child(3) { animation-delay:220ms; }
+.native-app .face-strip > li:nth-child(4) { animation-delay:330ms; }
+.native-app .face-strip svg { width:100%; max-width:58px; height:auto; aspect-ratio:160/67; padding:4px 6px; border-radius:9px; background:#1f2b27; fill:none; stroke:#c9f2d8; stroke-width:7; stroke-linecap:round; stroke-linejoin:round; }
+.native-app .face-strip .eye, .native-app .face-strip .open { fill:#c9f2d8; }
+@keyframes face-card-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+@media (max-width:360px) { .native-app .face-strip { gap:4px; } .native-app .face-strip > li { font-size:10px; } }
+
+/* Sparkle band: placed by a .first-sparkles wrapper just above the finished lesson's robot. */
+.native-app .first-sparkles { position:relative; height:0; pointer-events:none; }
+.native-app .sparkle-band { position:absolute; left:50%; top:-37px; width:152px; height:80px; transform:translateX(-50%); }
+.native-app .sparkle-band i { position:absolute; font-style:normal; font-size:14px; color:#d6a957; opacity:0; animation:sparkle-rise 720ms ease-out both; }
+@keyframes sparkle-rise { 0% { opacity:0; transform:translateY(9px) scale(.5); } 30% { opacity:1; } 100% { opacity:0; transform:translateY(-15px) scale(1); } }
+
+@media (prefers-reduced-motion:reduce) {
+ .native-app .first-sparkles { display:none; }
+ .native-app .voice-bars i, .native-app .face-strip > li { animation:none; }
+}

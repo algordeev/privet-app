@@ -611,7 +611,7 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-gem-award > span:nth-child(3) { animation-delay: 870ms; }
 .native-app .native-completion-companion { position: relative; }
 .native-app .native-completion-companion .first-sparkles { position: absolute; top: 0; left: 0; right: 0; }
-.native-app .native-completion-companion .first-sparkles-art { top: 4px; width: 190px; }
+.native-app .native-completion-companion .sparkle-band { top: 4px; width: 190px; }
 
 /* Profile, gems and settings: the header stays put; the content below rises in, staggered. */
 .native-profile-scroll > :not(.native-profile-navigation) { animation: app-rise-in 340ms var(--ease) backwards; animation-delay: calc(var(--i,1) * 55ms); }
@@ -644,7 +644,7 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-quick-scroll :is(.native-letter-card,.native-reading-card):nth-child(4) { --c: 3; }
 .native-app .native-quick-scroll :is(.native-letter-card,.native-reading-card):nth-child(n+5) { --c: 4; }
 .native-app .native-reading-reveal[aria-expanded=true] > span:last-child { animation: app-rise-in 260ms var(--ease) backwards; }
-.native-app .native-quick-scroll .first-sparkles-art { top: -6px; }
+.native-app .native-quick-scroll .sparkle-band { top: -6px; }
 @keyframes app-step-back { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
 @keyframes app-draw-check { from { stroke-dasharray: 15; stroke-dashoffset: 15; } to { stroke-dasharray: 15; stroke-dashoffset: 0; } }
 @keyframes app-ring { 0% { box-shadow: 0 0 0 0 #62815166; } 70% { box-shadow: 0 0 0 7px #62815100; } 100% { box-shadow: 0 0 0 0 #62815100; } }

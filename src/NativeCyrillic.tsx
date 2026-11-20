@@ -7,7 +7,7 @@ import type {CyrillicController} from './useCyrillicProgress';
 import {NativeSheet} from './NativeSheet';
 import {SoundIcon} from './Icons';
 import {russianReading} from './pronunciation';
-import {Sparkles} from './FirstRunArt';
+import {Sparkles} from './OnboardingArt';
 import type {Word} from './curriculum/types';
 
 type Speech=LessonController['speech'];

@@ -14,7 +14,8 @@ import {MAX_HEARTS,comboXp,lessonXp} from './engine';
 import type {LessonController} from './useLesson';
 import {GEM_RULES,type GemBreakdown} from './nativeStats';
 import {matchOrder} from './matchOrder';
-import {CountedNumber,Sparkles} from './FirstRunArt';
+import {CountedNumber} from './CountedNumber';
+import {Sparkles} from './OnboardingArt';
 function CloseIcon(){return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>;}
 export function LessonPanel({controller,native=false,onClose,onUpgrade,nextLesson,onReplay,onListen,onListenEnd,onHint,onReveal,onMatchPair,nativeCompanion,gems=0,onRefill,gemAward,completionDetails,practiceOnly=false,showFeatureTour=false,review=false,onPrintWord,onPrintPractice}:{onPrintWord?:(wordId:string)=>void;onPrintPractice?:()=>void;review?:boolean;controller:LessonController;native?:boolean;onClose?:()=>void;onUpgrade?:()=>void;onReplay?:()=>void;onListen?:(text?:string)=>(()=>void)|void;onListenEnd?:()=>void;onHint?:()=>void;onReveal?:(wordId:string)=>void;onMatchPair?:(correct:boolean,matched:number)=>void;nextLesson?:{label:string;onOpen:()=>void};nativeCompanion?:NativeCompanionController;gems?:number;onRefill?:()=>void;gemAward?:GemBreakdown;completionDetails?:ReactNode;practiceOnly?:boolean;showFeatureTour?:boolean}){
  const {definition,preferences,setPreferences,progress,dispatch,selected,setSelected,tokens,setTokens,matches,matchPair,revealed,setRevealed,lessonSettings,setLessonSettings,lessonScroll,inputRef,lessonHeading,speech,exercise,hintRequested,display,ready,check,restart,incorrect,setVocabularyWord,setThinkingAt,setHintAt}=controller;
