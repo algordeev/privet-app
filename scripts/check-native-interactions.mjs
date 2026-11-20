@@ -8,7 +8,9 @@ import {join} from 'node:path';
 import {spawn} from 'node:child_process';
 import {createServer} from 'vite';
 
-const executable=[process.env.PRIVET_CHROME_PATH,'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome','/usr/bin/chromium','/usr/bin/chromium-browser','/usr/bin/google-chrome',...[process.env.PROGRAMFILES,process.env['PROGRAMFILES(X86)'],process.env.LOCALAPPDATA].filter(Boolean).map(dir=>join(dir,'Google','Chrome','Application','chrome.exe'))].find(path=>path&&existsSync(path));
+// The first Chrome or Chromium found: an explicit path, then the usual macOS, Linux and Windows places.
+const windowsChrome=['PROGRAMFILES','PROGRAMFILES(X86)','LOCALAPPDATA'].map(name=>process.env[name]).filter(Boolean).map(dir=>join(dir,'Google','Chrome','Application','chrome.exe'));
+const executable=[process.env.PRIVET_CHROME_PATH,'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome','/usr/bin/chromium','/usr/bin/chromium-browser','/usr/bin/google-chrome',...windowsChrome].find(path=>path&&existsSync(path));
 assert.ok(executable,'Install Chrome/Chromium or set PRIVET_CHROME_PATH to run interaction checks.');
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 let browserPreview=false,russianAudio=false,skipQuickStart=true,repeatedSentence=false,firstTime=false,learningCards=false,soundCompanion=false;
@@ -62,7 +64,7 @@ try{
  const {sessionKey,savedKey}=await server.ssrLoadModule('/src/session.ts');
  const {freshSession,NATIVE_SESSION_KEY}=await server.ssrLoadModule('/src/session.ts');
  const {emptyStats,NATIVE_STATS_KEY,localDay}=await server.ssrLoadModule('/src/nativeStats.ts');
- const {SUBSCRIPTION_KEY,PLUS_MONTHLY_PRICE}=await server.ssrLoadModule('/src/subscription.ts');
+ const {SUBSCRIPTION_KEY,PLUS_MONTHLY_PRICE,PLUS_YEARLY_PRICE}=await server.ssrLoadModule('/src/subscription.ts');
  const {CYRILLIC_KEY}=await server.ssrLoadModule('/src/cyrillicProgress.ts');
  const {CYRILLIC,contextualLetters}=await server.ssrLoadModule('/src/cyrillic.ts');
  const {russianReading}=await server.ssrLoadModule('/src/pronunciation.ts');
@@ -125,7 +127,20 @@ try{
   assert.equal(await evaluate(()=>document.querySelectorAll('.native-letter-sound svg,.native-letter-silent').length),0,'Letter playback uses the green letters, without another icon or No sound badge');
   return cards;
  }
- const capture=async(name)=>{if(process.env.PRIVET_CYRILLIC_SCREENSHOTS){const shot=await call('Page.captureScreenshot',{format:'png'});await writeFile(join(process.env.PRIVET_SCREENSHOT_DIR??'/private/tmp',`privet-cyrillic-${name}.png`),Buffer.from(shot.data,'base64'));}};
+ // With PRIVET_CYRILLIC_SCREENSHOTS set, named moments are saved as PNGs in PRIVET_SCREENSHOT_DIR (default /private/tmp).
+ const capture=async name=>{
+  if(!process.env.PRIVET_CYRILLIC_SCREENSHOTS)return;
+  const {data}=await call('Page.captureScreenshot',{format:'png'});
+  await writeFile(join(process.env.PRIVET_SCREENSHOT_DIR??'/private/tmp',`privet-cyrillic-${name}.png`),Buffer.from(data,'base64'));
+ };
+ // Onboarding helpers.
+ const forward=(label='Continue')=>click('.first-actions .button',label);
+ const throughWelcome=async()=>{await forward('Get started');for(let page=1;page<=3;page++)await forward();};
+ const firstHeading=()=>evaluate(()=>document.querySelector('.first-scroll h1').textContent);
+ const isPressed=label=>evaluate(label=>document.querySelector(`.first-options button[aria-label="${label}"]`)?.getAttribute('aria-pressed')==='true',label);
+ const scrollToCentre=selector=>evaluate(selector=>document.querySelector(selector).scrollIntoView({block:'center'}),selector);
+ const fitsOnScreen=selector=>evaluate(selector=>{const r=document.querySelector(selector).getBoundingClientRect();return r.width>0&&r.height>=44&&r.top>=0&&r.bottom<=innerHeight;},selector);
+ const openOffers=()=>click('.native-next-lesson','Choose how to continue');
  const stored=key=>evaluate(key=>JSON.parse(localStorage.getItem(key)),key);
  async function open(nextSeed={},time=new Date(2026,9,17,12).getTime(),resume=false){
   if(process.env.PRIVET_INTERACTION_DEBUG)console.log(`OPEN ${resume?'resume':'seed'} ${new Date(time).toISOString()}`);
@@ -180,7 +195,8 @@ try{
   await click('.lesson-bottom .button','Try again');await click('.choice','1tea');await click('.lesson-bottom .button','Check answer');
   assert.equal((await stored(NATIVE_SESSION_KEY)).progress.hearts,2,'After cancellation mistakes consume hearts again');
   await open({},undefined,true);assert.equal((await stored(SUBSCRIPTION_KEY)).plan,null,'Cancellation persists on reload');
-  await click('[aria-label="Open your profile and statistics"]');await click('#native-profile-plus-open','Get Plus');await click('.native-plus-plans button','Yearly$39.99 / year · Concept pricing');await click('.native-plus-start','Activate Plus demo');
+  await click('[aria-label="Open your profile and statistics"]');await click('#native-profile-plus-open','Get Plus');
+  await click('.native-plus-plans button',`Yearly${PLUS_YEARLY_PRICE} / year · Concept pricing`);await click('.native-plus-start','Activate Plus demo');
   await open({},undefined,true);assert.equal((await stored(SUBSCRIPTION_KEY)).plan,'yearly');assert.ok(await evaluate(()=>!!document.querySelector('#native-profile-open.is-plus')));assert.equal(await evaluate(()=>document.querySelector('#native-plus-open')),null);
 
   // Profile activation must recover an already failed selected lesson without
@@ -720,10 +736,10 @@ try{
  russianAudio=true;firstTime=true;
  for(const viewport of [{width:375,height:667},{width:430,height:932}]){
   await call('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:true});
-  await open();await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});assert.ok(await evaluate(()=>document.querySelector('.first-scroll h1').textContent.includes('Meet your Russian learning companion')));await capture('welcome');
+  await open();await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+  assert.ok((await firstHeading()).includes('Meet your Russian learning companion'));await capture('welcome');
   assert.equal(await evaluate(()=>document.querySelectorAll('.first-offer').length),0,'No offer before a completed lesson');
-  await click('.first-actions .button','Get started');
-  for(let story=0;story<3;story++)await click('.first-actions .button','Continue');
+  await throughWelcome();
   assert.ok(await evaluate(()=>document.querySelector('[data-stage=connection]')?.textContent.includes('Have a physical companion?')));
   const beforeSetup=await codes();await click('.first-connect-button','Connect companion');
   assert.deepEqual(await codes(),beforeSetup,'Opening connection settings does not request access or send a command');
@@ -731,24 +747,27 @@ try{
   await click('[aria-label="Back to companion setup"]');assert.ok(await evaluate(()=>!document.querySelector('.native-physical-devices')),'Leaving setup stops discovery');
   await click('.first-actions .button','Continue with virtual companion');
   for(const reason of REASONS)await click(`.first-options button[aria-label=${JSON.stringify(reason)}]`);
-  await click('.first-actions .button','Continue');
+  await forward();
   for(const level of LEVELS)await click(`.first-options button[aria-label=${JSON.stringify(level)}]`);
-  await click('.first-actions button','Back');assert.ok(await evaluate(()=>document.querySelector('.first-options button[aria-label="Culture"]').getAttribute('aria-pressed')==='true'),'Back from level preserves purpose');
-  await click('.first-actions .button','Continue');assert.ok(await evaluate(()=>document.querySelector('.first-options button[aria-label="I know some Russian"]').getAttribute('aria-pressed')==='true'),'Back preserves selected level');
+  await click('.first-actions button','Back');assert.ok(await isPressed('Culture'),'Back from level preserves purpose');
+  await forward();assert.ok(await isPressed('I know some Russian'),'Back preserves selected level');
   assert.equal((await stored(FIRST_RUN_KEY)).reason,'Culture');assert.equal((await stored(FIRST_RUN_KEY)).level,'I know some Russian');
-  await open({},undefined,true);assert.ok(await evaluate(()=>!!document.querySelector('.first-options button[aria-label="Culture"][aria-pressed="true"]')),'Reload returns to purpose with the saved selection');
+  await open({},undefined,true);assert.ok(await isPressed('Culture'),'Reload returns to purpose with the saved selection');
   await capture('personalize');await click('.first-actions .button','Continue');assert.ok(await evaluate(()=>!!document.querySelector('.first-options button[aria-label="I know some Russian"][aria-pressed="true"]')),'Stored level remains selected');await click('.first-actions .button','Continue');
   assert.deepEqual(await codes(),[],'Disconnected greeting never initializes or writes Bluetooth');
   await capture('handoff');await click('.first-actions .button','Start lesson');
   const mistake=viewport.width===375;await finishWelcomeLesson(mistake);
   assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.first-result-metrics dd')].map(el=>el.textContent)),mistake?['80%','2/3','3']:['100%','3/3','5']);
-  const earned=await stored(NATIVE_STATS_KEY);assert.equal(Object.values(earned.days).reduce((a,b)=>a+b,0),1);assert.equal(earned.onboardingAwarded,true);await capture('completion');
+  const earned=await stored(NATIVE_STATS_KEY),finishes=Object.values(earned.days).reduce((sum,count)=>sum+count,0);
+  assert.equal(finishes,1);assert.equal(earned.onboardingAwarded,true);await capture('completion');
   assert.equal((await stored(NATIVE_SESSION_KEY)).progress.complete,true,'Guided completion credits existing Lesson 1');await capture(`first-result-${viewport.width}`);
   await open({},undefined,true);assert.deepEqual(await stored(NATIVE_STATS_KEY),earned,'Reopening completion cannot duplicate XP, gems or statistics');
   await click('.native-next-lesson','Choose how to continue');assert.equal(await evaluate(()=>document.querySelectorAll('.first-offer').length),3);
   assert.equal(await evaluate(()=>document.querySelectorAll('.first-offer a[href]').length),0);await capture('offer-hero');
-  await evaluate(()=>document.querySelector('.first-offer-companion').scrollIntoView({block:'center'}));await capture('offer-companion');
-  await evaluate(()=>document.querySelector('.first-offer-free .button').scrollIntoView({block:'center'}));await assertNativeLayout();assert.ok(await evaluate(()=>{const r=document.querySelector('.first-offer-free .button').getBoundingClientRect();return r.height>=44&&r.top>=0&&r.bottom<=innerHeight;}),'Free choice fits the current viewport');await capture('free');assert.equal(await evaluate(()=>window.__openCalls.length),0);
+  await scrollToCentre('.first-offer-companion');await capture('offer-companion');
+  await scrollToCentre('.first-offer-free .button');await assertNativeLayout();assert.ok(await fitsOnScreen('.first-offer-free .button'),'Free choice fits the current viewport');
+  await capture('free');assert.equal(await evaluate(()=>window.__openCalls.length),0);
+  // The 375-wide run leaves through Free, the 430-wide run through Plus.
   if(viewport.width===375)await click('.first-offer-free .button','Continue with Free');
   else {await click('.first-plan-options button','Annual Save 33%');await capture('plus-selected');await click('.first-offer-plus .button','Try Privet Plus');assert.equal((await stored(SUBSCRIPTION_KEY)).plan,null,'Paid choice first shows confirmation, without activation');assert.equal(await evaluate(()=>document.querySelectorAll('.first-scroll a[href]').length),0);assert.equal(await evaluate(()=>window.__openCalls.length),0);await capture('confirmation');await click('.first-actions .button','Continue');assert.equal((await stored(SUBSCRIPTION_KEY)).plan,'yearly');}
   assert.ok(await evaluate(()=>document.querySelector('#native-card-cafe').closest('section').textContent.includes('Passed')));
@@ -769,7 +788,7 @@ try{
  await click('.first-actions .button','Start lesson');assert.deepEqual(await codes(),[1,6],'First unanswered onboarding question enters THINKING');
  await finishWelcomeLesson();assert.equal((await codes()).filter(code=>code===3).length,1,'Accepted final Continue sends CELEBRATE exactly once');
  assert.ok(await evaluate(()=>document.querySelector('.xp-breakdown').textContent.includes('practice score')));
- await click('.native-next-lesson','Choose how to continue');await click('.first-offer-companion .button','Explore Companion');
+ await openOffers();await click('.first-offer-companion .button','Explore Companion');
  assert.ok(await evaluate(()=>document.querySelector('.first-scroll').textContent.includes('Nothing was ordered, charged or sent')));
  await click('.first-actions .button','Continue');
  assert.deepEqual(await Promise.all(preservedKeys.map(stored)),preserved,'Replay/companion confirmation preserve all lessons, statistics and Plus');
@@ -781,16 +800,18 @@ try{
  // Monthly confirmation uses the same existing subscription demo, with no checkout.
  firstTime=true;
  const restoredResult={...freshSession(),progress:{...freshSession().progress,index:5,complete:true,results:[true,true,true,true,true]}};
- await open({[FIRST_RUN_KEY]:{...initialFirstRun(),stage:'offer',reason:'Travel',level:'New to Russian'},[sessionKey(firstRunLesson)]:restoredResult});
+ const atOffers={[FIRST_RUN_KEY]:{...initialFirstRun(),stage:'offer',reason:'Travel',level:'New to Russian'},[sessionKey(firstRunLesson)]:restoredResult};
+ await open(atOffers);
  await click('.first-offer-plus .button','Try Privet Plus');assert.deepEqual(await evaluate(()=>Array.from(document.querySelectorAll('.first-review dl>div')).map(row=>[row.querySelector('dt').textContent,row.querySelector('dd').textContent])),[['Selected plan','Monthly'],['Concept price',PLUS_MONTHLY_PRICE+' / month'],['Hearts','Unlimited'],['Payment today','None · local demo']]);
  assert.equal((await stored(SUBSCRIPTION_KEY)).plan,null,'Review must not activate Plus before Continue');
  await click('.first-actions .button','Continue');assert.equal((await stored(SUBSCRIPTION_KEY)).plan,'monthly');
  // The narrower iPhone viewport also keeps choices and the primary action usable.
  await call('Emulation.setDeviceMetricsOverride',{width:320,height:568,deviceScaleFactor:1,mobile:true});
- await open({[FIRST_RUN_KEY]:{...initialFirstRun(),stage:'offer',reason:'Travel',level:'New to Russian'},[sessionKey(firstRunLesson)]:restoredResult});await assertNativeLayout();await evaluate(()=>document.querySelector('.first-offer-free .button').scrollIntoView({block:'center'}));await assertNativeLayout();assert.ok(await evaluate(()=>{const r=document.querySelector('.first-offer-free .button').getBoundingClientRect();return r.width>0&&r.height>=44&&r.top>=0&&r.bottom<=innerHeight;}));assert.equal(await evaluate(()=>document.querySelectorAll('.first-offer a[href]').length),0);await capture('free');
+ await open(atOffers);await assertNativeLayout();await scrollToCentre('.first-offer-free .button');await assertNativeLayout();
+ assert.ok(await fitsOnScreen('.first-offer-free .button'));assert.equal(await evaluate(()=>document.querySelectorAll('.first-offer a[href]').length),0);await capture('free');
  await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});await open();await evaluate(()=>document.querySelector('.first-actions .button').click());assert.ok(await evaluate(()=>document.querySelector('.first-scroll h1').textContent.includes('Listen and repeat')),'No-preference entrance keeps Continue immediately clickable');await capture('reduced-motion');
  await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await open();await click('.first-actions .button','Get started');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue with virtual companion');await click('.first-options button[aria-label="Conversations"]');await click('.first-actions .button','Continue');await click('.first-options button[aria-label="New to Russian"]');await click('.first-actions .button','A little Cyrillic first');assert.ok(await evaluate(()=>!!document.querySelector('[data-stage=alphabet]')));await assertNativeLayout();await click('.first-actions .button','Continue');assert.ok(await evaluate(()=>document.body.textContent.includes('Same shape. Different sound.')));await click('.first-actions .button','Ready for the mini-class');await capture('handoff');await capture('reduced-motion');await assertNativeLayout();
- console.log('PASS: monthly local confirmation, reduced-motion/no-preference entrance interaction, and offer/onboarding controls at 320×568 and 430×932.');
+ console.log('PASS: choosing monthly Plus activates it only after confirming; Continue is never blocked by entrance motion; offers and onboarding controls fit at 320×568 and 430×932.');
 
  // A first-time owner can pair before personalization, without leaving onboarding.
  await open({[FIRST_RUN_KEY]:{...initialFirstRun(),stage:'connection'}});

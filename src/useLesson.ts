@@ -38,7 +38,9 @@ export function useLesson({persistSession=false,saveResults=true,definition=cafe
   playHaptic(hapticFor(progress,next,action));
   speech.stop();onTransition?.(progress,next,action);reduce(action);
  }
- useEffect(()=>{speech.stop();},[progress.index,progress.complete,progress.failed,speech.stop]);
+ // Which screen of the lesson is showing: a step, the result, or out of hearts.
+ const screen=`${progress.index}:${progress.complete}:${progress.failed}`;
+ useEffect(()=>{speech.stop();},[screen,speech.stop]);
  const exercise=lesson[Math.min(progress.index,lesson.length-1)];
  const hintRequested=hintAt===progress.index;
  const reaction=companionReaction(lessonCompanionEvent(progress,{thinking:thinkingAt===progress.index,hintRequested,vocabularyWord},lesson));
@@ -49,7 +51,7 @@ export function useLesson({persistSession=false,saveResults=true,definition=cafe
   if(lessonScroll.current)lessonScroll.current.scrollTop=0;
   if(mounted.current)lessonHeading.current?.focus({preventScroll:true});
   mounted.current=true;
- },[progress.index,progress.complete,progress.failed,exercise.prompt]);
+ },[screen,exercise.prompt]);
  useEffect(()=>{if(progress.complete)setSaved(s=>{const completion={results:progress.results,date:new Date().toISOString(),hearts:progress.hearts,bestCombo:progress.bestCombo};return persistSession?recordLessonCompletion(s,completion):{...s,completion};});},[progress.complete,progress.results,progress.hearts,progress.bestCombo]);
  useEffect(()=>{
   if(!persistSession)return;

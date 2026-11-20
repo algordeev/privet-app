@@ -30,7 +30,9 @@ test('rapid duplicate submissions are emitted once while new retry attempts stil
 });
 test('rejected retry/continue/check transitions never emit and restoring results is not an event',()=>{
  const p=initialProgress();for(const action of [{type:'retry'},{type:'continue'}] as Action[])assert.equal(physicalLessonCommand(p,progressReducer(p,action),action),null);
- const complete:Progress={...initialProgress(),index:5,attempts:0,results:[true,true,true,true,true],feedback:null,complete:true};const sent:CommandCode[]=[];createPhysicalLessonEvents(c=>sent.push(c));assert.deepEqual(sent,[]);
+ const complete:Progress={...initialProgress(),index:5,results:[true,true,true,true,true],complete:true};
+ const sent:CommandCode[]=[];createPhysicalLessonEvents(command=>sent.push(command));
+ assert.deepEqual(sent,[],'setting up the events sends nothing');
  assert.equal(physicalLessonCommand(complete,complete,{type:'continue'}),null);
 });
 

@@ -130,7 +130,7 @@ The native app offers an optional **Cyrillic quick start** before Lesson 1, plus
 
 Lessons use three session hearts, an in-lesson first-try combo and a local XP reward based on the lesson, remaining hearts and best combo. Daily XP appears in the native profile; completed lessons show Passed and the next lesson shows Up next while both remain open. See [Privet learning rewards](docs/learning-rewards.md).
 
-**Privet Plus (simulated)** is an optional local subscription that gives native lessons unlimited hearts. It is a demo only: no payment is processed.
+**Privet Plus** is simulated: switching it on only saves the chosen plan on the device, and while it is on, native lessons have no heart limit. There is no payment code and nothing is ever charged.
 
 **Gems** are earned only by learning, at the same rate for everyone. A heart refill costs **20 gems** and a streak freeze costs **30 gems**; gems cannot be bought, there are no ads, and Plus has no gem advantage. Daily awards stay cumulative across replays, while completion screens show only that attempt’s reward. See [the full rules](docs/learning-rewards.md).
 

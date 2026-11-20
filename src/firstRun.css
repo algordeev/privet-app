@@ -42,9 +42,10 @@
 /* The companion on a soft panel; the greeting version is taller and springs in. */
 .native-app .first-robot { position:relative; display:flex; align-items:center; justify-content:center; min-height:158px; margin:2px 0 17px; padding:10px; overflow:hidden; border-radius:28px; background:var(--first-surface); }
 .native-app .first-hero-robot { min-height:210px; background:radial-gradient(ellipse at 50% 82%,#d3e6d7 0,var(--first-surface) 47%,#f0f0e4 100%); }
-.native-app .first-hero-robot .native-robot { animation:first-spring-in var(--first-organic) var(--first-spring) 80ms both; }
+.native-app .first-hero-robot .native-robot { animation:robot-spring-in var(--first-organic) var(--first-spring) both; animation-delay:80ms; }
 .native-app .first-hello { position:absolute; top:22px; right:16%; padding:9px 13px; border-radius:18px 18px 18px 3px; background:var(--first-card); color:var(--first-green); font-weight:600; box-shadow:0 5px 16px #46614b18; }
-.native-app .first-hero-robot .first-hello { animation:first-stagger 260ms var(--first-ease) 420ms both; }
+/* The greeting bubble appears once the robot has landed. */
+.native-app .first-hero-robot .first-hello { animation:first-stagger 260ms var(--first-ease) both; animation-delay:420ms; }
 .native-app .first-connect-button { width:100%; margin-top:24px; white-space:normal; }
 
 /* Personalisation: two columns of purposes, one column of levels. */
@@ -134,7 +135,7 @@
 
 @keyframes first-enter { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
 @keyframes first-stagger { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-@keyframes first-spring-in { from { opacity:0; transform:translateY(14px) scale(.9); } to { opacity:1; transform:none; } }
+@keyframes robot-spring-in { from { opacity:0; transform:translateY(14px) scale(.9); } to { opacity:1; transform:none; } }
 @keyframes first-pop { from { transform:scale(.5); } to { transform:scale(1); } }
 
 /* Narrow phones get slightly tighter edges. */

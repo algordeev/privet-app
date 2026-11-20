@@ -42,7 +42,9 @@ try {
  else console.log('PASS: browser runtime retains marketing, navigation, phone preview, lesson, and companion.');
  Capacitor.isNativePlatform=()=>true;
  storage.set(FIRST_RUN_KEY,JSON.stringify(initialFirstRun()));
- const welcome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(welcome.includes('Meet your Russian learning companion'));assert.ok(welcome.includes('Get started'));assert.ok(!welcome.includes('site-header'));
+ const welcome=renderToStaticMarkup(createElement(RuntimeApp));
+ for(const text of ['Meet your Russian learning companion','Get started'])assert.ok(welcome.includes(text),`Phone welcome shows: ${text}`);
+ assert.ok(!welcome.includes('site-header'),'Phone welcome has no website header');
  storage.set(FIRST_RUN_KEY,JSON.stringify(initialFirstRun()));Capacitor.isNativePlatform=()=>false;
  const {NativeApp}=await server.ssrLoadModule('/src/NativeApp.tsx');const browserPhone=renderToStaticMarkup(createElement(NativeApp));assert.ok(!browserPhone.includes('Get started'));assert.ok(browserPhone.includes('native-settings-open'));
  Capacitor.isNativePlatform=()=>true;

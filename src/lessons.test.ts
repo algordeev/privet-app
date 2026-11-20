@@ -27,10 +27,10 @@ test('both lessons have complete, consistent content and separate canonical disp
 });
 
 test('second lesson supports wrong answers, retry, explicit continue, results, replay and no companion leakage',()=>{
- let p=initialProgress();const exercises=introductionsLesson.exercises;
+ let p=initialProgress();const exercises=introductionsLesson.exercises;const missed=1;
  for(const [index,exercise] of exercises.entries()){
   assert.equal(p.index,index);
-  if(index===1){
+  if(index===missed){
    assert.deepEqual(lessonCompanionEvent(p,{},exercises),{type:'prompt',text:'?'});
    p=progressReducer(p,{type:'check',value:'incorrect'},exercises);
    assert.equal(p.feedback,'incorrect');assert.deepEqual(lessonCompanionEvent(p,{},exercises),{type:'incorrect'});
@@ -42,7 +42,8 @@ test('second lesson supports wrong answers, retry, explicit continue, results, r
   assert.equal(p.feedback,'correct');assert.equal(p.complete,false);
   p=progressReducer(p,{type:'continue'},exercises);
  }
- assert.equal(p.complete,true);assert.deepEqual(p.results,[true,false,true,true,true]);
+ assert.equal(p.complete,true);
+ assert.deepEqual(p.results,exercises.map((_,index)=>index!==missed),'only the missed step lacks a first-try result');
  assert.deepEqual(progressReducer(p,{type:'reset'},exercises),initialProgress());
  assert.equal(homeGreeting({...freshSession(),progress:p},introductionsLesson.title),'Молодец! You finished Nice to meet you.');
 });

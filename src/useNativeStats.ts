@@ -22,8 +22,8 @@ export function useNativeStats(){
   const update=()=>{
    if(!alive)return;
    clearTimeout(timer);const now=new Date();actor.current?.update(current=>applyStreakFreezes(current,now));refresh(n=>n+1);
-   const midnight=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1);
-   timer=setTimeout(update,Math.max(100,midnight.getTime()-now.getTime()+100));
+   const nextDay=new Date(now);nextDay.setHours(24,0,0,0);
+   timer=setTimeout(update,Math.max(100,nextDay.getTime()-now.getTime()+100));
   };
   const visible=()=>{if(!document.hidden)update();};
   update();document.addEventListener('visibilitychange',visible);window.addEventListener('pageshow',update);
