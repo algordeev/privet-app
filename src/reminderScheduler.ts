@@ -1,24 +1,29 @@
-import {Capacitor} from '@capacitor/core';
-import {LocalNotifications} from '@capacitor/local-notifications';
+import {notificationDriver as driver} from './notificationDriver';
 import type {PlannedReminder} from './reminders';
 
-// The only place that talks to iOS notifications. Where the plugin is missing (the website, the browser checks)
-// everything is a quiet no-op, and any plugin error leaves the app working without reminders.
+// The only place that talks to iOS notifications (through the driver). Where they are missing (the website)
+// everything is a quiet no-op, and any error leaves the app working without reminders.
 
 export type ReminderPermission='granted'|'denied'|'prompt'|'unsupported';
-export const remindersSupported=()=>Capacitor.isNativePlatform()&&Capacitor.isPluginAvailable('LocalNotifications');
+export const remindersSupported=()=>driver.supported();
 
 const asPermission=(display:string):ReminderPermission=>display==='granted'?'granted':display==='denied'?'denied':'prompt';
 
 export async function reminderPermission():Promise<ReminderPermission>{
  if(!remindersSupported())return 'unsupported';
- try{return asPermission((await LocalNotifications.checkPermissions()).display);}catch{return 'unsupported';}
+ try{return asPermission(await driver.permission());}catch{return 'unsupported';}
 }
 
 // Shows the iOS permission question if it has not been answered yet; otherwise returns the earlier answer.
 export async function askReminderPermission():Promise<ReminderPermission>{
  if(!remindersSupported())return 'unsupported';
- try{return asPermission((await LocalNotifications.requestPermissions()).display);}catch{return 'unsupported';}
+ try{return asPermission(await driver.requestPermission());}catch{return 'unsupported';}
+}
+
+// Calls back when a reminder is tapped; returns a stop function (a no-op where notifications are missing).
+export function onReminderTap(listener:(kind:string)=>void):()=>void{
+ if(!remindersSupported())return ()=>{};
+ try{return driver.onTap(listener);}catch{return ()=>{};}
 }
 
 // Replaces everything scheduled with this plan (an empty plan just clears it). Calls run one after another,
@@ -31,8 +36,8 @@ export function applyReminderPlan(plan:PlannedReminder[]){
 async function replace(plan:PlannedReminder[]){
  if(!remindersSupported())return;
  try{
-  const {notifications:pending}=await LocalNotifications.getPending();
-  if(pending.length)await LocalNotifications.cancel({notifications:pending.map(({id})=>({id}))});
-  if(plan.length)await LocalNotifications.schedule({notifications:plan.map(({id,kind,at,title,body})=>({id,title,body,schedule:{at,allowWhileIdle:true},extra:{kind}}))});
+  const pending=await driver.pendingIds();
+  if(pending.length)await driver.cancel(pending);
+  if(plan.length)await driver.schedule(plan.map(({id,kind,at,title,body})=>({id,title,body,at,extra:{kind}})));
  }catch{/* Reminders are a convenience: if iOS refuses, the app carries on without them. */}
 }
