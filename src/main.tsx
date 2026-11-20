@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import {RuntimeApp,isNativeLayout} from './RuntimeApp';
+import {RuntimeApp,phoneLayoutActive} from './RuntimeApp';
 import './styles.css';
 import './iphone.css';
 import './gallery.css';
@@ -8,7 +8,7 @@ import './site.css';
 import './native.css';
 import {PRODUCT} from './config';
 import {restoreStorageMirror} from './previewStorage';
-if(isNativeLayout()){
+if(phoneLayoutActive()){
  document.documentElement.classList.add('native-platform');
  const viewport=document.querySelector<HTMLMetaElement>('meta[name=viewport]');
  if(viewport&&!viewport.content.includes('viewport-fit'))viewport.content+=', viewport-fit=cover';
