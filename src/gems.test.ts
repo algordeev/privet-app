@@ -99,23 +99,16 @@ test('a failed attempt is never recorded as a finish, XP or gems',()=>{
  assert.equal(saved.length,0);
 });
 
-test('older statistics are upgraded: version 1 gets empty XP, both get an empty wallet and no frozen days',()=>{
- const v1={version:1,days:{[key(16)]:2},earlierFinishes:0,latest:{day:key(16),firstTry:4,lessonId:'cafe'}};
- const one=restoreStats(JSON.stringify(v1));
- assert.equal(one.version,3);assert.deepEqual(one.xp,{});assert.deepEqual(one.gems,emptyStats().gems);assert.deepEqual(one.frozen,[]);assert.equal(one.days[key(16)],2);
- const v2={...v1,version:2,xp:{[key(16)]:12}};
- const two=restoreStats(JSON.stringify(v2));
- assert.deepEqual(two.xp,{[key(16)]:12});assert.deepEqual(two.gems,emptyStats().gems);
+test('current statistics come back unchanged; statistics from older versions start empty',()=>{
  const three=finishEachDay(15,16);
- assert.deepEqual(restoreStats(JSON.stringify(three)),three,'current statistics come back unchanged');
+ assert.deepEqual(restoreStats(JSON.stringify(three)),three);
+ const v1={version:1,days:{[key(16)]:2},earlierFinishes:0,latest:{day:key(16),firstTry:4,lessonId:'cafe'}};
+ for(const old of [v1,{...v1,version:2,xp:{[key(16)]:12}}])assert.deepEqual(restoreStats(JSON.stringify(old)),emptyStats(),`version ${old.version}`);
 });
 
-test('damaged statistics start empty; a lesson finished before statistics existed counts once',()=>{
+test('damaged statistics start empty',()=>{
  for(const raw of [null,'garbage','{}',JSON.stringify({version:4}),JSON.stringify({version:1,days:{[key(16)]:0},earlierFinishes:0,latest:null}),JSON.stringify({version:2,days:{},xp:{'2026-02-30':5},earlierFinishes:0,latest:null})])
   assert.deepEqual(restoreStats(raw),emptyStats(),String(raw));
- const legacy=restoreStats(null,{results:mixed,date:'2026-10-01'});
- assert.equal(legacy.earlierFinishes,1);assert.deepEqual(legacy.latest,{day:null,firstTry:4});
- assert.equal(statsSummary(legacy,on(20)).finishes,1);
 });
 
 test('day keys must be real calendar days',()=>{

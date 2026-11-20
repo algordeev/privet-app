@@ -65,7 +65,7 @@ test('independent native storage preserves the existing café session and comple
   assert.deepEqual(loadSession(true),cafe);assert.deepEqual(loadSession(true,introductionsLesson),next);
   assert.deepEqual(loadSession(false,introductionsLesson),freshSession());
   data.delete(sessionKey(introductionsLesson));assert.deepEqual(loadSession(true,introductionsLesson),freshSession());
-  data.set(savedKey(introductionsLesson),JSON.stringify({completion:{results:[true,true,false,true,true],date:'2026-10-18'}}));
+  data.set(savedKey(introductionsLesson),JSON.stringify({completion:{results:[true,true,false,true,true],date:'2026-10-18',hearts:2,bestCombo:2}}));
   assert.equal(loadSession(true,introductionsLesson).progress.complete,true);assert.deepEqual(loadSession(true),cafe);
  }finally{if(descriptor)Object.defineProperty(globalThis,'localStorage',descriptor);else Reflect.deleteProperty(globalThis,'localStorage');}
 });

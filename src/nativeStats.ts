@@ -2,7 +2,6 @@ import {validFirstLessonResult} from './firstRun.ts';
 import {lessonById,nativeLessons} from './lessons.ts';
 import {PRODUCT} from './config.ts';
 import {lessonXp,type Action,type Progress} from './engine.ts';
-import type {Saved} from './session.ts';
 import {isCalendarDay} from './days.ts';
 import {addFreeze,emptyWallet,GEM_RULES,spend,spendFreezes,weeklyStreakBonus,type GemBreakdown,type GemWallet} from './gems.ts';
 export {GEM_RULES} from './gems.ts';
@@ -25,29 +24,16 @@ function validCounts(counts:unknown):counts is Record<string,number>{
 function validGemBreakdown(a:any){return !!a&&Number.isSafeInteger(a.finish)&&[0,GEM_RULES.finish].includes(a.finish)&&Number.isSafeInteger(a.perfect)&&[0,GEM_RULES.perfect].includes(a.perfect)&&Number.isSafeInteger(a.streakWeek)&&[0,GEM_RULES.streakWeek].includes(a.streakWeek);}
 function validGems(g:any){return !!g&&Number.isSafeInteger(g.balance)&&g.balance>=0&&Number.isInteger(g.freezes)&&g.freezes>=0&&g.freezes<=GEM_RULES.maxFreezes&&!!g.awarded&&typeof g.awarded==='object'&&!Array.isArray(g.awarded)&&Object.entries(g.awarded).every(([day,ids])=>validDay(day)&&Array.isArray(ids)&&ids.every((id:any)=>lessonIds.includes(id))&&new Set(ids).size===ids.length)&&Array.isArray(g.milestones)&&g.milestones.every((day:any)=>validDay(day))&&new Set(g.milestones).size===g.milestones.length&&!!g.awards&&typeof g.awards==='object'&&!Array.isArray(g.awards)&&Object.entries(g.awards).every(([day,items])=>validDay(day)&&!!items&&typeof items==='object'&&!Array.isArray(items)&&Object.entries(items).every(([id,a]:[string,any])=>lessonIds.includes(id)&&validGemBreakdown(a)));}
 function validLatest(s:any){return s.latest===null||(s.latest&&Number.isInteger(s.latest.firstTry)&&s.latest.firstTry>=0&&s.latest.firstTry<=lessonById(s.latest.lessonId).exercises.length&&(s.latest.lessonId===undefined||lessonIds.includes(s.latest.lessonId))&&(s.latest.gemAward===undefined||validGemBreakdown(s.latest.gemAward))&&(s.latest.day===null?s.earlierFinishes===1:typeof s.latest.day==='string'&&validDay(s.latest.day)&&Object.hasOwn(s.days,s.latest.day)));}
-function validBase(s:any){return validCounts(s.days)&&[0,1].includes(s.earlierFinishes)&&validLatest(s);}
-function validCurrent(s:any):s is NativeStats{return (s.onboardingAwarded===undefined||s.onboardingAwarded===true)&&validBase(s)&&validCounts(s.xp)&&validGems(s.gems)&&Array.isArray(s.frozen)&&s.frozen.every((day:any)=>validDay(day))&&new Set(s.frozen).size===s.frozen.length&&(s.lastSeenAt===undefined||(Number.isSafeInteger(s.lastSeenAt)&&s.lastSeenAt>=0));}
+function validCurrent(s:any):s is NativeStats{return (s.onboardingAwarded===undefined||s.onboardingAwarded===true)&&validCounts(s.days)&&[0,1].includes(s.earlierFinishes)&&validLatest(s)&&validCounts(s.xp)&&validGems(s.gems)&&Array.isArray(s.frozen)&&s.frozen.every((day:any)=>validDay(day))&&new Set(s.frozen).size===s.frozen.length&&(s.lastSeenAt===undefined||(Number.isSafeInteger(s.lastSeenAt)&&s.lastSeenAt>=0));}
 
-// Statistics from before XP (version 1) or gems (version 2) keep what they have; the rest starts empty.
-function upgradeToCurrent(old:any):NativeStats{return {...old,version:3,xp:old.version===1?{}:old.xp,gems:emptyWallet(),frozen:[]};}
+// Saved statistics, or a fresh start if they are missing, damaged or from an older version.
 function parseStats(raw:string):NativeStats|null{
  const s=JSON.parse(raw);
- if(!s||typeof s!=='object')return null;
- if(s.version===1)return validBase(s)?upgradeToCurrent(s):null;
- if(s.version===2)return validBase(s)&&validCounts(s.xp)?upgradeToCurrent(s):null;
- return s.version===3&&validCurrent(s)?s:null;
+ return s&&typeof s==='object'&&s.version===3&&validCurrent(s)?s:null;
 }
-// A lesson finished before statistics were kept counts as one earlier finish.
-function fromLegacyCompletion(legacy?:Saved['completion']):NativeStats{
- const stats=emptyStats();
- if(legacy?.results?.length!==5||!legacy.results.every(result=>typeof result==='boolean'))return stats;
- return {...stats,earlierFinishes:1,latest:{day:null,firstTry:legacy.results.filter(Boolean).length}};
-}
-// Saved statistics if they are valid (upgrading older versions), otherwise a fresh start.
-export function restoreStats(raw:string|null,legacy?:Saved['completion']):NativeStats{
- let restored:NativeStats|null=null;
- if(raw!==null){try{restored=parseStats(raw);}catch{/* Damaged storage: start fresh. */}}
- return restored??fromLegacyCompletion(legacy);
+export function restoreStats(raw:string|null):NativeStats{
+ if(raw===null)return emptyStats();
+ try{return parseStats(raw)??emptyStats();}catch{return emptyStats();}
 }
 // localDay() reads the device's CURRENT local calendar fields; shiftDay()/
 // validDay() above are anchored to UTC noon and never move. A timezone

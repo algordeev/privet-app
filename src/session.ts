@@ -5,7 +5,7 @@ import {cafeLesson,type LessonDefinition} from './lessons.ts';
 import {PRODUCT} from './config.ts';
 
 export type Preferences={stress:boolean;pronunciation:boolean};
-export type Saved={preferences:Preferences;bestFirstTry?:number;completion?:{results:boolean[];date:string;hearts?:number;bestCombo?:number}};
+export type Saved={preferences:Preferences;bestFirstTry?:number;completion?:{results:boolean[];date:string;hearts:number;bestCombo:number}};
 // completion is the latest finished attempt; bestFirstTry is a separate high score.
 export function recordLessonCompletion(saved:Saved,completion:NonNullable<Saved['completion']>):Saved{
  const previous=saved.completion?.results.filter(Boolean).length??0;
@@ -23,14 +23,6 @@ export function freshSession():LessonSnapshot {
 }
 const isWholeNumberIn=(value:unknown,min:number,max:number):value is number=>Number.isInteger(value)&&(value as number)>=min&&(value as number)<=max;
 
-// Attempts saved before hearts existed lack the heart fields: they get a fresh attempt's values,
-// added after the saved fields so the stored text stays the same when it is written back.
-function withHeartDefaults(saved:unknown):unknown{
- if(!saved||typeof saved!=='object')return saved;
- const defaults={hearts:MAX_HEARTS,combo:0,bestCombo:0,failed:false};
- return {...saved,...Object.fromEntries(Object.entries(defaults).filter(([field])=>!Object.hasOwn(saved,field)))};
-}
-
 // Every rule a saved attempt on a lesson of `steps` steps must follow; anything else starts the lesson fresh.
 function validProgress(p:any,steps:number):p is Progress{
  if(!p||typeof p!=='object')return false;
@@ -45,11 +37,9 @@ function validProgress(p:any,steps:number):p is Progress{
  return position&&answer&&hearts&&run&&finished&&failed;
 }
 
-// A finished lesson rebuilt from its completion record, with the hearts and best run if they were saved.
-function finishedProgress(completion:NonNullable<Saved['completion']>,steps:number):Progress{
- const hearts=isWholeNumberIn(completion.hearts,0,MAX_HEARTS)?completion.hearts:MAX_HEARTS;
- const bestCombo=isWholeNumberIn(completion.bestCombo,0,steps)?completion.bestCombo:0;
- return {...initialProgress(),index:steps,results:completion.results,complete:true,hearts,bestCombo};
+// A finished lesson rebuilt from its completion record.
+function finishedProgress({results,hearts,bestCombo}:NonNullable<Saved['completion']>,steps:number):Progress{
+ return {...initialProgress(),index:steps,results,complete:true,hearts,bestCombo};
 }
 
 // Only native mode restores an in-progress session. The browser demo keeps
@@ -62,7 +52,7 @@ export function restoreSession(serialized:string|null,definition:LessonDefinitio
   if(!serialized) return freshSession();
   const s=JSON.parse(serialized);
   const matches=s.matches??[];
-  const p=withHeartDefaults(s.progress);
+  const p=s.progress;
   if(!validProgress(p,lesson.length)||
    typeof s.selected!=='string'||s.selected.length>1000||
    !validSentenceTokens(s.tokens,allowedTokens)||
@@ -87,10 +77,8 @@ export function readSaved(definition:LessonDefinition=cafeLesson):Saved {
  try {
   const data=JSON.parse(appStorage.getItem(savedKey(definition))||'{}');
   const {completion}=data,steps=definition.exercises.length;
-  // hearts and bestCombo are optional (older records lack them) but must be possible values when present.
-  const absentOrWithin=(value:unknown,max:number)=>value===undefined||isWholeNumberIn(value,0,max);
   const validCompletion=Array.isArray(completion?.results)&&completion.results.length===steps&&completion.results.every((v:unknown)=>typeof v==='boolean')
-   &&typeof completion.date==='string'&&absentOrWithin(completion.hearts,MAX_HEARTS)&&absentOrWithin(completion.bestCombo,steps);
+   &&typeof completion.date==='string'&&isWholeNumberIn(completion.hearts,0,MAX_HEARTS)&&isWholeNumberIn(completion.bestCombo,0,steps);
   return {preferences:{stress:data.preferences?.stress===true,pronunciation:data.preferences?.pronunciation!==false},completion:validCompletion?completion:undefined,...(validCompletion?{bestFirstTry:Math.max(completion.results.filter(Boolean).length,Number.isInteger(data.bestFirstTry)&&data.bestFirstTry>=0&&data.bestFirstTry<=definition.exercises.length?data.bestFirstTry:0)}:{})};
  }catch{return {preferences:{stress:false,pronunciation:true}};}
 }

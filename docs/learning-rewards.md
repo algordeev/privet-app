@@ -28,6 +28,6 @@ Monthly/yearly selections are demo labels with example prices, not real subscrip
 
 ## Storage and implementation
 
-`nativeStats.ts` owns rewards, migrations and the authoritative tracker; `useNativeStats.ts` publishes its snapshots to React/localStorage and checks missed days on lifecycle/midnight updates. Statistics versions 1 and 2 migrate to version 3 without invented XP, gems or freezes. Existing version-3 records accept an absent latest-attempt reward. Legacy completion migration remains supported.
+`nativeStats.ts` owns rewards and the authoritative tracker; `useNativeStats.ts` publishes its snapshots to React/localStorage and checks missed days on lifecycle/midnight updates. Only version-3 statistics are read (a version-3 record may lack the latest attempt's reward); anything older or damaged starts empty.
 
 `subscription.ts` / `useSubscription.ts` own the demo selection; `engine.ts` / `useLesson.ts` own lesson hearts, grading and progress. These features do not alter the BLE packet protocol, background connection lifecycle, pronunciation controller or answer-reveal safeguards.

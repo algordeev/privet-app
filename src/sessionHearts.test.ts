@@ -24,17 +24,13 @@ test('a valid saved attempt comes back as it was, including a failed one waiting
  assert.deepEqual(restored(failed),failed);
 });
 
-test('an attempt saved before hearts existed gets a fresh attempt’s heart values',()=>{
+test('an attempt saved without its heart and run values starts the lesson fresh',()=>{
  const {hearts,combo,bestCombo,failed,...old}=onStep2;
- assert.deepEqual(restored(old),{...old,hearts:3,combo:0,bestCombo:0,failed:false});
- assert.deepEqual(restored({...old,hearts:2}),{...old,hearts:2,combo:0,bestCombo:0,failed:false});
+ for(const progress of [old,{...old,hearts:2}])assert.deepEqual(restoreSession(saved(progress)),freshSession(),JSON.stringify(progress));
 });
 
-test('loading and saving again leaves the stored text unchanged (fields keep their order)',()=>{
+test('loading and saving again leaves the stored text unchanged',()=>{
  for(const progress of [initialProgress(),onStep2]){const text=saved(progress);assert.equal(JSON.stringify(restoreSession(text)),text);}
- const {hearts,combo,bestCombo,failed,...old}=onStep2;
- const upgraded=JSON.stringify(restoreSession(saved(old)).progress);
- assert.ok(upgraded.startsWith(JSON.stringify(old).slice(0,-1)),'saved fields first, defaults after');
 });
 
 test('heart, run and failure values that break the rules start the lesson fresh',()=>{
@@ -53,15 +49,11 @@ test('a finished lesson is rebuilt from its completion record with the hearts an
   const progress=loadSession(true).progress;
   assert.deepEqual(progress,{...initialProgress(),index:5,results,complete:true,hearts:1,bestCombo:3});
  });
- withStorage({[PRODUCT.storageKey]:{completion:{results,date:'2026-11-20'}}},()=>{
-  const progress=loadSession(true).progress;
-  assert.equal(progress.complete,true);assert.equal(progress.hearts,3);assert.equal(progress.bestCombo,0);
- });
 });
 
-test('a completion record with impossible hearts or best run is ignored',()=>{
- for(const extra of [{hearts:null},{hearts:4},{hearts:-1},{hearts:2.5},{bestCombo:6},{bestCombo:-1},{bestCombo:'3'}]){
-  withStorage({[PRODUCT.storageKey]:{completion:{results,date:'2026-11-20',...extra}}},()=>{
+test('a completion record with missing or impossible hearts or best run is ignored',()=>{
+ for(const extra of [{hearts:undefined},{bestCombo:undefined},{hearts:null},{hearts:4},{hearts:-1},{hearts:2.5},{bestCombo:6},{bestCombo:-1},{bestCombo:'3'}]){
+  withStorage({[PRODUCT.storageKey]:{completion:{results,date:'2026-11-20',hearts:1,bestCombo:3,...extra}}},()=>{
    assert.equal(readSaved().completion,undefined,JSON.stringify(extra));
    assert.equal(loadSession(true).progress.complete,false);
   });

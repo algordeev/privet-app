@@ -144,7 +144,7 @@ Lessons use three session hearts, an in-lesson first-try combo and a local XP re
 - Native lessons independently restore partial input, revealed words, hints and progress; display preferences and a single audio controller are shared. The browser demo starts fresh while saving completion/display preferences. State stays in localStorage; blocked storage falls back to session use.
 - Native profile shows current/best streak, recorded lesson finishes including replays, last seven days and latest first-attempt result. A completed lesson earns one local-calendar practice day; same-day replays do not extend the streak. Reopening results does not count again. Reset clears saved lesson/preferences/statistics.
 
-Statistics use `privet-demo-v1-native-stats`; resumable sessions have separate keys per lesson (the existing café keys are preserved). Latest results include their lesson title. Legacy results migrate without invented dates or streak history. No account, analytics, backend, personal profile data or feedback upload is required.
+Statistics use `privet-demo-v1-native-stats`; resumable sessions have separate keys per lesson (the existing café keys are preserved). Latest results include their lesson title. Saved data from older app versions is not converted: it simply starts fresh. No account, analytics, backend, personal profile data or feedback upload is required.
 
 ## Source map
 

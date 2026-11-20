@@ -52,14 +52,9 @@ test('a backdated or replayed finish never moves the real-time anchor backward',
  assert.equal(s.lastSeenAt,date(17).getTime());
  assert.equal(resolveToday(s,date(12)),'2026-10-12'); // not wrongly clamped to 2026-10-17.
 });
-test('legacy result is preserved without inventing dated activity or a streak',()=>{
- const s=restoreStats(null,{results,date:date(17).toISOString()});assert.equal(s.earlierFinishes,1);assert.equal(s.latest?.day,null);assert.equal(s.latest?.firstTry,4);
- const summary=statsSummary(s,date(17));assert.equal(summary.finishes,1);assert.equal(summary.current,0);assert.equal(summary.practiceDays,0);
- assert.deepEqual(restoreStats(JSON.stringify(s),{results,date:'changed'}),s);
-});
-test('malformed data is rejected, and a reset snapshot never reimports the legacy result',()=>{
+test('missing or malformed data starts empty',()=>{
+ assert.deepEqual(restoreStats(null),emptyStats());
  for(const raw of ['not JSON','null','{}',JSON.stringify({...emptyStats(),days:{'2026-02-30':1}}),JSON.stringify({...emptyStats(),days:{'2026-10-17':-1}}),JSON.stringify({...emptyStats(),latest:{firstTry:6,day:null}})])assert.deepEqual(restoreStats(raw),emptyStats());
- assert.deepEqual(restoreStats(JSON.stringify(emptyStats()),{results,date:date(17).toISOString()}),emptyStats());
 });
 test('only a new completed lesson is recorded; rerenders, duplicate continue and restored results do not count',()=>{
  const changes:NativeStats[]=[];const tracker=createStatsTracker(emptyStats(),s=>changes.push(s),()=>date(17));

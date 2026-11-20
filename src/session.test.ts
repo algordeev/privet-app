@@ -45,7 +45,7 @@ test('completed sessions and reset snapshots round-trip',()=>{
 test('invalid or incompatible storage falls back safely',()=>{
  for(const raw of [null,'not json','null','{}',JSON.stringify({...freshSession(),progress:{index:99}}),JSON.stringify({...freshSession(),hintAt:4}),JSON.stringify({...freshSession(),tokens:['answer']}),JSON.stringify({...freshSession(),revealed:['unknown']}),JSON.stringify({...freshSession(),progress:{...freshSession().progress,feedback:'correct'}})])assert.deepEqual(restoreSession(raw),freshSession());
 });
-test('only native mode loads resumable sessions and migrates existing completion',()=>{
+test('only native mode loads resumable sessions and rebuilds a finished lesson from its completion',()=>{
  const descriptor=Object.getOwnPropertyDescriptor(globalThis,'localStorage');
  const data=new Map<string,string>();
  Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:(key:string)=>data.get(key)??null}});
@@ -54,7 +54,7 @@ test('only native mode loads resumable sessions and migrates existing completion
   assert.deepEqual(loadSession(true),s);
   assert.deepEqual(loadSession(false),freshSession());
   data.delete(NATIVE_SESSION_KEY);
-  data.set(PRODUCT.storageKey,JSON.stringify({completion:{results:[true,false,true,true,true],date:'2026-10-17'}}));
+  data.set(PRODUCT.storageKey,JSON.stringify({completion:{results:[true,false,true,true,true],date:'2026-10-17',hearts:2,bestCombo:3}}));
   assert.equal(loadSession(true).progress.complete,true);
   assert.deepEqual(loadSession(true).progress.results,[true,false,true,true,true]);
   assert.deepEqual(loadSession(false),freshSession());

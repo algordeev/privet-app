@@ -384,7 +384,7 @@ try{
  }
  // Latest finished practice can be lower without reducing the Home high score.
  const lowerResult={...complete,progress:{...complete.progress,results:[true,true,false,false,false]}};
- await open({[NATIVE_SESSION_KEY]:lowerResult,[savedKey(nativeLessons[0])]:{preferences:{stress:false,pronunciation:true},bestFirstTry:5,completion:{results:Array(5).fill(true),date:'2026-10-23'}}});
+ await open({[NATIVE_SESSION_KEY]:lowerResult,[savedKey(nativeLessons[0])]:{preferences:{stress:false,pronunciation:true},bestFirstTry:5,completion:{results:Array(5).fill(true),date:'2026-10-23',hearts:3,bestCombo:5}}});
  await startCafe();assert.ok(await evaluate(()=>document.querySelector('.completion .score').textContent.includes('2/ 5')));
  assert.ok(await evaluate(()=>document.querySelector('.completion .score').textContent.includes('Correct on firstsubmission')));
  await click('[aria-label="Return to app home"]');
@@ -1046,7 +1046,7 @@ try{
   const {REVIEW_KEY}=await server.ssrLoadModule('/src/review.ts');
   const cafe=nativeLessons[0],today=localDay(new Date(2026,9,17,12)),tomorrow=localDay(new Date(2026,9,18,12));
   const results=cafe.exercises.map(e=>e.id!=='meaning');
-  learningCards=true;russianAudio=true;await open({[savedKey(cafe)]:{preferences:{stress:false,pronunciation:true},completion:{results,date:new Date(2026,9,16,12).toISOString()}}});
+  learningCards=true;russianAudio=true;await open({[savedKey(cafe)]:{preferences:{stress:false,pronunciation:true},completion:{results,date:new Date(2026,9,16,12).toISOString(),hearts:3,bestCombo:0}}});
   await until(()=>document.querySelector('.native-review-card')?.textContent.includes('1 word or phrase is ready.'));
   const seeded=await stored(REVIEW_KEY);assert.deepEqual(seeded.items['cafe/w/coffee'],{box:0,due:today,lapses:0,reviews:0});assert.equal(seeded.items['cafe/w/tea'].due,tomorrow);
   await openPhysicalSettings();await click('.native-physical-actions .button','Connect');await click('.native-physical-devices button');
@@ -1075,7 +1075,7 @@ try{
   await click('.native-completion-home');await until(()=>document.activeElement?.id==='native-review-title');
   assert.ok(await evaluate(()=>document.querySelector('.native-review-card').textContent.includes('All caught up. Next review tomorrow.')&&!document.querySelector('#native-review-open')));
   assert.equal(await evaluate(n=>window.__bleCommands.slice(n).at(-1),commands),4);assert.notEqual(await evaluate(()=>window.__cards.at(-1).primary),'0 to review');
-  await open({[savedKey(cafe)]:{preferences:{stress:false,pronunciation:true},completion:{results,date:new Date(2026,9,16,12).toISOString()}},[REVIEW_KEY]:after},new Date(2026,9,18,12).getTime());
+  await open({[savedKey(cafe)]:{preferences:{stress:false,pronunciation:true},completion:{results,date:new Date(2026,9,16,12).toISOString(),hearts:3,bestCombo:0}},[REVIEW_KEY]:after},new Date(2026,9,18,12).getTime());
   await until(()=>document.querySelector('.native-review-card')?.textContent.includes('ready.'));
   console.log('PASS: passed lessons seed review; home card, greeting and OLED show only the due count; a review session reuses lesson UI with free mistakes, safe OLED cards and CELEBRATE, reschedules the item, keeps the streak/XP without gems, and items return the next day.');
  }
