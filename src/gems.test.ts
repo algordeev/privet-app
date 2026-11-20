@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {applyStreakFreezes,buyFreeze,createStatsTracker,emptyStats,GEM_RULES,recordFinish,restoreStats,spendGems,statsSummary,validDay,type NativeStats} from './nativeStats.ts';
+import {applyStreakFreezes,buyFreeze,createStatsTracker,emptyStats,recordFinish,spendGems,type NativeStats} from './nativeStats.ts';
+import {addFreeze,emptyWallet,GEM_RULES,spend,spendFreezes,weeklyStreakBonus} from './gems.ts';
+import {restoreStats} from './statsStorage.ts';
+import {statsSummary} from './statsSummary.ts';
+import {isCalendarDay} from './days.ts';
 import {initialProgress,progressReducer} from './engine.ts';
 
 const on=(day:number)=>new Date(2026,10,day,12);           // November 2026, local noon
@@ -37,19 +41,40 @@ test('a full week of streak earns 10 on the 7th day, once that day, and again af
  assert.deepEqual(s.gems.milestones,[key(7),key(14)]);
 });
 
+const wallet=(balance:number,freezes=0)=>({...emptyWallet(),balance,freezes});
+
 test('spending needs a whole, non-negative amount the balance covers; nothing changes otherwise',()=>{
- const s=withGems(25);
- for(const amount of [26,-1,2.5,Number.NaN])assert.equal(spendGems(s,amount),null,String(amount));
- assert.equal(spendGems(s,20)?.gems.balance,5);
- assert.equal(spendGems(s,25)?.gems.balance,0);
- assert.equal(s.gems.balance,25,'the original is untouched');
+ const w=wallet(25);
+ for(const amount of [26,-1,2.5,Number.NaN,Infinity])assert.equal(spend(w,amount),null,String(amount));
+ assert.equal(spend(w,20)?.balance,5);
+ assert.equal(spend(w,25)?.balance,0);
+ assert.equal(spend(w,0)?.balance,25);
+ assert.equal(w.balance,25,'the original is untouched');
 });
 
 test('a streak freeze costs 30 and at most two can be held',()=>{
- assert.equal(buyFreeze(withGems(29)),null);
- const one=buyFreeze(withGems(70))!;assert.deepEqual([one.gems.balance,one.gems.freezes],[40,1]);
- const two=buyFreeze(one)!;assert.deepEqual([two.gems.balance,two.gems.freezes],[10,2]);
- assert.equal(buyFreeze({...two,gems:{...two.gems,balance:100}}),null,'two already held');
+ assert.equal(addFreeze(wallet(29)),null);
+ const one=addFreeze(wallet(70))!;assert.deepEqual([one.balance,one.freezes],[40,1]);
+ const two=addFreeze(one)!;assert.deepEqual([two.balance,two.freezes],[10,2]);
+ assert.equal(addFreeze({...two,balance:100}),null,'two already held');
+});
+
+test('freezes used to cover missed days are taken from those held',()=>{
+ assert.equal(spendFreezes(wallet(0,2),1).freezes,1);
+ assert.equal(spendFreezes(wallet(0,2),2).freezes,0);
+});
+
+test('the weekly bonus is paid when the streak reaches each multiple of seven, at most once that day',()=>{
+ for(const streak of [0,1,6,8,13,15])assert.equal(weeklyStreakBonus(streak,key(20),wallet(0)),0,String(streak));
+ for(const streak of [7,14,21])assert.equal(weeklyStreakBonus(streak,key(20),wallet(0)),GEM_RULES.streakWeek,String(streak));
+ assert.equal(weeklyStreakBonus(7,key(20),{...wallet(0),milestones:[key(20)]}),0,'already paid today');
+});
+
+test('spending and buying freezes through the statistics keep the rest of the statistics as they were',()=>{
+ const s=withGems(70);
+ assert.deepEqual(spendGems(s,20),{...s,gems:{...s.gems,balance:50}});
+ assert.deepEqual(buyFreeze(s),{...s,gems:{...s.gems,balance:40,freezes:1}});
+ assert.equal(spendGems(s,71),null);assert.equal(buyFreeze(withGems(29)),null);
 });
 
 test('freezes cover missed days that would break the streak, which is kept but not lengthened',()=>{
@@ -99,26 +124,19 @@ test('a failed attempt is never recorded as a finish, XP or gems',()=>{
  assert.equal(saved.length,0);
 });
 
-test('older statistics are upgraded: version 1 gets empty XP, both get an empty wallet and no frozen days',()=>{
- const v1={version:1,days:{[key(16)]:2},earlierFinishes:0,latest:{day:key(16),firstTry:4,lessonId:'cafe'}};
- const one=restoreStats(JSON.stringify(v1));
- assert.equal(one.version,3);assert.deepEqual(one.xp,{});assert.deepEqual(one.gems,emptyStats().gems);assert.deepEqual(one.frozen,[]);assert.equal(one.days[key(16)],2);
- const v2={...v1,version:2,xp:{[key(16)]:12}};
- const two=restoreStats(JSON.stringify(v2));
- assert.deepEqual(two.xp,{[key(16)]:12});assert.deepEqual(two.gems,emptyStats().gems);
+test('current statistics come back unchanged; statistics from older versions start empty',()=>{
  const three=finishEachDay(15,16);
- assert.deepEqual(restoreStats(JSON.stringify(three)),three,'current statistics come back unchanged');
+ assert.deepEqual(restoreStats(JSON.stringify(three)),three);
+ const v1={version:1,days:{[key(16)]:2},earlierFinishes:0,latest:{day:key(16),firstTry:4,lessonId:'cafe'}};
+ for(const old of [v1,{...v1,version:2,xp:{[key(16)]:12}}])assert.deepEqual(restoreStats(JSON.stringify(old)),emptyStats(),`version ${old.version}`);
 });
 
-test('damaged statistics start empty; a lesson finished before statistics existed counts once',()=>{
+test('damaged statistics start empty',()=>{
  for(const raw of [null,'garbage','{}',JSON.stringify({version:4}),JSON.stringify({version:1,days:{[key(16)]:0},earlierFinishes:0,latest:null}),JSON.stringify({version:2,days:{},xp:{'2026-02-30':5},earlierFinishes:0,latest:null})])
   assert.deepEqual(restoreStats(raw),emptyStats(),String(raw));
- const legacy=restoreStats(null,{results:mixed,date:'2026-10-01'});
- assert.equal(legacy.earlierFinishes,1);assert.deepEqual(legacy.latest,{day:null,firstTry:4});
- assert.equal(statsSummary(legacy,on(20)).finishes,1);
 });
 
 test('day keys must be real calendar days',()=>{
- for(const day of ['2026-11-20','2028-02-29'])assert.equal(validDay(day),true,day);
- for(const day of ['2026-02-29','2026-13-01','2026-11-31','20-11-2026','2026-1-5',''])assert.equal(validDay(day),false,day);
+ for(const day of ['2026-11-20','2028-02-29'])assert.equal(isCalendarDay(day),true,day);
+ for(const day of ['2026-02-29','2026-13-01','2026-11-31','20-11-2026','2026-1-5',''])assert.equal(isCalendarDay(day),false,day);
 });

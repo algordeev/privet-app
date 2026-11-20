@@ -24,7 +24,8 @@ try {
  const {SUBSCRIPTION_KEY}=await server.ssrLoadModule('/src/subscription.ts');
  const {useNativeStats}=await server.ssrLoadModule('/src/useNativeStats.ts');
  const {NativeProfile}=await server.ssrLoadModule('/src/NativeProfile.tsx');
- const {NATIVE_STATS_KEY}=await server.ssrLoadModule('/src/nativeStats.ts');
+ const {emptyStats}=await server.ssrLoadModule('/src/nativeStats.ts');
+ const {NATIVE_STATS_KEY}=await server.ssrLoadModule('/src/statsStorage.ts');
  const {useNativeCompanion}=await server.ssrLoadModule('/src/useNativeCompanion.ts');
  const {homeGreeting} = await server.ssrLoadModule('/src/nativeCompanion.ts');
  const {COMPANION_PREFERENCE_KEY}=await server.ssrLoadModule('/src/nativeCompanion.ts');
@@ -113,7 +114,7 @@ try {
  const emptyProfile=renderToStaticMarkup(createElement(Profile));
  assert.ok(!emptyProfile.includes('Practice days'));
  for(const marker of ['Current streak','Best streak','Lesson finishes','Today XP','Total XP','Your last seven days','Finish the lesson to see your first result here.'])assert.ok(emptyProfile.includes(marker));
- storage.set(NATIVE_STATS_KEY,JSON.stringify({version:1,days:{'2020-01-01':2},earlierFinishes:0,latest:{day:'2020-01-01',firstTry:4}}));
+ storage.set(NATIVE_STATS_KEY,JSON.stringify({...emptyStats(),days:{'2020-01-01':2},latest:{day:'2020-01-01',firstTry:4}}));
  const storedProfile=renderToStaticMarkup(createElement(Profile));
  assert.ok(storedProfile.includes('<strong>4<span>/5</span></strong>'));
  assert.ok(storedProfile.includes('January 1, 2020'));
@@ -145,7 +146,7 @@ try {
  assert.ok(partialHome.includes('Continue lesson'));
  assert.ok(connectedGreeting().includes('Shall we pick up where we left off?'));
  console.log('PASS: app home offers Continue for a saved partial lesson.');
- const completed={...freshSession(),progress:{index:5,attempts:0,results:[true,false,true,true,true],feedback:null,complete:true}};
+ const completed={...freshSession(),progress:{...freshSession().progress,index:5,results:[true,false,true,true,true],complete:true}};
  storage.set(NATIVE_SESSION_KEY,JSON.stringify(completed));
  const results=renderToStaticMarkup(createElement(NativeLesson));
  assert.ok(results.includes('Replay the lesson'));
@@ -187,7 +188,7 @@ try {
  storage.set(sessionKey(introductionsLesson),JSON.stringify({...completed,progress:{...completed.progress,results:Array(5).fill(true)}}));
  assert.ok(renderToStaticMarkup(createElement(SecondLesson)).includes('Анна was just our example.'));
  const secondHome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(connectedGreeting(introductionsLesson).includes('Молодец! You finished Nice to meet you.'));
- storage.set(NATIVE_STATS_KEY,JSON.stringify({version:1,days:{'2020-01-01':1},earlierFinishes:0,latest:{day:'2020-01-01',firstTry:5,lessonId:'introductions'}}));
+ storage.set(NATIVE_STATS_KEY,JSON.stringify({...emptyStats(),days:{'2020-01-01':1},latest:{day:'2020-01-01',firstTry:5,lessonId:'introductions'}}));
  assert.ok(renderToStaticMarkup(createElement(Profile)).includes('<h2 id="native-result-title">Nice to meet you</h2>'));
  console.log('PASS: second lesson renders all five exercises, separate progress/results, matching greeting and profile title.');
  for(const definition of (await server.ssrLoadModule('/src/curriculum/catalog.ts')).nativeLessons){
@@ -219,7 +220,7 @@ try {
     assert.deepEqual(english,[...exercise.pairs].sort((a,b)=>a[1].localeCompare(b[1],'en',{sensitivity:'base'})).map(p=>p[1]),'English column uses the fixed scramble');
    }
   }
-  storage.set(NATIVE_STATS_KEY,JSON.stringify({version:1,days:{'2020-01-01':1},earlierFinishes:0,latest:{day:'2020-01-01',firstTry:5,lessonId:definition.id}}));
+  storage.set(NATIVE_STATS_KEY,JSON.stringify({...emptyStats(),days:{'2020-01-01':1},latest:{day:'2020-01-01',firstTry:5,lessonId:definition.id}}));
   assert.ok(renderToStaticMarkup(createElement(Profile)).includes(`<h2 id="native-result-title">${definition.title}</h2>`));
  }
  console.log('PASS: all eight curriculum lessons render every exercise/Cyrillic entry and correct profile result title.');

@@ -4,7 +4,8 @@ import {nativeLessons} from './curriculum/catalog.ts';
 import {checkAnswer,initialProgress,progressReducer,type Progress} from './engine.ts';
 import {normalizedDisplay} from './companionDisplay.ts';
 import {validateCard,DISPLAY_MODE} from './learningProtocol.ts';
-import {emptyStats,createStatsTracker,statsSummary,type NativeStats} from './nativeStats.ts';
+import {emptyStats,createStatsTracker,type NativeStats} from './nativeStats.ts';
+import {statsSummary} from './statsSummary.ts';
 import {INTERVALS,MAX_BOX,LOG_LIMIT,SESSION_SIZE,buildReviewSession,dueKeys,emptyReview,lessonItemResults,nextDue,promote,recordLesson,recordReview,restoreReview,reviewFormat,reviewHomeCard,reviewSource,reviewSources,syncLessons,type ReviewState} from './review.ts';
 
 const today='2026-10-28',tomorrow='2026-10-29';

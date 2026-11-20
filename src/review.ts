@@ -3,7 +3,7 @@ import type {Exercise,LessonDefinition,Word} from './curriculum/types.ts';
 import {compactMeaning,normalizedDisplay} from './companionDisplay.ts';
 import {DISPLAY_MODE,validateCard,type LearningCard} from './learningProtocol.ts';
 import {POCKET_LIMITS,pocketText,type PocketAnswer,type PocketEntry} from './pocketProtocol.ts';
-import {shiftDay,validDay} from './nativeStats.ts';
+import {shiftDay,isCalendarDay} from './days.ts';
 import {PRODUCT} from './config.ts';
 
 // Leitner ladder: an item in box b comes back INTERVALS[b] days after a correct review.
@@ -162,9 +162,9 @@ export function reviewHomeCard(due:number):LearningCard|undefined{
  return validateCard(card)?card:undefined;
 }
 
-const validItem=(v:any)=>!!v&&typeof v==='object'&&Number.isInteger(v.box)&&v.box>=0&&v.box<=MAX_BOX&&typeof v.due==='string'&&validDay(v.due)&&Number.isSafeInteger(v.lapses)&&v.lapses>=0&&Number.isSafeInteger(v.reviews)&&v.reviews>=0;
+const validItem=(v:any)=>!!v&&typeof v==='object'&&Number.isInteger(v.box)&&v.box>=0&&v.box<=MAX_BOX&&typeof v.due==='string'&&isCalendarDay(v.due)&&Number.isSafeInteger(v.lapses)&&v.lapses>=0&&Number.isSafeInteger(v.reviews)&&v.reviews>=0;
 const formats:readonly ReviewFormat[]=['original','meaning','listen','recall','typed','pocket'];
-const validLog=(v:any)=>!!v&&typeof v.key==='string'&&catalog.byKey.has(v.key)&&typeof v.day==='string'&&validDay(v.day)&&typeof v.correct==='boolean'&&formats.includes(v.format);
+const validLog=(v:any)=>!!v&&typeof v.key==='string'&&catalog.byKey.has(v.key)&&typeof v.day==='string'&&isCalendarDay(v.day)&&typeof v.correct==='boolean'&&formats.includes(v.format);
 // Invalid or retired entries are dropped one by one; anything unreadable starts fresh and is re-seeded from passed lessons.
 export function restoreReview(raw:string|null):ReviewState{
  try{
@@ -218,7 +218,7 @@ const validDeckItem=(v:any)=>!!v&&typeof v.key==='string'&&catalog.byKey.has(v.k
 export function restorePocketDeck(raw:string|null):PocketDeck|undefined{
  try{
   const d=raw?JSON.parse(raw):null;
-  if(!d||!Number.isInteger(d.id)||d.id<1||d.id>0xffffffff||typeof d.day!=='string'||!validDay(d.day)||!Array.isArray(d.items)||d.items.length<1||d.items.length>POCKET_LIMITS.cards||!d.items.every(validDeckItem))return undefined;
+  if(!d||!Number.isInteger(d.id)||d.id<1||d.id>0xffffffff||typeof d.day!=='string'||!isCalendarDay(d.day)||!Array.isArray(d.items)||d.items.length<1||d.items.length>POCKET_LIMITS.cards||!d.items.every(validDeckItem))return undefined;
   return {id:d.id,day:d.day,items:d.items.map((i:any)=>({key:i.key,box:i.box,reviews:i.reviews}))};
  }catch{return undefined;}
 }

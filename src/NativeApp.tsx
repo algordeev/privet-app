@@ -35,7 +35,7 @@ import {PrinterSettings,PrinterSettingsButton,PrinterSheet} from './PrinterScree
 import {PrinterFoundCard} from './PrinterFoundCard';
 import {practiceStrip,progressReceipt,reviewStrip,wordCard,wordOfTheDay} from './printContent';
 import {renderPracticeStrip,renderReceipt,renderTestPage,renderWordCard,type Rendered} from './printRender';
-import {localDay} from './nativeStats';
+import {localDay} from './days';
 
 // Survives NativeHome remounts, so the badges only pop when a number grew since the last home visit.
 const seenHomeStats={streak:-1,gems:-1};

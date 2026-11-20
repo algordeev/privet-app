@@ -4,7 +4,8 @@ import {cafeLesson,introductionsLesson,nativeLessons} from './lessons.ts';
 import {checkAnswer,initialProgress,progressReducer,lessonCompanionEvent,normalizeAnswer} from './engine.ts';
 import {freshSession,loadSession,restoreSession,sessionKey,savedKey,NATIVE_SESSION_KEY} from './session.ts';
 import {PRODUCT} from './config.ts';
-import {createStatsTracker,emptyStats,restoreStats,type NativeStats} from './nativeStats.ts';
+import {createStatsTracker,emptyStats,type NativeStats} from './nativeStats.ts';
+import {restoreStats} from './statsStorage.ts';
 import {createPhysicalLessonEvents} from './physicalLessonEvents.ts';
 import {homeGreeting} from './nativeCompanion.ts';
 
@@ -65,7 +66,7 @@ test('independent native storage preserves the existing café session and comple
   assert.deepEqual(loadSession(true),cafe);assert.deepEqual(loadSession(true,introductionsLesson),next);
   assert.deepEqual(loadSession(false,introductionsLesson),freshSession());
   data.delete(sessionKey(introductionsLesson));assert.deepEqual(loadSession(true,introductionsLesson),freshSession());
-  data.set(savedKey(introductionsLesson),JSON.stringify({completion:{results:[true,true,false,true,true],date:'2026-10-18'}}));
+  data.set(savedKey(introductionsLesson),JSON.stringify({completion:{results:[true,true,false,true,true],date:'2026-10-18',hearts:2,bestCombo:2}}));
   assert.equal(loadSession(true,introductionsLesson).progress.complete,true);assert.deepEqual(loadSession(true),cafe);
  }finally{if(descriptor)Object.defineProperty(globalThis,'localStorage',descriptor);else Reflect.deleteProperty(globalThis,'localStorage');}
 });

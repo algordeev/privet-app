@@ -7,7 +7,8 @@ import {matchOrder} from './matchOrder.ts';
 import type {Exercise} from './curriculum/types.ts';
 const correctValue=(e:Exercise)=>e.kind==='match'?matchValue(e.pairs!.map(p=>p[0]),e):e.answer;
 import {freshSession,restoreSession,sessionKey,savedKey,lessonPassed,readSaved,recordLessonCompletion} from './session.ts';
-import {emptyStats,recordFinish,restoreStats} from './nativeStats.ts';
+import {emptyStats,recordFinish} from './nativeStats.ts';
+import {restoreStats} from './statsStorage.ts';
 import {createPhysicalLessonEvents} from './physicalLessonEvents.ts';
 import {stressPairs,stressText} from './stress.ts';
 import {safeBeforeAnswer} from './companionDisplay.ts';
@@ -93,11 +94,11 @@ test('passed status survives unfinished and failed replays in every lesson, unti
  }
 });
 
-test('best and latest scores stay separate across better/worse replays and old-save migration',()=>{
+test('best and latest scores stay separate across better/worse replays, and a missing best starts from the latest',()=>{
  const descriptor=Object.getOwnPropertyDescriptor(globalThis,'localStorage');const storage=new Map<string,string>();
  Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:(key:string)=>storage.get(key)??null}});
  try{for(const definition of nativeLessons){
-  const completion=(score:number)=>({results:Array.from({length:definition.exercises.length},(_,i)=>i<score),date:'2026-10-23'});
+  const completion=(score:number)=>({results:Array.from({length:definition.exercises.length},(_,i)=>i<score),date:'2026-10-23',hearts:3,bestCombo:0});
   storage.set(savedKey(definition),JSON.stringify({preferences:{stress:false,pronunciation:true},completion:completion(3)}));
   let saved=readSaved(definition);assert.equal(saved.bestFirstTry,3,'Old latest score initializes best');
   saved=recordLessonCompletion(saved,completion(5));assert.equal(saved.bestFirstTry,5);

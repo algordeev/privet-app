@@ -1,5 +1,5 @@
 import type {ReactNode} from 'react';
-import {GEM_RULES} from './nativeStats';
+import {GEM_RULES} from './gems';
 import {CountedNumber} from './CountedNumber';
 import {SubpageHeader} from './SubpageHeader';
 import type {NativeStatsController} from './useNativeStats';
