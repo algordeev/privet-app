@@ -23,6 +23,7 @@ import {useSubscription} from './useSubscription';
 import {PlusScreen} from './PlusScreen';
 import {GemsScreen} from './GemsScreen';
 import {StreakScreen} from './StreakScreen';
+import {useReminders} from './useReminders';
 import {useCyrillicProgress,type CyrillicController} from './useCyrillicProgress';
 import {recommendCyrillic} from './cyrillicProgress';
 import {CyrillicQuickCard,NativeCyrillicQuickStart} from './NativeCyrillic';
@@ -75,6 +76,8 @@ export function NativeApp() {
  const companion=useNativeCompanion();
  const activity=useNativeStats();
  const subscription=useSubscription();
+ // Keeps the scheduled reminders in line with today's practice and the streak (settings UI comes with the reminder screens).
+ useReminders({practisedToday:(activity.summary.week.at(-1)?.finishes??0)>0,streak:activity.summary.current});
  const review=useReview();
  const printer=usePrinter();
  return <CurriculumControllers plus={subscription.plus} onTransition={(previous,next,action,id)=>{companion.onTransition(previous,next,action);activity.onTransition(previous,next,action,id);physical.onTransition(previous,next,action,id);review.onLessonTransition(previous,next,action,id);}}>{controllers=><NativeAppContent controllers={controllers} physical={physical} onboarding={onboarding} companion={companion} activity={activity} subscription={subscription} review={review} printer={printer}/>}</CurriculumControllers>;
