@@ -1,0 +1,24 @@
+/* Reminder invitation sheet and the Reminders card in Settings. */
+.native-app .reminder-invite { display:grid; gap:10px; text-align:center; }
+/* A lock-screen preview: evening sky, the time, and the two notifications as iOS would show them. */
+.native-app .reminder-preview { position:relative; display:grid; gap:8px; padding:18px 14px 16px; overflow:hidden; border-radius:24px; background:linear-gradient(165deg,#2f5f73 0%,#5c7f8c 42%,#d9a07e 100%); text-align:left; }
+.native-app .reminder-preview::after { content:''; position:absolute; right:-40px; bottom:-60px; width:180px; height:180px; border-radius:50%; background:radial-gradient(circle,#ffd9a866,transparent 65%); pointer-events:none; }
+.native-app .reminder-preview-clock { justify-self:center; margin:-2px 0 6px; color:#fffdf7; font-size:44px; font-weight:600; letter-spacing:-1px; line-height:1; text-shadow:0 2px 12px #0002; font-variant-numeric:tabular-nums; }
+.native-app .reminder-preview-card { position:relative; z-index:1; display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border-radius:18px; background:#fffdf7e6; box-shadow:0 6px 18px #1d33402e; -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px); animation:reminder-card-in 420ms var(--spring,ease) backwards; }
+.native-app .reminder-preview-card + .reminder-preview-card { margin-inline:8px; opacity:.94; animation-delay:140ms; }
+.native-app .reminder-app-icon { flex-shrink:0; width:34px; height:34px; border-radius:8px; box-shadow:0 0 0 1px #0000000f; }
+.native-app .reminder-preview-card > div { display:grid; min-width:0; flex:1; }
+.native-app .reminder-preview-card p { display:flex; justify-content:space-between; margin:0 0 1px; color:#5b6a62; font-size:11px; }
+.native-app .reminder-preview-card p b { font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+.native-app .reminder-preview-card strong { color:#1f2d27; font-size:13px; font-weight:650; line-height:1.3; }
+.native-app .reminder-preview-card small { color:#3d4b44; font-size:12px; line-height:1.35; }
+@keyframes reminder-card-in { from { opacity:0; transform:translateY(10px) scale(.97); } }
+.native-app .reminder-invite h3 { margin:10px 0 0; color:#25372d; font-size:21px; font-weight:650; line-height:1.25; letter-spacing:-.4px; }
+.native-app .reminder-invite > p { margin:0 4px 6px; color:#627458; font-size:14px; line-height:1.5; }
+.native-app .reminder-invite .button { width:100%; }
+@media (prefers-reduced-motion:reduce) { .native-app .reminder-preview-card { animation:none; } }
+
+.native-app .reminder-settings .native-settings-row { cursor:default; }
+.native-app .reminder-time { flex-shrink:0; min-height:36px; padding:4px 10px; border:1px solid #cfdcc6; border-radius:10px; background:#f3f6ee; color:#2f5f45; font:inherit; font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; }
+.native-app .reminder-settings input[type=checkbox]:disabled { opacity:.45; }
+.native-app .reminder-blocked { margin:12px 0 0; padding:12px 14px; border-radius:14px; background:#fbf1e3; color:#7a5530; font-size:13px; line-height:1.5; }

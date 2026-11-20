@@ -17,6 +17,16 @@ let browserPreview=false,russianAudio=false,skipQuickStart=true,repeatedSentence
 let seed={},initialTime=new Date(2026,9,17,12).getTime();
 // Test-only driver substitution: exercise real root hook, scheduler and UI without radio.
 const server=await createServer({plugins:[{name:'privet-test-ble-driver',enforce:'pre',transform(_source,id){
+ // Test-only notification driver: reminders exist only when a check seeds 'test-notify'; iOS's permission answer comes from 'test-notify-answer'.
+ if(id.endsWith('/src/notificationDriver.ts'))return `export const notificationDriver={
+ supported:()=>localStorage.getItem('test-notify')!==null,
+ permission:async()=>window.__notifyPermission??=JSON.parse(localStorage.getItem('test-notify-permission')??'"prompt"'),
+ requestPermission:async()=>{window.__notifyRequests=(window.__notifyRequests??0)+1;const now=await notificationDriver.permission();if(now==='prompt')window.__notifyPermission=JSON.parse(localStorage.getItem('test-notify-answer')??'"granted"');return window.__notifyPermission;},
+ pendingIds:async()=>(window.__notifications??[]).map(n=>n.id),
+ cancel:async ids=>{window.__notifications=(window.__notifications??[]).filter(n=>!ids.includes(n.id));},
+ schedule:async items=>{window.__notifications=[...(window.__notifications??[]),...items];},
+ onTap:listener=>{window.__tapNotification=kind=>listener(kind);return ()=>{window.__tapNotification=undefined;};},
+};`;
  if(!id.endsWith('/src/bleDriver.ts'))return;
  return `export function createNativeBleDriver(){let notify;return {
  async initialize(){window.__bleInit=(window.__bleInit||0)+1;},async isEnabled(){return true;},async connected(){return true;},async watchEnabled(){},
@@ -67,6 +77,7 @@ try{
  const {NATIVE_STATS_KEY}=await server.ssrLoadModule('/src/statsStorage.ts');
  const {localDay}=await server.ssrLoadModule('/src/days.ts');
  const {SUBSCRIPTION_KEY,PLUS_MONTHLY_PRICE,PLUS_YEARLY_PRICE}=await server.ssrLoadModule('/src/subscription.ts');
+ const {REMINDERS_KEY}=await server.ssrLoadModule('/src/reminders.ts');
  const {CYRILLIC_KEY}=await server.ssrLoadModule('/src/cyrillicProgress.ts');
  const {CYRILLIC,contextualLetters}=await server.ssrLoadModule('/src/cyrillic.ts');
  const {russianReading}=await server.ssrLoadModule('/src/pronunciation.ts');
@@ -293,6 +304,58 @@ try{
   await click('[aria-label="Back to home"]');await openPhysicalSettings();
   await assertNativeLayout();
   console.log(`PASS ${viewport.width}×${viewport.height}: Plus activate/cancel/reload/zero-heart recovery via lesson and Profile, restored heart consumption, freeze lifecycle→finish, replay reward separation, refill/freeze prices; native panes cannot scroll sideways, all exercises/header controls fit, vertical scroll retained.`);
+ }
+ // Reminders: the one-time invitation, the iOS permission answer, Settings, and exactly what gets scheduled.
+ {
+  await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+  const alive={...emptyStats(),days:{'2026-10-15':1,'2026-10-16':1}};                 // 2-day streak, today (17th) not practised yet
+  const scheduled=()=>evaluate(()=>(window.__notifications??[]).map(n=>`${n.extra.kind} ${new Date(n.at).getDate()} ${new Date(n.at).getHours()}:${String(new Date(n.at).getMinutes()).padStart(2,'0')}`).sort());
+  const invite=()=>evaluate(()=>!!document.querySelector('#native-reminder-invite[open]'));
+  // No invitation before any finished lesson.
+  await open({'test-notify':1});await pause(300);assert.equal(await invite(),false,'No invitation before a finished lesson');
+  // Not now: closes for good, iOS is never asked, nothing is scheduled.
+  await open({'test-notify':1,[NATIVE_STATS_KEY]:alive});assert.equal(await invite(),false,'Home is seen first: the invitation waits a moment');
+  await until(()=>!!document.querySelector('#native-reminder-invite[open]'));
+  assert.ok(await evaluate(()=>document.querySelector('#native-reminder-invite').textContent.includes('19:00')));
+  await click('#native-reminder-invite .native-text-button','Not now');await until(()=>!document.querySelector('#native-reminder-invite'));
+  assert.equal((await stored(REMINDERS_KEY)).offered,true);assert.equal((await stored(REMINDERS_KEY)).enabled,false);
+  assert.equal(await evaluate(()=>window.__notifyRequests??0),0,'Not now never shows the iOS question');assert.deepEqual(await scheduled(),[]);
+  await open({},undefined,true);await pause(300);assert.equal(await invite(),false,'The invitation is shown only once');
+  // Allow: iOS says yes, reminders switch on, and the week is planned (with today's last call while the streak is alive).
+  await open({'test-notify':1,[NATIVE_STATS_KEY]:alive});await until(()=>!!document.querySelector('#native-reminder-invite[open]'));
+  await click('#native-reminder-invite .button','Allow reminders');await until(()=>(window.__notifications??[]).length>0);
+  assert.equal((await stored(REMINDERS_KEY)).enabled,true);assert.equal(await evaluate(()=>window.__notifyRequests),1);
+  assert.deepEqual(await scheduled(),['daily 17 19:00','daily 18 19:00','daily 19 19:00','daily 20 19:00','daily 21 19:00','daily 22 19:00','daily 23 19:00','last-call 17 21:00']);
+  // Tapping a reminder opens the next lesson (the first not passed); during a lesson it changes nothing.
+  await evaluate(()=>window.__tapNotification('daily'));await until(()=>!!document.querySelector('.lesson-bottom'));
+  assert.equal(await evaluate(()=>document.querySelector('.app-navigation strong').textContent),nativeLessons[0].title,'A tapped reminder opens the next lesson');
+  await click('[aria-label="Return to app home"]');await click(`#native-card-${nativeLessons[1].id} ~ .button`);await until(()=>!!document.querySelector('.lesson-bottom'));
+  await evaluate(()=>window.__tapNotification('last-call'));await pause(300);
+  assert.equal(await evaluate(()=>document.querySelector('.app-navigation strong').textContent),nativeLessons[1].title,'A tap never interrupts a lesson in progress');
+  await click('[aria-label="Return to app home"]');
+  // Settings: a later time pauses the last call; switching off clears everything.
+  await click('#native-settings-open');assert.ok(await evaluate(()=>document.querySelector('[aria-label="Daily reminder"]').checked));
+  await evaluate(()=>{const input=document.querySelector('.reminder-time');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'20:30');input.dispatchEvent(new Event('input',{bubbles:true}));});
+  await until(()=>(window.__notifications??[]).every(n=>n.extra.kind==='daily'&&new Date(n.at).getHours()===20));
+  assert.equal(await evaluate(()=>document.querySelector('[aria-label="Streak last call"]').disabled),true);assert.equal((await stored(REMINDERS_KEY)).time,'20:30');
+  await assertNativeLayout();
+  await click('[aria-label="Daily reminder"]');await until(()=>(window.__notifications??[]).length===0);
+  assert.equal((await stored(REMINDERS_KEY)).enabled,false);assert.equal(await evaluate(()=>!!document.querySelector('.reminder-time')),false);
+  // Practising today removes today's reminders; tomorrow's names the streak.
+  await open({'test-notify':1,'test-notify-permission':'granted',[REMINDERS_KEY]:{version:1,enabled:true,time:'19:00',lastCall:true,offered:true},[NATIVE_STATS_KEY]:{...alive,days:{...alive.days,'2026-10-17':1}}});
+  await until(()=>(window.__notifications??[]).length>0);
+  const after=await scheduled();assert.equal(after.some(item=>item.endsWith(' 17 19:00')||item.endsWith(' 17 21:00')),false,'Nothing left for a practised today');
+  assert.ok(after.includes('last-call 18 21:00'));
+  // Refused in iOS: the switch stays off, Settings explains where to allow it, nothing is scheduled.
+  await open({'test-notify':1,'test-notify-answer':'denied',[NATIVE_STATS_KEY]:alive});await until(()=>!!document.querySelector('#native-reminder-invite[open]'));
+  await click('#native-reminder-invite .button','Allow reminders');await until(()=>!document.querySelector('#native-reminder-invite'));
+  assert.equal((await stored(REMINDERS_KEY)).enabled,false);assert.deepEqual(await scheduled(),[]);
+  await click('#native-settings-open');assert.ok(await evaluate(()=>document.querySelector('.reminder-blocked').textContent.includes('iOS Settings')));
+  assert.equal(await evaluate(()=>document.querySelector('[aria-label="Daily reminder"]').disabled),true);
+  // Without notifications (the website), there is no invitation and no Reminders card.
+  await open({[NATIVE_STATS_KEY]:alive});await pause(300);assert.equal(await invite(),false);
+  await click('#native-settings-open');assert.equal(await evaluate(()=>!!document.querySelector('.reminder-settings')),false);
+  console.log('PASS: reminder invitation once, a moment after home appears, after a finished lesson (Not now asks nothing; Allow plans the week with the streak last call), a tap opens the next lesson but never interrupts one, Settings time/last call/off, practised-today and refused-permission states, hidden without notifications.');
  }
 
  // Whole-word readings follow the existing switch without altering answers.
