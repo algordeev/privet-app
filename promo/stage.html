@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Privet promo stage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=block">
+<script>
+// Video clock: everything (CSS-free animation, three.js scenes) reads this instead of real time,
+// so each frame is computed exactly at its timestamp. The renderer advances it frame by frame.
+window.__now=0;
+performance.now=()=>window.__now;
+const frames=new Map();let nextFrame=0;
+window.requestAnimationFrame=cb=>{frames.set(++nextFrame,cb);return nextFrame;};
+window.cancelAnimationFrame=id=>{frames.delete(id);};
+window.__tick=ms=>{window.__now=ms;const list=[...frames.values()];frames.clear();for(const cb of list)cb(ms);};
+</script>
+<link rel="stylesheet" href="./stage.css">
+</head>
+<body>
+<div id="stage"></div>
+<script type="module" src="./stage.ts"></script>
+</body>
+</html>

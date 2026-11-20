@@ -4,7 +4,8 @@
 // the firmware when those faces change. Privet Mini (PrivetMini_v0.5 and v0.6) draws the same
 // sleeping, CONNECTED and IDLE faces, so its keychain figure uses them too.
 export const OLED_WIDTH=128,OLED_HEIGHT=64;
-export type FirmwareFace='sleeping'|'connected'|'idle';
+// happy/encourage/celebrate: the reaction faces (PrivetBLE_S3_v5 drawFace), shown while a reaction plays.
+export type FirmwareFace='sleeping'|'connected'|'idle'|'happy'|'encourage'|'celebrate';
 // CONNECTED lasts 2400 ms on the firmware, then the robot returns to IDLE.
 export const CONNECTED_FACE_MS=2400;
 const AMBIENT_WINDOW_MS=60000;
@@ -89,10 +90,31 @@ function awake(d:ReturnType<typeof canvas>,face:'connected'|'idle',age:number,no
  d.fillCircle(122,4,3);
 }
 
+// Reactions (PrivetBLE_S3_v5 drawFace): joyful "^ ^" eyes with a smile for happy and celebrate
+// (celebrate bobs and sparkles), and for encourage sad slanted eyes with a small frown that droop
+// and recover.
+function reaction(d:ReturnType<typeof canvas>,face:'happy'|'encourage'|'celebrate',age:number){
+ const bob=face==='celebrate'?(Math.trunc(age/180)%2?-1:1):0;
+ const sad=face!=='encourage'?0:age<800?Math.trunc(age/400):age<1400?2:age<2200?Math.trunc((2200-age)/400):0;
+ if(face==='encourage'){
+  for(let t=0;t<3;t++){d.line(28,29+sad+t,47,24+sad+t);d.line(80,24+sad+t,99,29+sad+t);}
+  for(let t=0;t<2;t++){d.line(54,48+sad+t,59,44+sad+t);d.line(59,44+sad+t,69,44+sad+t);d.line(69,44+sad+t,74,48+sad+t);}
+ }else{
+  for(const x of [28,80])for(let t=0;t<3;t++){d.line(x,27+bob+t,x+7,19+bob+t);d.line(x+7,19+bob+t,x+13,19+bob+t);d.line(x+13,19+bob+t,x+20,27+bob+t);}
+  for(let t=0;t<2;t++){d.line(44,41+bob+t,54,48+bob+t);d.line(54,48+bob+t,73,48+bob+t);d.line(73,48+bob+t,84,41+bob+t);}
+  if(face==='celebrate'){
+   const r=Math.trunc(age/180)%2?2:4;
+   for(const [x,y,radius] of [[11,19,r],[116,43,r],[64,10,2]]){d.line(x-radius,y,x+radius,y);d.line(x,y-radius,x,y+radius);}
+  }
+ }
+ d.fillCircle(122,4,3);
+}
+
 // age: ms since this face began (since power-on for sleeping); now: the robot's clock, for blinks.
 export function renderFirmwareFace(face:FirmwareFace,age:number,now=age):Bitmap{
  const d=canvas();age=Math.max(0,Math.trunc(age));now=Math.max(0,Math.trunc(now));
  if(face==='sleeping')sleeping(d,age);
+ else if(face==='happy'||face==='encourage'||face==='celebrate')reaction(d,face,age);
  else awake(d,face,face==='idle'?Math.min(age,AMBIENT_WINDOW_MS):age,now);
  return d.pixels;
 }
