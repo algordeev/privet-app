@@ -1,0 +1,95 @@
+/* Streak screen: warm terracotta like the home badge, with the app's cream cards. */
+.native-app .native-streak-scroll { --streak:#c4673f; --streak-ink:#7a3f26; --streak-soft:#fbe6da; --streak-line:#f0cdb9; --freeze:#3f7fa6; --freeze-soft:#e3f0f7; }
+
+/* Today: the companion, the count and one line on what today needs. */
+.native-app .streak-hero { display:grid; justify-items:center; gap:4px; margin:20px 0 24px; padding:16px 20px 20px; border-radius:24px; background:radial-gradient(120% 90% at 50% 0%,#fff6ef 0%,#fde6d8 68%,#f9d6c2 100%); box-shadow:inset 0 0 0 1px var(--streak-line),0 10px 26px #c4673f1c; text-align:center; }
+.native-app .streak-robot { width:115px; height:109px; }
+.native-app .streak-robot .robot-scene { transform:scale(.43); transform-origin:top left; }
+.native-app .streak-count { display:flex; align-items:baseline; gap:6px; color:var(--streak-ink); }
+.native-app .streak-count svg { align-self:center; width:26px; height:30px; color:var(--streak); }
+.native-app .streak-count strong { font-size:44px; font-weight:650; line-height:1.05; letter-spacing:-1.4px; font-variant-numeric:tabular-nums; }
+.native-app .streak-count span { font-size:15px; font-weight:600; }
+.native-app .streak-hero p { max-width:280px; margin:2px 0 0; color:#7d5a48; font-size:14px; line-height:1.45; }
+.native-app .streak-hero.is-done p { color:#2f6b4f; font-weight:600; }
+.native-app .streak-practice { margin-top:12px; min-height:44px; padding:10px 18px; font-size:14px; }
+
+.native-app .streak-group { margin:0 0 22px; }
+.native-app .streak-group h2 { margin:0 0 10px; color:#25372d; font-size:17px; font-weight:600; line-height:1.4; letter-spacing:-.3px; }
+.native-app .streak-card { padding:14px; border:1px solid #e3e9da; border-radius:16px; background:#fffdf7; }
+
+/* Next milestone: days to the weekly bonus as seven segments, then the badges. */
+.native-app .streak-bonus { display:grid; grid-template-columns:1fr auto; align-items:center; gap:10px 12px; }
+.native-app .streak-bonus-text { display:grid; gap:2px; }
+.native-app .streak-bonus-text strong { color:#315a3c; font-size:15px; font-weight:600; }
+.native-app .streak-bonus-text small { color:#68785e; font-size:12px; }
+.native-app .streak-gems { display:inline-flex; align-items:center; gap:4px; padding:5px 9px; border:1px solid #f0dc9a; border-radius:999px; background:#fff4cf; color:#7a5b0c; font-size:13px; font-weight:700; }
+.native-app .streak-gems span { color:#e0a52a; font-size:11px; }
+.native-app .streak-bonus-bar { grid-column:1 / -1; display:grid; grid-template-columns:repeat(7,1fr); gap:5px; }
+.native-app .streak-bonus-bar i { height:8px; border-radius:999px; background:#efe7dd; }
+.native-app .streak-bonus-bar i.is-done { background:linear-gradient(90deg,#e58a5f,var(--streak)); }
+/* The day the weekly bonus is earned: the card turns gold and the full week glows. */
+.native-app .streak-bonus.is-earned { border-color:#f0dc9a; background:radial-gradient(130% 120% at 0% 0%,#fffbea 0%,#fff3cc 100%); box-shadow:0 8px 20px #d6a53a22; }
+.native-app .streak-bonus.is-earned .streak-bonus-text strong { color:#6b4e08; }
+.native-app .streak-bonus.is-earned .streak-bonus-text small { color:#8a7440; }
+.native-app .streak-bonus.is-earned .streak-gems { border-color:#e6c463; background:#fffdf3; box-shadow:0 2px 8px #d6a53a33; }
+.native-app .streak-bonus.is-earned .streak-gems small { font-size:11px; font-weight:600; }
+.native-app .streak-bonus.is-earned .streak-bonus-bar i { background:linear-gradient(90deg,#f2c14e,#e3a62b); animation:streak-week-glow 900ms var(--ease,ease) backwards; }
+.native-app .streak-bonus.is-earned .streak-bonus-bar i:nth-child(2){animation-delay:60ms}.native-app .streak-bonus.is-earned .streak-bonus-bar i:nth-child(3){animation-delay:120ms}.native-app .streak-bonus.is-earned .streak-bonus-bar i:nth-child(4){animation-delay:180ms}.native-app .streak-bonus.is-earned .streak-bonus-bar i:nth-child(5){animation-delay:240ms}.native-app .streak-bonus.is-earned .streak-bonus-bar i:nth-child(6){animation-delay:300ms}.native-app .streak-bonus.is-earned .streak-bonus-bar i:nth-child(7){animation-delay:360ms}
+@keyframes streak-week-glow { from { opacity:0; transform:scaleX(.4); } }
+@media (prefers-reduced-motion:reduce) { .native-app .streak-bonus.is-earned .streak-bonus-bar i { animation:none; } }
+
+.native-app .streak-badges { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:10px 0 0; padding:0; list-style:none; }
+.native-app .streak-badges li { display:grid; justify-items:center; gap:5px; padding:10px 4px; border:1px solid #ebe5da; border-radius:14px; background:#fffdf7; color:#9a8f82; text-align:center; }
+.native-app .streak-badge-medal { position:relative; display:grid; place-items:center; width:44px; height:44px; border-radius:50%; background:#f1ece4; }
+.native-app .streak-badge-medal svg { position:absolute; width:30px; height:34px; color:#ddd3c6; }
+.native-app .streak-badge-medal b { position:relative; top:3px; color:#8e8376; font-size:13px; font-weight:700; }
+.native-app .streak-badges small { font-size:11px; line-height:1.2; }
+.native-app .streak-badges li.is-reached { border-color:var(--streak-line); background:#fff5ee; color:var(--streak-ink); }
+.native-app .streak-badges li.is-reached .streak-badge-medal { background:linear-gradient(160deg,#f6a07a,var(--streak)); box-shadow:0 4px 10px #c4673f33; }
+.native-app .streak-badges li.is-reached .streak-badge-medal svg { color:#ffffff40; }
+.native-app .streak-badges li.is-reached .streak-badge-medal b { color:#fff; }
+.native-app .streak-badges li.is-next { border-style:dashed; border-color:var(--streak-line); color:var(--streak-ink); }
+.native-app .streak-badges li.is-next .streak-badge-medal { background:var(--streak-soft); }
+.native-app .streak-badges li.is-next .streak-badge-medal svg { color:#f2c2a8; }
+.native-app .streak-badges li.is-next .streak-badge-medal b { color:var(--streak-ink); }
+
+/* Calendar: practised and frozen days in a row join into one band. */
+.native-app .streak-month { display:flex; align-items:center; gap:4px; margin-bottom:10px; }
+.native-app .streak-month h2 { flex:1; margin:0; }
+.native-app .streak-month .app-icon-button { width:36px; height:36px; }
+.native-app .streak-month .app-icon-button:disabled { opacity:.3; }
+.native-app .streak-month svg { width:20px; height:20px; }
+.native-app .streak-calendar { display:grid; gap:4px; padding:12px 10px; }
+.native-app .streak-weekdays,.native-app .streak-week { display:grid; grid-template-columns:repeat(7,1fr); }
+.native-app .streak-weekdays span { padding-bottom:4px; color:#8a957f; font-size:11px; font-weight:600; text-align:center; }
+.native-app .streak-day { position:relative; display:grid; place-items:center; height:36px; color:#45584a; font-size:13px; font-variant-numeric:tabular-nums; }
+.native-app .streak-day.is-future { color:#b7bfae; }
+.native-app .streak-day.is-practised,.native-app .streak-day.is-frozen { margin:0 -1px; background:var(--streak-soft); color:var(--streak-ink); font-weight:700; }
+.native-app .streak-day.is-frozen { background:var(--freeze-soft); color:var(--freeze); }
+.native-app .streak-day.is-frozen svg { width:15px; height:15px; }
+.native-app .streak-day.is-start { margin-left:2px; border-top-left-radius:999px; border-bottom-left-radius:999px; }
+.native-app .streak-day.is-end { margin-right:2px; border-top-right-radius:999px; border-bottom-right-radius:999px; }
+.native-app .streak-day.is-today::after { content:''; position:absolute; width:32px; height:32px; border:2px solid var(--streak); border-radius:50%; box-sizing:border-box; }
+.native-app .streak-legend { display:flex; justify-content:center; gap:14px; margin-top:6px; color:#7c8a72; font-size:11px; }
+.native-app .streak-legend span { display:inline-flex; align-items:center; gap:5px; }
+.native-app .streak-legend i { width:12px; height:12px; border-radius:50%; background:var(--streak-soft); }
+.native-app .streak-legend i.is-frozen { background:var(--freeze-soft); box-shadow:inset 0 0 0 1px #bcd9ea; }
+.native-app .streak-legend i.is-today { background:none; box-shadow:inset 0 0 0 2px var(--streak); }
+
+/* Records: three figures side by side. */
+.native-app .streak-figures { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:0; }
+.native-app .streak-figures div { padding:12px 10px; border:1px solid #e3e9da; border-radius:16px; background:#fffdf7; text-align:center; }
+.native-app .streak-figures dt { color:#68785e; font-size:11px; }
+.native-app .streak-figures dd { margin:2px 0 0; color:#315a3c; font-size:24px; font-weight:650; font-variant-numeric:tabular-nums; }
+
+/* Freezes held, with a way to the Gems page to get one. */
+.native-app .streak-freezes { display:flex; align-items:center; gap:12px; }
+.native-app .streak-freeze-icon { display:grid; place-items:center; flex-shrink:0; width:38px; height:38px; border-radius:12px; background:var(--freeze-soft); color:var(--freeze); }
+.native-app .streak-freeze-icon svg { width:20px; height:20px; }
+.native-app .streak-freeze-text { display:grid; flex:1; gap:2px; min-width:0; }
+.native-app .streak-freeze-text strong { color:#315a3c; font-size:15px; font-weight:600; }
+.native-app .streak-freeze-text small { color:#68785e; font-size:12px; }
+.native-app .streak-slots { display:flex; gap:5px; margin-top:4px; }
+.native-app .streak-slots i { width:18px; height:6px; border-radius:999px; background:#dfe7ea; }
+.native-app .streak-slots i.is-full { background:#5d9cc4; }
+.native-app .streak-link { flex-shrink:0; min-height:44px; padding:0 14px; border:1px solid #cfdcc6; border-radius:999px; background:#f3f6ee; color:#2f5f45; font:inherit; font-size:13px; font-weight:600; cursor:pointer; }

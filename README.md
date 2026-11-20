@@ -134,6 +134,8 @@ Lessons use three session hearts, an in-lesson first-try combo and a local XP re
 
 **Gems** are earned only by learning, at the same rate for everyone. A heart refill costs **20 gems** and a streak freeze costs **30 gems**; gems cannot be bought, there are no ads, and Plus has no gem advantage. Daily awards stay cumulative across replays, while completion screens show only that attempt’s reward. See [the full rules](docs/learning-rewards.md).
 
+The **streak page** opens from the flame badge on home. It shows today's status with the companion, the days to the next weekly gem bonus, streak badges at 7, 30, 100 and 365 days (for pride only, they earn nothing), a month calendar of practised and frozen days, best and current streaks, and the freezes held.
+
 - Five café steps: reveal vocabulary, choose a meaning, build a sentence by tapping, reply to the barista, and type a translation. Check/retry/explicit Continue, first-attempt results, mistake review, replay and reset are implemented.
 - **Native Lesson 02 — Nice to meet you:** five steps for Меня зовут Анна., Как тебя зовут?, А тебя?, Очень приятно! and Пока! Vocabulary, meaning selection, sentence building, a social exchange and typed goodbye use the same check/retry/hint/review flow. Informal address and the example name are explained. All eight lessons are available without a prerequisite lock. The browser keeps its café demo.
 - Optional stress marks and pronunciation help keep canonical Russian separate from display aids. Assessed companion prompts do not reveal answers before a correct response or explicit hint.
@@ -167,6 +169,7 @@ Statistics use `privet-demo-v1-native-stats`; resumable sessions have separate k
 | `src/Companion.tsx`, `src/nativeCompanion.ts`, `src/NativeRobot.tsx`, `src/useNativeCompanion.ts` | Simulated robot, semantic reactions, lifecycle and motion |
 | `src/speechController.ts`, `src/useSpeech.ts` | Single guarded pronunciation controller and lifecycle cancellation |
 | `src/nativeStats.ts`, `src/gems.ts`, `src/statsStorage.ts`, `src/statsSummary.ts`, `src/useNativeStats.ts`, `src/NativeProfile.tsx`, `src/GemsScreen.tsx` | Authoritative local activity, daily/attempt rewards, freezes, gems and profile |
+| `src/streak.ts`, `src/StreakScreen.tsx` | Streak page: today's status, weekly-bonus countdown, badges and the month calendar |
 | `src/subscription.ts`, `src/useSubscription.ts`, `src/PlusScreen.tsx` | Local Plus demo activation/cancellation; no billing |
 | `src/bleProtocol.ts`, `src/learningProtocol.ts`, `src/bleTransport.ts` | Unchanged v1 reactions, SET_VOLUME control, companion model from the advertised name, negotiated card frames/limits and capabilities, bounded serialized jobs and lifecycle |
 | `src/pocketProtocol.ts`, `src/pocketSync.ts` | Pocket review deck frames (capability bit 32) and the once-per-connection sync with the keychain Mini; deck choice and answer rules live in `src/review.ts`, the XP/streak credit in `src/nativeStats.ts` |

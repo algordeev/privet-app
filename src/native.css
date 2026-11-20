@@ -227,6 +227,7 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-home-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 9px; flex-shrink: 0; max-width: 100%; margin-left: auto; }
 .native-streak-badge { display: flex; align-items: center; gap: 4px; height: 36px; padding: 7px 9px; border: 1px solid #e4dece; border-radius: 20px; background: #f4eee1; color: #7c5842; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .native-streak-badge svg { width: 18px; height: 20px; color: #bd7252; }
+.native-app button.native-streak-badge { font-family:inherit; cursor:pointer; }
 .native-streak-unit { font-size: 10px; font-weight: 500; }
 .native-app .native-profile-open { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #dce4d2; border-radius: 50%; background: #eaf0e2; color: #42673c; padding: 10px; }
 .native-profile-open svg { width: 22px; height: 22px; }

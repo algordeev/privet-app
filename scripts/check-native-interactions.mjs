@@ -267,6 +267,18 @@ try{
   assert.equal((await stored(NATIVE_STATS_KEY)).gems.balance,0);assert.equal((await stored(NATIVE_STATS_KEY)).gems.freezes,1);
   assert.ok(await evaluate(()=>document.querySelector('.native-gem-shop-card .gems-buy').disabled));
   assert.equal(await evaluate(()=>document.querySelector('.native-app').scrollWidth<=innerWidth),true,'native shell fits viewport');
+  // Streak page: the home badge opens it with today's state and the calendar; Get one goes to Gems; practice opens the first lesson not passed.
+  const streakDays=Object.fromEntries(['2026-10-14','2026-10-15','2026-10-16'].map(day=>[day,1]));
+  await open({[NATIVE_STATS_KEY]:{...emptyStats(),days:streakDays,gems:{...emptyStats().gems,balance:40}}});
+  await click('#native-streak-open');await until(()=>!!document.querySelector('#native-streak-title'));await assertNativeLayout();
+  assert.ok(await evaluate(()=>document.querySelector('.streak-hero').textContent.includes('Practise today to keep your 3 days')));
+  assert.equal(await evaluate(()=>document.querySelectorAll('.streak-day.is-practised').length),3);
+  assert.equal(await evaluate(()=>document.querySelector('.streak-day.is-today').textContent),'17');
+  await click('.streak-link','Get one');await until(()=>!!document.querySelector('#native-gems-title'));
+  await click('[aria-label="Back to home"]');await click('#native-streak-open');await click('.streak-practice');
+  await until(()=>!!document.querySelector('.lesson-bottom'));
+  assert.equal(await evaluate(()=>document.querySelector('.app-navigation strong').textContent),nativeLessons[0].title,'Practice opens the first lesson not passed');
+  await click('[aria-label="Return to app home"]');
   // Cover every exercise layout, not just the meaning/paused screens above.
   for(const definition of nativeLessons){for(let index=0;index<definition.exercises.length;index++){
    const snapshot=freshSession();snapshot.progress.index=index;snapshot.progress.results=Array(index).fill(true);

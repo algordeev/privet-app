@@ -1,7 +1,7 @@
 import type { CompanionState } from './engine';
 type Props={ state?:CompanionState; text?:string; small?:boolean };
 export function Companion({state='idle',text='Привет!',small=false}:Props) {
- return <div className={`robot-scene ${small?'small':''} state-${state}`} role="img" aria-label={`Simulated desk companion: ${state.replace('-',' ')}, displaying ${text}`}>
+ return <div className={`robot-scene ${small?'small':''} state-${state}`} role="img" aria-label={`Simulated desk companion: ${state.replace('-',' ')}${text?`, displaying ${text}`:''}`}>
   <div className="robot-shadow"/>
   <div className="robot-assembly">
    <div className="antenna"><span/></div>
