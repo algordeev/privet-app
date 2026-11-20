@@ -79,8 +79,9 @@ export function useLesson({persistSession=false,saveResults=true,definition=cafe
   setNotice('');
  }
  function adoptCompletion(value:Progress){if(progress.complete||!value.complete||value.failed||value.index!==lesson.length||value.results.length!==lesson.length)return;speech.stop();setSelected('');setTokens([]);setMatches([]);setHintAt(null);reduce({type:'adoptCompletion',progress:{...value,results:[...value.results]}});}
- function revive(){dispatch({type:'revive'});}
- function refill(){dispatch({type:'refill'});}
+ // Hearts back after running out: revive while Plus is active, refill after gems are spent.
+ const revive=()=>dispatch({type:'restoreHearts',by:'plus'});
+ const refill=()=>dispatch({type:'restoreHearts',by:'gems'});
  function resetAll(){restart();setPreferences({stress:false,pronunciation:true});setSaved({preferences:{stress:false,pronunciation:true}});try{appStorage.removeItem(savedKey(definition));if(persistSession)appStorage.removeItem(sessionKey(definition));}catch{}setNotice('Saved completion and display preferences cleared.');}
  return {definition,saved,passed:lessonPassed(progress,saved),preferences,setPreferences,progress,dispatch,thinkingAt,setThinkingAt,hintAt,setHintAt,vocabularyWord,setVocabularyWord,selected,setSelected,tokens,setTokens,matches,matchPair,revealed,setRevealed,lessonSettings,setLessonSettings,notice,setNotice,lessonScroll,inputRef,lessonHeading,speech,exercise,hintRequested,reaction,display,ready,check,restart,adoptCompletion,revive,refill,resetAll,unlimitedHearts,incorrect:progress.feedback==='incorrect'};
 }
