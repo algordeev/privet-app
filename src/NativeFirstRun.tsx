@@ -16,7 +16,7 @@ import {useLesson} from './useLesson';
 import {LessonPanel} from './LessonPanel';
 import {NativeRobot} from './NativeRobot';
 import {CountUp,ExpressionStrip,FirstBackdrop,StoryArt,Sparkles} from './FirstRunArt';
-import {usePageActive} from './usePageActive';
+import {useForeground} from './useForeground';
 import {COMPANION_PRICE,PLUS_MONTHLY_PRICE,PLUS_YEARLY_PRICE} from './subscription';
 import './firstRun.css';
 
@@ -40,7 +40,7 @@ export function NativeFirstRun({flow,cafe,companion,physical,subscription,onResu
  const [plan,setPlan]=useState<'monthly'|'yearly'>('monthly');
  const [welcomeStep,setWelcomeStep]=useState(0),[personalStep,setPersonalStep]=useState<'purpose'|'level'>('purpose');
  const [connectionOpen,setConnectionOpen]=useState(false);
- const active=usePageActive();
+ const onScreen=useForeground();
  useEffect(()=>{if(connectionOpen)document.getElementById('native-physical-title')?.focus({preventScroll:true});},[connectionOpen]);
  useEffect(()=>()=>{physical.navigate('home');},[physical.navigate]);
  function closeConnection(){physical.navigate('home');setConnectionOpen(false);}
@@ -55,7 +55,7 @@ export function NativeFirstRun({flow,cafe,companion,physical,subscription,onResu
  if(state.stage==='lesson'){
   const result=guided.progress,accuracy=Math.round(result.results.filter(Boolean).length/5*100);
   const lessonCompanion=result.complete?{...companion,view:{...companion.view,message:firstRunLesson.summary}}:companion;
-  return <div className="native-lesson-view native-first-lesson" data-active={active}><LessonPanel showFeatureTour controller={guided} practiceOnly={state.replay} native nativeCompanion={lessonCompanion} onClose={()=>{cafe.speech.stop();physical.onQuickStartListenEnd();companion.navigate('home');dispatch({type:'back'});}} onListen={physical.onListen} onListenEnd={physical.onListenEnd} onHint={physical.onHint} onReveal={physical.onReveal} onMatchPair={physical.onMatchPair} onReplay={()=>{guided.restart();physical.enterLesson(true,guided.definition,initialProgress());}} nextLesson={{label:'Choose how to continue',onOpen:()=>{physical.onQuickStartListenEnd();companion.navigate('home');dispatch({type:'offer'});}}} completionDetails={<><div className="first-sparkles"><Sparkles/></div><p className="first-fine">{state.replay?'Replay practice · No rewards added.':'Your first lesson is saved.'}</p><dl className="first-result-metrics"><div><dt>Accuracy · first try</dt><dd><span className="first-count-final">{accuracy}%</span><CountUp value={accuracy} suffix="%"/></dd></div><div><dt>Hearts remaining</dt><dd><span className="first-count-final">{result.hearts}/3</span><CountUp value={result.hearts} suffix="/3"/></dd></div><div><dt>Best combo</dt><dd><span className="first-count-final">{result.bestCombo}</span><CountUp value={result.bestCombo}/></dd></div></dl></>}/></div>;
+  return <div className="native-lesson-view native-first-lesson" data-active={onScreen}><LessonPanel showFeatureTour controller={guided} practiceOnly={state.replay} native nativeCompanion={lessonCompanion} onClose={()=>{cafe.speech.stop();physical.onQuickStartListenEnd();companion.navigate('home');dispatch({type:'back'});}} onListen={physical.onListen} onListenEnd={physical.onListenEnd} onHint={physical.onHint} onReveal={physical.onReveal} onMatchPair={physical.onMatchPair} onReplay={()=>{guided.restart();physical.enterLesson(true,guided.definition,initialProgress());}} nextLesson={{label:'Choose how to continue',onOpen:()=>{physical.onQuickStartListenEnd();companion.navigate('home');dispatch({type:'offer'});}}} completionDetails={<><div className="first-sparkles"><Sparkles/></div><p className="first-fine">{state.replay?'Replay practice · No rewards added.':'Your first lesson is saved.'}</p><dl className="first-result-metrics"><div><dt>Accuracy · first try</dt><dd><span className="first-count-final">{accuracy}%</span><CountUp value={accuracy} suffix="%"/></dd></div><div><dt>Hearts remaining</dt><dd><span className="first-count-final">{result.hearts}/3</span><CountUp value={result.hearts} suffix="/3"/></dd></div><div><dt>Best combo</dt><dd><span className="first-count-final">{result.bestCombo}</span><CountUp value={result.bestCombo}/></dd></div></dl></>}/></div>;
  }
  function advanceAlphabet(){cafe.speech.stop();physical.onQuickStartListenEnd();if(alphabetPage===0){setAlphabetPage(1);if(scroll.current)scroll.current.scrollTop=0;}else{dispatch({type:'alphabetDone'});}}
  if(state.stage==='connection'&&connectionOpen)return <div className="native-first-run" data-stage="connection"><PhysicalCompanionSettings controller={physical} backLabel="Back to companion setup" onClose={closeConnection}/><footer className="first-actions"><button className="button teal" onClick={continueConnection}>{bleState.ready?'Continue':'Continue with virtual companion'} <span aria-hidden="true">→</span></button></footer></div>;
@@ -63,7 +63,7 @@ export function NativeFirstRun({flow,cafe,companion,physical,subscription,onResu
  const viewKey=`${state.stage}-${state.stage==='alphabet'?alphabetPage:''}-${isWelcome?welcomeStep:isPersonal?personalStep:'screen'}`;
  const storiesActive=isWelcome&&welcomeStep>0;
  const progress=storiesActive?welcomeStep: isPersonal?(personalStep==='purpose'?1:2):0;
- return <div className="native-first-run" data-stage={state.stage} data-active={active}>
+ return <div className="native-first-run" data-stage={state.stage} data-active={onScreen}>
   <header className="first-navigation"><div className="wordmark"><span className="brand-icon" aria-hidden="true"><i/><i/></span>{PRODUCT.name}<span className="brand-dot">.</span></div>{progress>0?<div className="first-progress" role="progressbar" aria-valuemin={1} aria-valuemax={state.stage==='welcome'?3:2} aria-valuenow={progress} aria-label={`Step ${progress} of ${state.stage==='welcome'?3:2}`}><span>Step {progress} of {state.stage==='welcome'?3:2}</span><i aria-hidden="true">{Array.from({length:state.stage==='welcome'?3:2},(_,index)=><b key={index} className={index<progress?'is-complete':''}/>)}</i></div>:<span>{state.replay?'Welcome tour · Replay':'A little Russian, together'}</span>}</header>
   <div className="first-scroll" ref={scroll}><FirstBackdrop/>
    <div className="first-screen" key={viewKey}>
