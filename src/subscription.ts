@@ -1,4 +1,5 @@
 import {PRODUCT} from './config.ts';
+import {isCalendarDay} from './days.ts';
 
 // Privet Plus is a local demo: no payment, only the chosen plan and the day it started, saved on this device.
 export type PlusPlan='monthly'|'yearly';
@@ -12,15 +13,6 @@ export const PLUS_YEARLY_PRICE='$39.99';
 export const emptySubscription=():Subscription=>({version:1,plan:null,since:null});
 
 const isPlan=(value:unknown):value is PlusPlan=>value==='monthly'||value==='yearly';
-
-// A day that exists on the calendar, written YYYY-MM-DD (so 2026-02-30 is rejected).
-function isCalendarDay(value:unknown):value is string{
- if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;
- const [year,month,day]=value.split('-').map(Number);
- const date=new Date(0);
- date.setUTCFullYear(year,month-1,day);
- return date.getUTCFullYear()===year&&date.getUTCMonth()===month-1&&date.getUTCDate()===day;
-}
 
 // Reads what was saved. Anything missing, unknown or damaged means no Plus.
 export function restoreSubscription(saved:string|null):Subscription{

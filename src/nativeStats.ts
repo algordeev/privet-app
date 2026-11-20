@@ -3,26 +3,51 @@ import {lessonById,nativeLessons} from './lessons.ts';
 import {PRODUCT} from './config.ts';
 import {lessonXp,type Action,type Progress} from './engine.ts';
 import type {Saved} from './session.ts';
+import {isCalendarDay} from './days.ts';
+import {addFreeze,emptyWallet,GEM_RULES,spend,spendFreezes,weeklyStreakBonus,type GemBreakdown,type GemWallet} from './gems.ts';
+export {GEM_RULES} from './gems.ts';
+export type {GemBreakdown} from './gems.ts';
 
 export const NATIVE_STATS_KEY=`${PRODUCT.storageKey}-native-stats`;
-export const GEM_RULES={finish:5,perfect:5,streakWeek:10,refill:20,freeze:30,maxFreezes:2} as const;
-export type GemBreakdown={finish:number;perfect:number;streakWeek:number};
-export type NativeStats={version:3;onboardingAwarded?:true;days:Record<string,number>;xp:Record<string,number>;earlierFinishes:number;latest:{day:string|null;firstTry:number;lessonId?:string;gemAward?:GemBreakdown}|null;gems:{balance:number;freezes:number;awarded:Record<string,string[]>;milestones:string[];awards:Record<string,Record<string,GemBreakdown>>};frozen:string[];lastSeenAt?:number};
-const emptyGems=()=>({balance:0,freezes:0,awarded:{},milestones:[],awards:{}});
-export const emptyStats=():NativeStats=>({version:3,days:{},xp:{},earlierFinishes:0,latest:null,gems:emptyGems(),frozen:[]});
+export type NativeStats={version:3;onboardingAwarded?:true;days:Record<string,number>;xp:Record<string,number>;earlierFinishes:number;latest:{day:string|null;firstTry:number;lessonId?:string;gemAward?:GemBreakdown}|null;gems:GemWallet;frozen:string[];lastSeenAt?:number};
+export function emptyStats():NativeStats{
+ return {version:3,days:{},xp:{},earlierFinishes:0,latest:null,gems:emptyWallet(),frozen:[]};
+}
 export function localDay(date:Date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;}
-export function validDay(day:string){if(!/^\d{4}-\d{2}-\d{2}$/.test(day))return false;const d=new Date(`${day}T12:00:00Z`);return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===day;}
+export const validDay=(day:string)=>isCalendarDay(day);
 export function shiftDay(day:string,offset:number){const d=new Date(`${day}T12:00:00Z`);d.setUTCDate(d.getUTCDate()+offset);return d.toISOString().slice(0,10);}
 const lessonIds=nativeLessons.map(item=>item.id);
-function validCounts(obj:unknown){return !!obj&&typeof obj==='object'&&!Array.isArray(obj)&&Object.entries(obj).every(([day,n])=>validDay(day)&&Number.isSafeInteger(n)&&Number(n)>0&&Number(n)<1_000_000);}
+// Per-day counts: real days mapped to positive whole numbers (under a million, so nothing absurd survives).
+function validCounts(counts:unknown):counts is Record<string,number>{
+ if(!counts||typeof counts!=='object'||Array.isArray(counts))return false;
+ return Object.entries(counts).every(([day,count])=>validDay(day)&&typeof count==='number'&&Number.isSafeInteger(count)&&count>0&&count<1_000_000);
+}
 function validGemBreakdown(a:any){return !!a&&Number.isSafeInteger(a.finish)&&[0,GEM_RULES.finish].includes(a.finish)&&Number.isSafeInteger(a.perfect)&&[0,GEM_RULES.perfect].includes(a.perfect)&&Number.isSafeInteger(a.streakWeek)&&[0,GEM_RULES.streakWeek].includes(a.streakWeek);}
 function validGems(g:any){return !!g&&Number.isSafeInteger(g.balance)&&g.balance>=0&&Number.isInteger(g.freezes)&&g.freezes>=0&&g.freezes<=GEM_RULES.maxFreezes&&!!g.awarded&&typeof g.awarded==='object'&&!Array.isArray(g.awarded)&&Object.entries(g.awarded).every(([day,ids])=>validDay(day)&&Array.isArray(ids)&&ids.every((id:any)=>lessonIds.includes(id))&&new Set(ids).size===ids.length)&&Array.isArray(g.milestones)&&g.milestones.every((day:any)=>validDay(day))&&new Set(g.milestones).size===g.milestones.length&&!!g.awards&&typeof g.awards==='object'&&!Array.isArray(g.awards)&&Object.entries(g.awards).every(([day,items])=>validDay(day)&&!!items&&typeof items==='object'&&!Array.isArray(items)&&Object.entries(items).every(([id,a]:[string,any])=>lessonIds.includes(id)&&validGemBreakdown(a)));}
+function validLatest(s:any){return s.latest===null||(s.latest&&Number.isInteger(s.latest.firstTry)&&s.latest.firstTry>=0&&s.latest.firstTry<=lessonById(s.latest.lessonId).exercises.length&&(s.latest.lessonId===undefined||lessonIds.includes(s.latest.lessonId))&&(s.latest.gemAward===undefined||validGemBreakdown(s.latest.gemAward))&&(s.latest.day===null?s.earlierFinishes===1:typeof s.latest.day==='string'&&validDay(s.latest.day)&&Object.hasOwn(s.days,s.latest.day)));}
+function validBase(s:any){return validCounts(s.days)&&[0,1].includes(s.earlierFinishes)&&validLatest(s);}
+function validCurrent(s:any):s is NativeStats{return (s.onboardingAwarded===undefined||s.onboardingAwarded===true)&&validBase(s)&&validCounts(s.xp)&&validGems(s.gems)&&Array.isArray(s.frozen)&&s.frozen.every((day:any)=>validDay(day))&&new Set(s.frozen).size===s.frozen.length&&(s.lastSeenAt===undefined||(Number.isSafeInteger(s.lastSeenAt)&&s.lastSeenAt>=0));}
+
+// Statistics from before XP (version 1) or gems (version 2) keep what they have; the rest starts empty.
+function upgradeToCurrent(old:any):NativeStats{return {...old,version:3,xp:old.version===1?{}:old.xp,gems:emptyWallet(),frozen:[]};}
+function parseStats(raw:string):NativeStats|null{
+ const s=JSON.parse(raw);
+ if(!s||typeof s!=='object')return null;
+ if(s.version===1)return validBase(s)?upgradeToCurrent(s):null;
+ if(s.version===2)return validBase(s)&&validCounts(s.xp)?upgradeToCurrent(s):null;
+ return s.version===3&&validCurrent(s)?s:null;
+}
+// A lesson finished before statistics were kept counts as one earlier finish.
+function fromLegacyCompletion(legacy?:Saved['completion']):NativeStats{
+ const stats=emptyStats();
+ if(legacy?.results?.length!==5||!legacy.results.every(result=>typeof result==='boolean'))return stats;
+ return {...stats,earlierFinishes:1,latest:{day:null,firstTry:legacy.results.filter(Boolean).length}};
+}
+// Saved statistics if they are valid (upgrading older versions), otherwise a fresh start.
 export function restoreStats(raw:string|null,legacy?:Saved['completion']):NativeStats{
- if(raw!==null){try{const s=JSON.parse(raw);const validLatest=(s:any)=>s.latest===null||(s.latest&&Number.isInteger(s.latest.firstTry)&&s.latest.firstTry>=0&&s.latest.firstTry<=lessonById(s.latest.lessonId).exercises.length&&(s.latest.lessonId===undefined||lessonIds.includes(s.latest.lessonId))&&(s.latest.gemAward===undefined||validGemBreakdown(s.latest.gemAward))&&(s.latest.day===null?s.earlierFinishes===1:typeof s.latest.day==='string'&&validDay(s.latest.day)&&Object.hasOwn(s.days,s.latest.day)));const validBase=(s:any)=>validCounts(s.days)&&[0,1].includes(s.earlierFinishes)&&validLatest(s);
-  if((s?.version===1||s?.version===2)&&validBase(s)&&(s.version===1||validCounts(s.xp)))return {...s,version:3,xp:s.version===1?{}:s.xp,gems:emptyGems(),frozen:[]};
-  if(s?.version===3&&(s.onboardingAwarded===undefined||s.onboardingAwarded===true)&&validBase(s)&&validCounts(s.xp)&&validGems(s.gems)&&Array.isArray(s.frozen)&&s.frozen.every((day:any)=>validDay(day))&&new Set(s.frozen).size===s.frozen.length&&(s.lastSeenAt===undefined||(Number.isSafeInteger(s.lastSeenAt)&&s.lastSeenAt>=0)))return s;
- }catch{/* Ignore malformed local storage. */}}
- const stats=emptyStats();if(legacy?.results?.length===5&&legacy.results.every(r=>typeof r==='boolean')){stats.earlierFinishes=1;stats.latest={day:null,firstTry:legacy.results.filter(Boolean).length};}return stats;
+ let restored:NativeStats|null=null;
+ if(raw!==null){try{restored=parseStats(raw);}catch{/* Damaged storage: start fresh. */}}
+ return restored??fromLegacyCompletion(legacy);
 }
 // localDay() reads the device's CURRENT local calendar fields; shiftDay()/
 // validDay() above are anchored to UTC noon and never move. A timezone
@@ -46,24 +71,56 @@ export function resolveToday(stats:Pick<NativeStats,'days'|'lastSeenAt'>,now:Dat
  const cap=shiftDay(known,elapsedDays+1); // genuine elapsed days, plus one honest day of timezone slack.
  return raw>cap?cap:raw; // never further ahead than real time justifies: prevents a skip.
 }
+// Unbroken runs of days, each a list of consecutive days in order.
+function consecutiveRuns(days:Iterable<string>):string[][]{
+ const runs:string[][]=[];
+ for(const day of [...days].sort()){
+  const run=runs.at(-1);
+  if(run&&shiftDay(run[run.length-1],1)===day)run.push(day);else runs.push([day]);
+ }
+ return runs;
+}
+const total=(values:number[])=>values.reduce((sum,value)=>sum+value,0);
 export function statsSummary(stats:NativeStats,now:Date){
  const today=resolveToday(stats,now),days=Object.keys(stats.days).filter(day=>day<=today).sort(),active=new Set([...days,...stats.frozen.filter(day=>day<=today)]);
- let best=0,run=0,previous='';for(const day of [...active].sort()){run=previous&&shiftDay(previous,1)===day?run+(Object.hasOwn(stats.days,day)?1:0):(Object.hasOwn(stats.days,day)?1:0);best=Math.max(best,run);previous=day;}
- let current=0;const last=[...active].sort().at(-1);if(last&&(last===today||last===shiftDay(today,-1))){for(let day=last;active.has(day);day=shiftDay(day,-1))if(Object.hasOwn(stats.days,day))current++;}
- const xpDays=Object.keys(stats.xp).filter(day=>day<=today),todayAwards=Object.values(stats.gems.awards[today]??{}).reduce((sum,a)=>sum+a.finish+a.perfect+a.streakWeek,0);
- return {current,best,practiceDays:days.length,finishes:stats.earlierFinishes+days.reduce((sum,day)=>sum+stats.days[day],0),todayXp:stats.xp[today]??0,totalXp:xpDays.reduce((sum,day)=>sum+stats.xp[day],0),gems:stats.gems.balance,freezes:stats.gems.freezes,todayGemAwards:todayAwards,week:Array.from({length:7},(_,i)=>{const day=shiftDay(today,i-6);return {day,finishes:stats.days[day]??0,xp:stats.xp[day]??0,today:day===today};})};
+ // Frozen days keep a run unbroken but only practised days count toward the streak.
+ const practised=(run:string[])=>run.filter(day=>Object.hasOwn(stats.days,day)).length;
+ const runs=consecutiveRuns(active),latest=runs.at(-1),latestDay=latest?.at(-1);
+ const alive=latestDay===today||latestDay===shiftDay(today,-1);
+ const week=Array.from({length:7},(_,offset)=>{const day=shiftDay(today,offset-6);return {day,finishes:stats.days[day]??0,xp:stats.xp[day]??0,today:day===today};});
+ return {
+  current:alive&&latest?practised(latest):0,
+  best:Math.max(0,...runs.map(practised)),
+  practiceDays:days.length,
+  finishes:stats.earlierFinishes+total(days.map(day=>stats.days[day])),
+  todayXp:stats.xp[today]??0,
+  totalXp:total(Object.keys(stats.xp).filter(day=>day<=today).map(day=>stats.xp[day])),
+  gems:stats.gems.balance,
+  freezes:stats.gems.freezes,
+  todayGemAwards:total(Object.values(stats.gems.awards[today]??{}).map(award=>award.finish+award.perfect+award.streakWeek)),
+  week,
+ };
 }
-export function applyStreakFreezes(stats:NativeStats,today:Date):NativeStats{
- const todayKey=resolveToday(stats,today),yesterday=shiftDay(todayKey,-1),lastPractice=Object.keys(stats.days).filter(day=>day<=yesterday).sort().at(-1);if(!lastPractice)return stats;
- const known=new Set(stats.frozen),missed:string[]=[];
- for(let day=shiftDay(lastPractice,1);day<=yesterday;day=shiftDay(day,1))if(!Object.hasOwn(stats.days,day)&&!known.has(day))missed.push(day);
- // Only spend freezes when they save the streak; a gap longer than the
- // freezes held breaks it anyway, so the learner keeps their freezes.
- if(!missed.length||missed.length>stats.gems.freezes)return stats;
- return {...stats,frozen:[...stats.frozen,...missed],gems:{...stats.gems,freezes:stats.gems.freezes-missed.length}};
+// The days after `day`, up to and including `through`.
+function daysAfter(day:string,through:string):string[]{
+ const list:string[]=[];
+ for(let next=shiftDay(day,1);next<=through;next=shiftDay(next,1))list.push(next);
+ return list;
 }
-export function spendGems(stats:NativeStats,amount:number):NativeStats|null{if(!Number.isSafeInteger(amount)||amount<0||stats.gems.balance<amount)return null;return {...stats,gems:{...stats.gems,balance:stats.gems.balance-amount}};}
-export function buyFreeze(stats:NativeStats):NativeStats|null{if(stats.gems.freezes>=GEM_RULES.maxFreezes)return null;const spent=spendGems(stats,GEM_RULES.freeze);return spent?{...spent,gems:{...spent.gems,freezes:spent.gems.freezes+1}}:null;}
+// Held freezes cover the days missed since the last practice, up to yesterday, but only when they
+// can cover all of them: if the streak is lost anyway, the learner keeps the freezes.
+export function applyStreakFreezes(stats:NativeStats,now:Date):NativeStats{
+ const yesterday=shiftDay(resolveToday(stats,now),-1);
+ const lastPractised=Object.keys(stats.days).filter(day=>day<=yesterday).sort().at(-1);
+ if(!lastPractised)return stats;
+ const alreadyCovered=new Set(stats.frozen);
+ const missed=daysAfter(lastPractised,yesterday).filter(day=>!Object.hasOwn(stats.days,day)&&!alreadyCovered.has(day));
+ if(missed.length===0||missed.length>stats.gems.freezes)return stats;
+ return {...stats,frozen:[...stats.frozen,...missed],gems:spendFreezes(stats.gems,missed.length)};
+}
+const withWallet=(stats:NativeStats,wallet:GemWallet|null):NativeStats|null=>wallet&&{...stats,gems:wallet};
+export const spendGems=(stats:NativeStats,amount:number)=>withWallet(stats,spend(stats.gems,amount));
+export const buyFreeze=(stats:NativeStats)=>withWallet(stats,addFreeze(stats.gems));
 export function recordFinish(stats:NativeStats,results:boolean[],date:Date,lessonId='cafe',xp=0):NativeStats{
  const day=resolveToday(stats,date),id=lessonById(lessonId).id,awarded=stats.gems.awarded[day]??[],finish=awarded.includes(id)?0:GEM_RULES.finish,perfect=!awarded.includes(id)&&results.length>0&&results.every(Boolean)?GEM_RULES.perfect:0;
  // Monotonic: a backdated/out-of-order finish (replaying history, or a
@@ -71,7 +128,7 @@ export function recordFinish(stats:NativeStats,results:boolean[],date:Date,lesso
  // backward, or a later call could wrongly clamp against it.
  const lastSeenAt=Math.max(stats.lastSeenAt??0,date.getTime());
  let next:NativeStats={...stats,days:{...stats.days,[day]:(stats.days[day]??0)+1},xp:xp>0?{...stats.xp,[day]:(stats.xp[day]??0)+xp}:stats.xp,latest:{day,firstTry:results.filter(Boolean).length,lessonId:id},gems:{...stats.gems,awarded:{...stats.gems.awarded,[day]:finish?[...awarded,id]:awarded}},lastSeenAt};
- const streakBefore=statsSummary(next,date).current,streakWeek=streakBefore>0&&streakBefore%7===0&&!next.gems.milestones.includes(day)?GEM_RULES.streakWeek:0;
+ const streakWeek=weeklyStreakBonus(statsSummary(next,date).current,day,next.gems);
  const breakdown={finish,perfect,streakWeek},previous=stats.gems.awards[day]?.[id]??{finish:0,perfect:0,streakWeek:0};
  // Daily totals survive replays; the latest attempt contains only newly earned gems.
  const cumulative={finish:previous.finish+finish,perfect:previous.perfect+perfect,streakWeek:previous.streakWeek+streakWeek};
