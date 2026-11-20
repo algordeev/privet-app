@@ -17,6 +17,7 @@
 
 .native-app .gems-row, .native-app .native-gem-shop-card.gems-row { display:flex; align-items:center; gap:12px; margin:0 0 8px; padding:12px 14px; border:1px solid #e3e9da; border-radius:16px; background:#fffdf7; }
 .native-app .gems-list .gems-row { margin:0; }
+.native-app .native-gem-shop-card.gems-row { justify-content:space-between; }
 .native-app .gems-row-icon { display:grid; place-items:center; flex-shrink:0; width:38px; height:38px; border-radius:12px; background:#edf1e6; color:#397756; }
 .native-app .gems-row-icon svg { width:20px; height:20px; }
 .native-app .gems-row.is-perfect .gems-row-icon { background:var(--gem-soft); color:#c08a12; }

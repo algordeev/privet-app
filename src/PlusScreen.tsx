@@ -2,6 +2,7 @@ import {useState} from 'react';
 import type {SubscriptionController} from './useSubscription';
 import {PLUS_MONTHLY_PRICE,PLUS_YEARLY_PRICE,type PlusPlan} from './subscription';
 import {SubpageHeader} from './SubpageHeader';
+import './plusScreen.css';
 
 const plans:readonly {id:PlusPlan;name:string;price:string;per:string}[]=[
  {id:'monthly',name:'Monthly',price:PLUS_MONTHLY_PRICE,per:'month'},
