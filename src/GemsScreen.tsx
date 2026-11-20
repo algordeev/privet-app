@@ -73,10 +73,9 @@ export function GemsScreen({activity,onClose}:{activity:NativeStatsController;on
       {Array.from({length:GEM_RULES.maxFreezes},(_,index)=><i key={index} className={index<summary.freezes?'is-full':''}/>)}
      </span>
     </span>
-    <span className="gems-buy">
-     <b className="gems-amount">{GEM_RULES.freeze}{gemGlyph}</b>
-     <button className="button teal" disabled={!canBuyFreeze} onClick={buyFreeze}>Get freeze</button>
-    </span>
+    <button className="gems-buy" disabled={!canBuyFreeze} onClick={buyFreeze} aria-label={`Get a streak freeze for ${GEM_RULES.freeze} gems`}>
+     Get<span className="gems-buy-dot" aria-hidden="true">·</span>{GEM_RULES.freeze}{gemGlyph}
+    </button>
    </article>
    <article className="gems-row is-heart">
     <span className="gems-row-icon">{icons.heart}</span>
