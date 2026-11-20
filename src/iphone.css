@@ -115,6 +115,7 @@
 .lesson-phone .word-audio { right: 3px; top: 50%; transform: translateY(-50%); width: 32px; height: 40px; padding: 8px; color: #7a8f6c; }
 .lesson-phone .word-audio svg { width: 16px; }
 .lesson-phone .feedback { min-height: 78px; padding: 13px 14px; margin-top: 17px; border-radius: 13px; border: 0; background: #eef2e7; color: #6c7e5f; font-size: 11px; line-height: 1.5; }
+.lesson-phone .feedback.is-idle { min-height: 0; margin: 0; padding: 0; background: none; }
 .lesson-phone .feedback strong { font-size: 12px; font-weight: 600; }
 .lesson-phone .feedback p { max-width: 100%; }
 .lesson-phone .feedback.correct { color: #35623f; background: #e6f0de; }

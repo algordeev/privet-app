@@ -23,6 +23,9 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
   --ease: cubic-bezier(.2,.8,.2,1);
   --spring: cubic-bezier(.34,1.56,.64,1);
 }
+/* Taps and long presses never select text or open the iOS copy menu; only text fields stay selectable. */
+.native-app, .native-app * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.native-app input, .native-app textarea { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 .native-app[data-keyboard=true] { padding-bottom: 0; }
 .native-app h1,.native-app h2,.native-app h3 { font-family: inherit; color: #25372d; }
 .native-app button,.native-app input { font: inherit; }
@@ -128,6 +131,8 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .lesson-hint-button > span { display: grid; place-items: center; width: 17px; height: 17px; border: 1px solid #a4b698; border-radius: 50%; font-size: 11px; }
 .native-app .lesson-hint p { font-size: 14px; line-height: 1.65; padding: 14px; border-radius: 10px; background: #eaf0e1; color: #536e46; }
 .native-app .feedback { min-height: 105px; padding: 16px; margin-top: 19px; border-radius: 12px; font-size: 15px; line-height: 1.65; background: #eef2e7; }
+/* Before an answer there is nothing to say: the box takes no room (it stays in place so VoiceOver announces feedback). */
+.native-app .feedback.is-idle { min-height: 0; margin: 0; padding: 0; background: none; }
 .native-app .feedback strong { font-size: 16px; }
 .native-app .feedback p { max-width: none; }
 .native-app .feedback.correct { background: #e6f0de; color: #35623f; }
