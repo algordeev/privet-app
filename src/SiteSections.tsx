@@ -4,7 +4,8 @@ import {nativeLessons} from './curriculum/catalog';
 import {EXERCISE_KINDS,courseWords,gemRules,plusYearly,siteDevices,siteLessons,sitePlans,ticker,type SiteDevice} from './siteContent';
 import {lessonIcon,renderPracticeStrip,renderReceipt,renderWordCard,rowsToDataUrl} from './printRender';
 import {practiceStrip,progressReceipt,wordCard} from './printContent';
-import {emptyStats,localDay,shiftDay} from './nativeStats';
+import {emptyStats} from './nativeStats';
+import {localDay,shiftDay} from './days';
 import {emptyReview} from './review';
 import {CompanionGallery} from './CompanionGallery';
 

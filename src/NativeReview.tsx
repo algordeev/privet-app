@@ -1,7 +1,8 @@
 import {useEffect} from 'react';
 import {LessonPanel} from './LessonPanel';
 import {useLesson,type LessonController} from './useLesson';
-import {REVIEW_SESSION_PREFIX,localDay,shiftDay} from './nativeStats';
+import {REVIEW_SESSION_PREFIX} from './nativeStats';
+import {localDay,shiftDay} from './days';
 import type {NativeStatsController} from './useNativeStats';
 import type {ReviewSession} from './review';
 import type {ReviewController} from './useReview';

@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {emptyStats,localDay,validDay,shiftDay,resolveToday,restoreStats,recordFinish,statsSummary,createStatsTracker,spendGems,applyStreakFreezes,GEM_RULES,type NativeStats} from './nativeStats.ts';
+import {emptyStats,recordFinish,createStatsTracker,spendGems,applyStreakFreezes,type NativeStats} from './nativeStats.ts';
+import {localDay,isCalendarDay,shiftDay} from './days.ts';
+import {resolveToday,statsSummary} from './statsSummary.ts';
+import {restoreStats} from './statsStorage.ts';
+import {GEM_RULES} from './gems.ts';
 import {initialProgress,progressReducer} from './engine.ts';
 const date=(day:number)=>new Date(2026,9,day,12);
 const results=[true,false,true,true,true];
@@ -21,7 +25,7 @@ test('streak allows today or yesterday, resets after a gap, and retains the best
 test('uses local completion dates and calendar arithmetic across month/leap/DST boundaries',()=>{
  assert.equal(localDay(new Date(2026,9,17,23,59)),'2026-10-17');
  assert.equal(shiftDay('2024-02-28',1),'2024-02-29');assert.equal(shiftDay('2024-02-29',1),'2024-03-01');assert.equal(shiftDay('2026-03-29',1),'2026-03-30');assert.equal(shiftDay('2026-01-01',-1),'2025-12-31');
- assert.equal(validDay('2026-02-30'),false);assert.equal(validDay('invalid'),false);assert.equal(validDay('2024-02-29'),true);
+ assert.equal(isCalendarDay('2026-02-30'),false);assert.equal(isCalendarDay('invalid'),false);assert.equal(isCalendarDay('2024-02-29'),true);
 });
 test('a timezone change cannot read "today" earlier than the latest day already recorded',()=>{
  // Stands in for a device timezone change (travel, or crossing the date

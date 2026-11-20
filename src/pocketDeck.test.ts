@@ -65,7 +65,8 @@ test('a saved deck restores only when every field is valid',()=>{
  for(const bad of [{...deck,id:0},{...deck,day:'2026-13-01'},{...deck,items:[]},{...deck,items:[{key:'gone/w/x',box:0,reviews:0}]},{...deck,items:[{...deck.items[0],box:9}]}])assert.equal(restorePocketDeck(JSON.stringify(bad)),undefined);
  assert.equal(restorePocketDeck('{'),undefined);assert.equal(restorePocketDeck(null),undefined);
 });
-import {emptyStats,recordPocketReviews,statsSummary} from './nativeStats.ts';
+import {emptyStats,recordPocketReviews} from './nativeStats.ts';
+import {statsSummary} from './statsSummary.ts';
 test('Mini answers keep the streak (one practice day per day) and give 1 XP per known card, no gems',()=>{
  const now=new Date(2026,10,6,18);
  const stats=recordPocketReviews(emptyStats(),[{day:'2026-11-05',knew:true},{day:'2026-11-05',knew:false},{day:'2026-11-06',knew:true},{day:'2026-11-06',knew:true},{day:'2026-11-09',knew:true}],now);

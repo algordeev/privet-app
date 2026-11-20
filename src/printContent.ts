@@ -4,7 +4,9 @@ import {nativeLessons} from './curriculum/catalog.ts';
 import type {LessonDefinition,Word} from './curriculum/types.ts';
 import {normalizedDisplay} from './companionDisplay.ts';
 import {reviewSource,type ReviewState} from './review.ts';
-import {localDay,shiftDay,statsSummary,type NativeStats} from './nativeStats.ts';
+import {localDay,shiftDay} from './days.ts';
+import {statsSummary} from './statsSummary.ts';
+import {type NativeStats} from './nativeStats.ts';
 import {stressText} from './stress.ts';
 
 export function hash(text:string){let h=0x811c9dc5;for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0;}return h;}

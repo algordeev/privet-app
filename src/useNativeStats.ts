@@ -1,6 +1,9 @@
 import {appStorage} from './previewStorage';
 import {useCallback,useEffect,useRef,useState} from 'react';
-import {applyStreakFreezes,recordOnboardingFinish,recordPocketReviews,buyFreeze as purchaseFreeze,createStatsTracker,restoreStats,spendGems,statsSummary,NATIVE_STATS_KEY,GEM_RULES,type NativeStats} from './nativeStats';
+import {applyStreakFreezes,recordOnboardingFinish,recordPocketReviews,buyFreeze as purchaseFreeze,createStatsTracker,spendGems,type NativeStats} from './nativeStats';
+import {restoreStats,NATIVE_STATS_KEY} from './statsStorage';
+import {statsSummary} from './statsSummary';
+import {GEM_RULES} from './gems';
 import type {Action,Progress} from './engine';
 
 function load(){try{return applyStreakFreezes(restoreStats(appStorage.getItem(NATIVE_STATS_KEY)),new Date());}catch{return restoreStats(null);}}

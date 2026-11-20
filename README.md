@@ -166,7 +166,7 @@ Statistics use `privet-demo-v1-native-stats`; resumable sessions have separate k
 | `src/pronunciation.ts` | Whole-word Latin reading aids, reusing lesson pronunciation and reviewed alphabet/dialogue examples |
 | `src/Companion.tsx`, `src/nativeCompanion.ts`, `src/NativeRobot.tsx`, `src/useNativeCompanion.ts` | Simulated robot, semantic reactions, lifecycle and motion |
 | `src/speechController.ts`, `src/useSpeech.ts` | Single guarded pronunciation controller and lifecycle cancellation |
-| `src/nativeStats.ts`, `src/useNativeStats.ts`, `src/NativeProfile.tsx`, `src/GemsScreen.tsx` | Authoritative local activity, daily/attempt rewards, freezes, gems and profile |
+| `src/nativeStats.ts`, `src/gems.ts`, `src/statsStorage.ts`, `src/statsSummary.ts`, `src/useNativeStats.ts`, `src/NativeProfile.tsx`, `src/GemsScreen.tsx` | Authoritative local activity, daily/attempt rewards, freezes, gems and profile |
 | `src/subscription.ts`, `src/useSubscription.ts`, `src/PlusScreen.tsx` | Local Plus demo activation/cancellation; no billing |
 | `src/bleProtocol.ts`, `src/learningProtocol.ts`, `src/bleTransport.ts` | Unchanged v1 reactions, SET_VOLUME control, companion model from the advertised name, negotiated card frames/limits and capabilities, bounded serialized jobs and lifecycle |
 | `src/pocketProtocol.ts`, `src/pocketSync.ts` | Pocket review deck frames (capability bit 32) and the once-per-connection sync with the keychain Mini; deck choice and answer rules live in `src/review.ts`, the XP/streak credit in `src/nativeStats.ts` |

@@ -12,7 +12,7 @@ import {stressText} from './stress';
 import {PrintIcon,SoundIcon} from './Icons';
 import {MAX_HEARTS,comboXp,lessonXp} from './engine';
 import type {LessonController} from './useLesson';
-import {GEM_RULES,type GemBreakdown} from './nativeStats';
+import {GEM_RULES,type GemBreakdown} from './gems';
 import {matchOrder} from './matchOrder';
 import {CountedNumber} from './CountedNumber';
 import {Sparkles} from './OnboardingArt';

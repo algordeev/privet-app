@@ -4,7 +4,8 @@ import {cafeLesson,introductionsLesson,nativeLessons} from './lessons.ts';
 import {checkAnswer,initialProgress,progressReducer,lessonCompanionEvent,normalizeAnswer} from './engine.ts';
 import {freshSession,loadSession,restoreSession,sessionKey,savedKey,NATIVE_SESSION_KEY} from './session.ts';
 import {PRODUCT} from './config.ts';
-import {createStatsTracker,emptyStats,restoreStats,type NativeStats} from './nativeStats.ts';
+import {createStatsTracker,emptyStats,type NativeStats} from './nativeStats.ts';
+import {restoreStats} from './statsStorage.ts';
 import {createPhysicalLessonEvents} from './physicalLessonEvents.ts';
 import {homeGreeting} from './nativeCompanion.ts';
 

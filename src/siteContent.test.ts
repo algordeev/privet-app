@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {nativeLessons} from './curriculum/catalog.ts';
 import {COMPANION_PRICE,PLUS_MONTHLY_PRICE,PLUS_YEARLY_PRICE} from './subscription.ts';
-import {GEM_RULES} from './nativeStats.ts';
+import {GEM_RULES} from './gems.ts';
 import {EXERCISE_KINDS,annualSaving,courseWords,gemRules,plusYearly,roadmap,siteDevices,siteLessons,sitePlans,ticker} from './siteContent.ts';
 
 test('the website lists every lesson of the course, in order, with real counts',()=>{

@@ -3,7 +3,7 @@
 import {nativeLessons} from './curriculum/catalog.ts';
 import type {Exercise} from './curriculum/types.ts';
 import {COMPANION_PRICE,PLUS_MONTHLY_PRICE,PLUS_YEARLY_PRICE} from './subscription.ts';
-import {GEM_RULES} from './nativeStats.ts';
+import {GEM_RULES} from './gems.ts';
 
 export const EXERCISE_KINDS:Record<Exercise['kind'],{label:string;example:string}>={
  vocabulary:{label:'Reveal new words',example:'Tap a card to see what it means and hear it.'},

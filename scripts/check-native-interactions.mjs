@@ -63,7 +63,9 @@ try{
  const {REASONS,LEVELS}=await server.ssrLoadModule('/src/firstRun.ts');
  const {sessionKey,savedKey}=await server.ssrLoadModule('/src/session.ts');
  const {freshSession,NATIVE_SESSION_KEY}=await server.ssrLoadModule('/src/session.ts');
- const {emptyStats,NATIVE_STATS_KEY,localDay}=await server.ssrLoadModule('/src/nativeStats.ts');
+ const {emptyStats}=await server.ssrLoadModule('/src/nativeStats.ts');
+ const {NATIVE_STATS_KEY}=await server.ssrLoadModule('/src/statsStorage.ts');
+ const {localDay}=await server.ssrLoadModule('/src/days.ts');
  const {SUBSCRIPTION_KEY,PLUS_MONTHLY_PRICE,PLUS_YEARLY_PRICE}=await server.ssrLoadModule('/src/subscription.ts');
  const {CYRILLIC_KEY}=await server.ssrLoadModule('/src/cyrillicProgress.ts');
  const {CYRILLIC,contextualLetters}=await server.ssrLoadModule('/src/cyrillic.ts');

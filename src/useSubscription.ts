@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useState} from 'react';
 import {appStorage} from './previewStorage';
-import {localDay} from './nativeStats';
+import {localDay} from './days';
 import {cancel as cancelPlan,isPlus,restoreSubscription,subscribe as startPlan,SUBSCRIPTION_KEY,type PlusPlan,type Subscription} from './subscription';
 
 function readSaved():Subscription{

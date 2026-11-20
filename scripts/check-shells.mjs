@@ -24,7 +24,8 @@ try {
  const {SUBSCRIPTION_KEY}=await server.ssrLoadModule('/src/subscription.ts');
  const {useNativeStats}=await server.ssrLoadModule('/src/useNativeStats.ts');
  const {NativeProfile}=await server.ssrLoadModule('/src/NativeProfile.tsx');
- const {NATIVE_STATS_KEY,emptyStats}=await server.ssrLoadModule('/src/nativeStats.ts');
+ const {emptyStats}=await server.ssrLoadModule('/src/nativeStats.ts');
+ const {NATIVE_STATS_KEY}=await server.ssrLoadModule('/src/statsStorage.ts');
  const {useNativeCompanion}=await server.ssrLoadModule('/src/useNativeCompanion.ts');
  const {homeGreeting} = await server.ssrLoadModule('/src/nativeCompanion.ts');
  const {COMPANION_PREFERENCE_KEY}=await server.ssrLoadModule('/src/nativeCompanion.ts');
