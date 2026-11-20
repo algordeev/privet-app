@@ -34,8 +34,10 @@
 .native-app .gems-slots { display:flex; gap:5px; margin-top:4px; }
 .native-app .gems-slots i { width:18px; height:6px; border-radius:999px; background:#dfe7ea; }
 .native-app .gems-slots i.is-full { background:#5d9cc4; }
-.native-app .gems-buy { display:grid; justify-items:end; gap:7px; flex-shrink:0; }
-.native-app .gems-buy .button { min-height:36px; padding:8px 13px; font-size:13px; }
-.native-app .gems-buy .button:disabled { opacity:.45; cursor:default; }
+/* The freeze is bought with a gold pill like the amount pills, so the row matches the others. */
+.native-app .gems-buy { display:inline-flex; align-items:center; gap:5px; flex-shrink:0; min-height:44px; padding:0 14px; border:1px solid #e6c463; border-radius:999px; background:var(--gem-soft); color:var(--gem-ink); font:inherit; font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; box-shadow:0 1px 2px #c9a24a22; cursor:pointer; transition:transform .15s; }
+.native-app .gems-buy:active { transform:scale(.96); }
+.native-app .gems-buy:disabled { opacity:.5; cursor:default; transform:none; }
+.native-app .gems-buy-dot { opacity:.45; font-weight:600; }
 
 .native-app .gems-footer { margin:26px 0 10px; color:#7c8a72; font-size:12px; text-align:center; }

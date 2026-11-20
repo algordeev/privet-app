@@ -263,9 +263,9 @@ try{
   await open({[NATIVE_SESSION_KEY]:failed,[NATIVE_STATS_KEY]:{...emptyStats(),gems:{...emptyStats().gems,balance:50}}});
   await startCafe();await click('.failure-screen .button','Refill hearts · 20 gems');
   assert.equal((await stored(NATIVE_STATS_KEY)).gems.balance,30);assert.equal((await stored(NATIVE_SESSION_KEY)).progress.hearts,3);
-  await click('[aria-label="Return to app home"]');await click('#native-gems-open');await click('.native-gem-shop-card .button','Get freeze');
+  await click('[aria-label="Return to app home"]');await click('#native-gems-open');await click('.native-gem-shop-card .gems-buy');
   assert.equal((await stored(NATIVE_STATS_KEY)).gems.balance,0);assert.equal((await stored(NATIVE_STATS_KEY)).gems.freezes,1);
-  assert.ok(await evaluate(()=>document.querySelector('.native-gem-shop-card .button').disabled));
+  assert.ok(await evaluate(()=>document.querySelector('.native-gem-shop-card .gems-buy').disabled));
   assert.equal(await evaluate(()=>document.querySelector('.native-app').scrollWidth<=innerWidth),true,'native shell fits viewport');
   // Cover every exercise layout, not just the meaning/paused screens above.
   for(const definition of nativeLessons){for(let index=0;index<definition.exercises.length;index++){
