@@ -1,6 +1,20 @@
-/* Pictures for the welcome stories, the companion's faces on the offer card, and the sparkle band. */
+/* Pictures for the onboarding: the backdrop, the welcome stories, the companion's faces on the offer card,
+   and the sparkle band. */
 
-/* Story picture box (the letter tile and robot inside it are styled in firstRun.css). */
+/* Backdrop: three soft rings off the edges and four faint letters drifting slowly. */
+.native-app .first-backdrop { position:absolute; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+.native-app .first-backdrop > i { position:absolute; border-radius:50%; background:#dcebdc55; filter:blur(1px); }
+.native-app .first-backdrop > i:nth-child(1) { top:55px; right:-130px; width:190px; height:190px; }
+.native-app .first-backdrop > i:nth-child(2) { top:44%; left:-118px; width:160px; height:160px; }
+.native-app .first-backdrop > i:nth-child(3) { right:-160px; bottom:-95px; width:220px; height:220px; }
+.native-app .first-backdrop > span { position:absolute; color:#53826c15; font-size:32px; font-weight:600; animation:letter-drift 8s ease-in-out infinite alternate; }
+.native-app .first-backdrop > span:nth-of-type(1) { top:10%; left:5%; }
+.native-app .first-backdrop > span:nth-of-type(2) { top:33%; right:7%; animation-delay:-2s; }
+.native-app .first-backdrop > span:nth-of-type(3) { bottom:27%; left:9%; animation-delay:-4s; }
+.native-app .first-backdrop > span:nth-of-type(4) { right:18%; bottom:7%; animation-delay:-6s; }
+@keyframes letter-drift { to { transform:translateY(-8px); } }
+
+/* Story pictures: a box holding voice bars, a tilting letter tile, or the celebrating companion with a heart. */
 .native-app .first-story-art { position:relative; display:flex; align-items:center; justify-content:center; gap:12px; height:185px; margin:4px 0 20px; overflow:hidden; border-radius:26px; background:linear-gradient(150deg,#eef2e7,#dbeadc); color:#246653; }
 .native-app .first-story-art.is-speak b { font-size:25px; }
 .native-app .voice-bars { display:flex; align-items:center; gap:11px; }
@@ -8,6 +22,14 @@
 .native-app .voice-bars i:nth-child(2) { height:53px; animation-delay:110ms; }
 .native-app .voice-bars i:nth-child(3) { height:42px; animation-delay:220ms; }
 @keyframes voice-bar { to { transform:scaleY(.55); opacity:.65; } }
+.native-app .first-story-art.is-letters { gap:17px; }
+.native-app .first-story-art.is-letters b { font-size:22px; letter-spacing:.12em; }
+.native-app .first-letter-tile { display:grid; place-items:center; width:84px; height:90px; border-radius:18px; background:#fffdf7; box-shadow:0 8px 18px #31513a18; font-size:28px; font-weight:600; animation:tile-tilt 900ms ease-in-out infinite alternate; }
+@keyframes tile-tilt { to { transform:rotateY(20deg) translateY(-3px); } }
+.native-app .first-story-art.is-together { gap:18px; }
+.native-app .first-story-robot { display:block; transform:scale(1.45); }
+.native-app .first-story-art.is-together > b { font-size:34px; color:#cf7f6d; animation:heart-beat 1.1s ease-in-out infinite alternate; }
+@keyframes heart-beat { to { transform:scale(1.12); } }
 
 /* The companion's faces: small dark screens on light cards. */
 .native-app .face-strip { position:relative; z-index:1; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; width:100%; margin:10px 0 0; padding:0; list-style:none; }
@@ -27,6 +49,6 @@
 @keyframes sparkle-rise { 0% { opacity:0; transform:translateY(9px) scale(.5); } 30% { opacity:1; } 100% { opacity:0; transform:translateY(-15px) scale(1); } }
 
 @media (prefers-reduced-motion:reduce) {
- .native-app .first-sparkles { display:none; }
+ .native-app .first-sparkles,.native-app .first-backdrop > span,.native-app .first-letter-tile,.native-app .first-story-art.is-together > b { display:none; }
  .native-app .voice-bars i, .native-app .face-strip > li { animation:none; }
 }

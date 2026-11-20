@@ -1,0 +1,3 @@
+/* The counting copy sits over the real number and shows data-count followed by data-suffix. */
+.native-app .first-count-overlay { position:absolute; inset:0; display:block; }
+.native-app .first-count-overlay::after { content:attr(data-count) attr(data-suffix); }

@@ -2,7 +2,7 @@ import {Companion} from './Companion';
 import './onboardingArt.css';
 
 // Behind the onboarding screens: three soft rings and four faint letters of "привет"
-// (positioned and animated by .first-backdrop in firstRun.css).
+// (styled in onboardingArt.css; hidden when motion is reduced).
 export function FirstBackdrop(){
  return <div className="first-backdrop" aria-hidden="true">
   <i/><i/><i/>
@@ -29,7 +29,7 @@ export function ExpressionStrip(){
  </ul>;
 }
 
-// One picture per welcome story. Letter and robot pictures are styled by .first-story-art rules in firstRun.css.
+// One picture per welcome story.
 export function StoryArt({kind}:{kind:'speak'|'letters'|'together'}){
  return <div className={`first-story-art is-${kind}`} aria-hidden="true">
   {kind==='speak'?<><span className="voice-bars"><i/><i/><i/></span><b lang="ru">Привет!</b></>

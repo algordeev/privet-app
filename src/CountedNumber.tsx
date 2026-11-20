@@ -1,4 +1,5 @@
 import {useLayoutEffect,useRef} from 'react';
+import './countedNumber.css';
 
 export function CountUp({value,suffix='',delay=0}:{value:number;suffix?:string;delay?:number}){
  // Frames write the overlay's attribute directly: re-rendering through React every frame cost main-thread time
