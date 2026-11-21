@@ -4,7 +4,7 @@ export const lesson:LessonDefinition={
  "number": "05",
  "title": "My day",
  "description": "Tell Anna about a quiet morning and a busy evening.",
- "icon": "☀",
+ "icon": "☀️",
  "motivationTags": [
   "Conversations"
  ],

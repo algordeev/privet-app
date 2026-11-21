@@ -160,10 +160,12 @@ try{
   seed={...(!firstTime?{[FIRST_RUN_KEY]:{...initialFirstRun(),stage:'done',completed:true}}:{}),...(skipQuickStart?{[CYRILLIC_KEY]:{version:1,status:'skipped',page:0}}:{}),...nextSeed};initialTime=time;await evaluate(()=>{window.__oldDocument=true;});
   await call('Page.navigate',{url:origin+'/__privet_native_checks'+(browserPreview?'?native=1&onboarding=1'+(resume?'&resume=1':''):(resume?'?resume=1':''))});
   await until(()=>!window.__oldDocument&&!!document.querySelector('.native-app'));
-  if(firstTime)await until(()=>!!document.querySelector('.native-first-run,.native-first-lesson'));else await until(()=>document.querySelectorAll('.native-lesson-card').length===8);
+  if(firstTime)await until(()=>!!document.querySelector('.native-first-run,.native-first-lesson'));else await until(()=>!!document.querySelector('.home-lessons')&&document.querySelectorAll('.home-chapter,.home-fold').length===3);
   await pause(80);await assertNativeLayout();
  }
- const startCafe=()=>click('#native-card-cafe ~ .button');
+ // Home rows grow into the big card first; its button then opens the lesson.
+ const openCard=async(id,text)=>{if(await evaluate(id=>!!document.querySelector(`#native-card-${id} ~ .button[aria-expanded]`),id))await click(`#native-card-${id} ~ .button`);await click(`#native-card-${id} ~ .button`,text);};
+ const startCafe=()=>openCard('cafe');
  const storageSnapshot=()=>evaluate(()=>Object.fromEntries(Object.keys(localStorage).sort().map(key=>[key,localStorage.getItem(key)])));
  async function confirmReplay(){const before=await storageSnapshot();await click('#native-replay-onboarding');assert.ok(await evaluate(()=>document.querySelector('#settings-confirmation[open]')?.textContent.includes('Restart onboarding?')));assert.deepEqual(await storageSnapshot(),before,'Opening replay confirmation does not restart or alter saved data');await click('.native-confirmation-cancel');assert.deepEqual(await storageSnapshot(),before,'Cancel keeps all data and the tour position');assert.equal(await evaluate(()=>document.activeElement?.id),'native-replay-onboarding');await click('#native-replay-onboarding');await click('.native-confirmation-confirm','Restart onboarding');}
 
@@ -294,7 +296,7 @@ try{
   for(const definition of nativeLessons){for(let index=0;index<definition.exercises.length;index++){
    const snapshot=freshSession();snapshot.progress.index=index;snapshot.progress.results=Array(index).fill(true);
    // Plus, so every lesson opens (access itself is checked separately).
-   await open({[sessionKey(definition)]:snapshot,[SUBSCRIPTION_KEY]:{version:1,plan:'yearly',since:'2026-10-17'}});await click(`#native-card-${definition.id} ~ .button`);
+   await open({[sessionKey(definition)]:snapshot,[SUBSCRIPTION_KEY]:{version:1,plan:'yearly',since:'2026-10-17'}});await openCard(definition.id);
   }}
   await open();
   const vertical=await evaluate(()=>{const pane=document.querySelector('.native-home-scroll');pane.scrollTop=1000;return {top:pane.scrollTop,height:pane.clientHeight,content:pane.scrollHeight};});
@@ -350,7 +352,7 @@ try{
   // Tapping a reminder opens the next lesson (the first not passed); during a lesson it changes nothing.
   await evaluate(()=>window.__tapNotification('daily'));await until(()=>!!document.querySelector('.lesson-bottom'));
   assert.equal(await evaluate(()=>document.querySelector('.app-navigation strong').textContent),nativeLessons[0].title,'A tapped reminder opens the next lesson');
-  await click('[aria-label="Return to app home"]');await click(`#native-card-${nativeLessons[1].id} ~ .button`);await until(()=>!!document.querySelector('.lesson-bottom'));
+  await click('[aria-label="Return to app home"]');await openCard(nativeLessons[1].id);await until(()=>!!document.querySelector('.lesson-bottom'));
   await evaluate(()=>window.__tapNotification('last-call'));await pause(300);
   assert.equal(await evaluate(()=>document.querySelector('.app-navigation strong').textContent),nativeLessons[1].title,'A tap never interrupts a lesson in progress');
   await click('[aria-label="Return to app home"]');
@@ -471,7 +473,7 @@ try{
   {name:'failed Lesson 1 while active Lesson 2 was selected',seed:{[NATIVE_SESSION_KEY]:paused,[lesson2Key]:meaning()},id:'cafe',command:4},
   {name:'already-answered feedback',seed:{[NATIVE_SESSION_KEY]:answered},id:'cafe',command:4},
  ]){
-  await open(scenario.seed);await connectAtHome();await click(`#native-card-${scenario.id} ~ .button`);
+  await open(scenario.seed);await connectAtHome();await openCard(scenario.id);
   assert.deepEqual(await codes(),[scenario.command],scenario.name);
   assert.equal(await evaluate(()=>document.querySelector('.app-navigation strong').textContent),nativeLessons.find(lesson=>lesson.id===scenario.id).title);
   assert.ok(!(await codes()).includes(3),'Saved completion must never replay CELEBRATE');
@@ -484,7 +486,7 @@ try{
   await click('[aria-label="Return to app home"]');assert.deepEqual(await codes(),[...expected,4],`${scenario.name}: close sends IDLE`);
  }
  for(const definition of nativeLessons.slice(2)){
-  await open({[SUBSCRIPTION_KEY]:{version:1,plan:'yearly',since:'2026-10-17'}});await connectAtHome();await click(`#native-card-${definition.id} ~ .button`);assert.deepEqual(await codes(),[6]);
+  await open({[SUBSCRIPTION_KEY]:{version:1,plan:'yearly',since:'2026-10-17'}});await connectAtHome();await openCard(definition.id);assert.deepEqual(await codes(),[6]);
   await click('[aria-label="Return to app home"]');assert.equal((await codes()).at(-1),4);
  }
  // Latest finished practice can be lower without reducing the Home high score.
@@ -493,21 +495,24 @@ try{
  await startCafe();assert.ok(await evaluate(()=>document.querySelector('.completion .score').textContent.includes('2/ 5')));
  assert.ok(await evaluate(()=>document.querySelector('.completion .score').textContent.includes('Correct on firstsubmission')));
  await click('[aria-label="Return to app home"]');
- assert.ok(await evaluate(()=>document.querySelector('#native-card-cafe').closest('.native-lesson-card').querySelector('.native-card-progress').textContent.includes('Best: 5/5')));
+ assert.ok(await evaluate(()=>{const el=document.querySelector('#native-card-cafe').closest('.home-row,.home-hero');return (el.querySelector('.home-row-score')?.textContent??el.querySelector('.home-hero-meta').textContent).includes('5/5');}),'Home keeps the best first-try score (café is still the big card you opened)');
  const latestPractice=await stored(savedKey(nativeLessons[0]));assert.equal(latestPractice.bestFirstTry,5);assert.equal(latestPractice.completion.results.filter(Boolean).length,2);
  // A replay is a new attempt, not a revocation of previously earned completion.
  for(const definition of [nativeLessons[0],nativeLessons[2]]){
   const steps=definition.exercises.length,finished={...complete,progress:{...complete.progress,index:steps,results:Array(steps).fill(true)}};
-  await open({[sessionKey(definition)]:finished});await click(`#native-card-${definition.id} ~ .button`);
+  await open({[sessionKey(definition)]:finished});await openCard(definition.id);
   await click('.completion button','Replay the lesson');await click('[aria-label="Return to app home"]');
   for(let reload=0;reload<2;reload++){
-   const card=await evaluate(id=>{const el=document.querySelector(`#native-card-${id}`).closest('.native-lesson-card');return {state:el.querySelector('.native-path-state').textContent,action:el.querySelector('.button').textContent,progress:el.querySelector('progress').value};},definition.id);
-   assert.equal(card.state,'Passed');assert.ok(card.action.includes('Continue practice'));assert.equal(card.progress,steps);
+   // Right after closing it the lesson is still the big card you opened; after a reload it is a Completed row.
+   const card=await evaluate(id=>{const el=document.querySelector(`#native-card-${id}`).closest('.home-row,.home-hero');const big=el.classList.contains('home-hero');return {big,score:big?el.querySelector('.home-hero-meta').textContent:el.querySelector('.home-row-score')?.textContent,action:el.querySelector(big?'.button.teal':'.button').textContent,sub:big?el.querySelector('.home-kicker').textContent:el.querySelector('h2 span').textContent};},definition.id);
+   assert.equal(card.big,reload===0,'Closing a lesson keeps its big card; a reload starts afresh');
+   if(card.big){assert.ok(card.score.includes(`Best ${steps}/${steps}`));assert.ok(card.action.startsWith('Continue practice'));assert.equal(card.sub,`Completed · Lesson ${definition.number}`);}
+   else{assert.equal(card.score,`${steps}/${steps} ✓`,'Still passed, with its score');assert.equal(card.action,`Show ${definition.title}`,'The row expands into the big card');assert.equal(card.sub,"Practice again");}
    if(reload===0)await open({},initialTime,true);
   }
-  await click(`#native-card-${definition.id} ~ .button`);assert.ok(await evaluate(steps=>document.querySelector('.lesson-step-count').textContent.includes(`STEP 1 OF ${steps}`),steps));
+  await openCard(definition.id,'Continue practice');assert.ok(await evaluate(steps=>document.querySelector('.lesson-step-count').textContent.includes(`STEP 1 OF ${steps}`),steps));
  }
- await open({[lesson2Key]:complete});await connectAtHome();await click(`#native-card-${nativeLessons[1].id} ~ .button`);
+ await open({[lesson2Key]:complete});await connectAtHome();await openCard(nativeLessons[1].id);
  assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.completion > button')].map(el=>({label:el.textContent.replace(/[→↻]/g,'').trim(),primary:el.classList.contains('teal')}))),[{label:'Continue to Lesson 3',primary:true},{label:'Replay the lesson',primary:false}],'Lesson 2 offers the next catalogue lesson and replay underneath');
  await click('[aria-label="Return to app home"]');assert.ok(await evaluate(()=>!!document.querySelector('.native-home-scroll')));
  assert.deepEqual(await codes(),[4,4],'Completion home action uses the existing close/IDLE path');
@@ -515,7 +520,7 @@ try{
  await open({[NATIVE_SESSION_KEY]:complete,[lesson2Key]:meaning()});await connectAtHome();await startCafe();
  assert.deepEqual(await codes(),[4]);await click('.native-next-lesson','Continue to Lesson 2');
  assert.deepEqual(await codes(),[4,6],'Direct lesson-view switch uses active target, not completed previous lesson');
- await open();await startCafe();await click('[aria-label="Return to app home"]');await click(`#native-card-${nativeLessons[1].id} ~ .button`);
+ await open();await startCafe();await click('[aria-label="Return to app home"]');await openCard(nativeLessons[1].id);
  assert.deepEqual(await codes(),[],'Disconnected lesson entries/close must send nothing');
  console.log('PASS: connected Lesson 1/2 start, saved resume and direct target switch→THINKING; completed/failed/answered target→IDLE without celebration; close→IDLE; disconnected entry sends nothing. Mock BLE only.');
 
@@ -526,12 +531,12 @@ try{
  const rewardSnapshot=()=>evaluate(keys=>Object.fromEntries(keys.map(key=>[key,localStorage.getItem(key)])),rewardKeys);
  for(const viewport of [{width:375,height:667},{width:430,height:932}]){
   await call('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:true});
-  await open();assert.ok(await evaluate(()=>!!document.querySelector('.native-quick-card')));await capture(`home-${viewport.width}`);
-  const expandedCardHeight=await evaluate(()=>document.querySelector('.native-quick-card').getBoundingClientRect().height);
-  await click('.native-quick-card .native-text-button','Skip for now');
-  const compactCard=await evaluate(()=>({height:document.querySelector('.native-quick-card').getBoundingClientRect().height,collapsed:document.querySelector('.native-quick-card').classList.contains('is-collapsed')}));
+  await open();assert.ok(await evaluate(()=>!!document.querySelector('.home-hero.home-cyrillic')),'A newcomer sees the quick start as the big card');await capture(`home-${viewport.width}`);
+  const expandedCardHeight=await evaluate(()=>document.querySelector('.home-cyrillic').getBoundingClientRect().height);
+  await click('.home-cyrillic .native-text-button','Skip for now');
+  const compactCard=await evaluate(()=>({height:document.querySelector('.home-cyrillic').getBoundingClientRect().height,collapsed:document.querySelector('.home-cyrillic').classList.contains('home-row')}));
   assert.equal(compactCard.collapsed,true);assert.ok(compactCard.height<expandedCardHeight/2,'Skip visibly collapses the card');await capture(`skipped-${viewport.width}`);
-  await open({},initialTime,true);assert.ok(await evaluate(()=>!!document.querySelector('.native-quick-card.is-collapsed')),'Skip persists across reload');
+  await open({},initialTime,true);assert.ok(await evaluate(()=>!!document.querySelector('.home-row.home-cyrillic')),'Skip persists across reload');
   await click('#native-quick-open','Open');assert.ok(await evaluate(()=>!!document.querySelector('.native-quick-screen')),'Compact card remains reopenable');
   await click('[aria-label="Back to home"]');await open();
 
@@ -545,7 +550,7 @@ try{
   await open();await startCafe();await click('#native-cyrillic-recommendation button','Try the quick start');
   assert.ok(await evaluate(()=>!!document.querySelector('.native-quick-screen')));
   await click('[aria-label="Back to home"]');
-  assert.ok(await evaluate(()=>!!document.querySelector('.native-quick-card.is-collapsed')),'Opening quick start keeps the home card compact afterwards');
+  assert.ok(await evaluate(()=>!!document.querySelector('.home-row.home-cyrillic')),'Opening quick start keeps the home card compact afterwards');
   const before=await rewardSnapshot();await click('#native-quick-open');
   assert.equal(await evaluate(()=>document.querySelectorAll('.native-letter-card').length),5);await assertLetterExamples();
   assert.equal(await evaluate(()=>document.querySelectorAll('.native-letter-audio,.native-letter-sound').length),0);
@@ -561,7 +566,7 @@ try{
   assert.deepEqual(await rewardSnapshot(),before,'Quick start must not change lesson progress, stats, hearts, XP, gems or streaks');
   assert.ok(await evaluate(()=>document.querySelector('.native-quick-scroll').textContent.includes('You don’t need to memorize everything.')));
   assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.native-quick-actions button')].map(button=>({label:button.textContent.replace('→','').trim(),primary:button.classList.contains('teal')}))),[{label:'Start Lesson 1',primary:true},{label:'Go back home',primary:false}]);
-  await click('.native-quick-actions .native-text-button','Go back home');assert.ok(await evaluate(()=>!!document.querySelector('.native-quick-card.is-collapsed')),'Completed quick start keeps its compact card');await capture(`completed-card-${viewport.width}`);await click('#native-quick-open','Review');
+  await click('.native-quick-actions .native-text-button','Go back home');assert.ok(await evaluate(()=>!!document.querySelector('.home-row.home-cyrillic')),'Completed quick start keeps its compact card');await capture(`completed-card-${viewport.width}`);await click('#native-quick-open','Review');
   assert.ok(await evaluate(()=>document.querySelector('.native-quick-progress').textContent.includes('Page 1')));
   await click('[aria-label="Back to home"]');assert.equal((await stored(CYRILLIC_KEY)).status,'completed');
   await click('#native-quick-open');for(let n=0;n<3;n++)await click('.native-quick-actions .button','Continue');
@@ -629,14 +634,14 @@ try{
  await click('[aria-label="Close Cyrillic guide"]');await evaluate(()=>window.__lateGuideEnd?.());assert.deepEqual(await codes(),[5],'Closing guide invalidates pending speech completion');
  await click('.choice','2coffee');await click('.lesson-bottom .button','Check answer');await evaluate(()=>window.__lateGuideEnd?.());assert.deepEqual(await codes(),[5,1],'Stale guide audio cannot overwrite correct feedback');
  // The second lesson has the same header/reference without changing its session.
- await open({[sessionKey(nativeLessons[1])]:meaning()});await click(`#native-card-${nativeLessons[1].id} ~ .button`);await click('[aria-label="Open Cyrillic guide"]');await click('[aria-label="Close Cyrillic guide"]');
+ await open({[sessionKey(nativeLessons[1])]:meaning()});await openCard(nativeLessons[1].id);await click('[aria-label="Open Cyrillic guide"]');await click('[aria-label="Close Cyrillic guide"]');
  console.log('PASS: guide audio uses the shared controller and guarded LISTENING/THINKING callbacks; closing cancels stale completion; both lessons expose the reference.');
  // Exercise real pointer capture with mouse and touch, not synthetic .click().
  for(const [lesson,words,input] of [[nativeLessons[0],['чай','Я','хочу'],'mouse'],[nativeLessons[1],['Анна','Меня','зовут'],'touch']]){
   await call('Emulation.setDeviceMetricsOverride',{width:375,height:667,deviceScaleFactor:1,mobile:true});
   await call('Emulation.setTouchEmulationEnabled',{enabled:input==='touch',maxTouchPoints:1});
   const session=freshSession();session.progress.index=2;session.progress.results=[true,true];session.tokens=words;
-  const key=sessionKey(lesson);await open({[key]:session});await click(`#native-card-${lesson.id} ~ .button`);
+  const key=sessionKey(lesson);await open({[key]:session});await openCard(lesson.id);
   await evaluate(()=>{document.querySelector('.sentence-answer').scrollIntoView({block:'center'});});await pause(80);
   const points=await evaluate(()=>[...document.querySelectorAll('.sentence-answer button')].map(el=>{const r=el.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};}));
   const [from,,to]=points;
@@ -661,7 +666,7 @@ try{
   assert.equal(await evaluate(()=>document.activeElement.dataset.word),words[0]);
   await click('.sentence-answer button');assert.deepEqual((await stored(key)).tokens,[words[0],words[2]]);
   // Reload restores reordered canonical words through the existing session format.
-  await open({},undefined,true);await click(`#native-card-${lesson.id} ~ .button`);
+  await open({},undefined,true);await openCard(lesson.id);
   assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.sentence-answer button')].map(el=>el.dataset.word)),[words[0],words[2]]);
   await click('.word-bank button',words[1]);await click('.lesson-bottom .button','Check answer');
   assert.ok(await evaluate(()=>[...document.querySelectorAll('.sentence-answer button')].every(el=>el.disabled)),'Submitted answers cannot be rearranged');
@@ -672,7 +677,7 @@ try{
  // Safe examples are used in both reference views, not just by the data helper.
  for(const [definition,index] of [[nativeLessons[0],2],[nativeLessons[0],3],[nativeLessons[0],4],[nativeLessons[1],3],[nativeLessons[1],4]]){
   const session=freshSession();session.progress.index=index;session.progress.results=Array(index).fill(true);
-  await open({[sessionKey(definition)]:session});await click(`#native-card-${definition.id} ~ .button`);
+  await open({[sessionKey(definition)]:session});await openCard(definition.id);
   await click('[aria-label="Open Cyrillic guide"]');
   for(const full of [false,true]){
    if(full)await click('.native-guide-tabs button','See full alphabet');
@@ -754,7 +759,7 @@ try{
  for(const definition of nativeLessons){
   const viewport=definition.id==='cafe'?{width:320,height:568}:{width:430,height:932};
   await call('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:true});
-  await open({[SUBSCRIPTION_KEY]:{version:1,plan:'yearly',since:'2026-10-17'}});await click(`#native-card-${definition.id} ~ .button`);await click('[aria-label="Open Cyrillic guide"]');
+  await open({[SUBSCRIPTION_KEY]:{version:1,plan:'yearly',since:'2026-10-17'}});await openCard(definition.id);await click('[aria-label="Open Cyrillic guide"]');
   await assertLetterExamples();await click('.native-guide-tabs button','See full alphabet');
   const cards=await assertLetterExamples();assert.equal(cards.length,33);await capture(`guide-dual-audio-${viewport.width}`);
   assert.equal(await evaluate(()=>document.querySelectorAll('.native-letter-sound').length),31,'All speaking letters have their own control, excluding Ъ and Ь');
@@ -877,8 +882,9 @@ try{
   // The 375-wide run leaves through Free, the 430-wide run through Plus.
   if(viewport.width===375)await click('.first-offer-free .button','Continue with Free');
   else {await click('.first-plan-options button','Annual Save 33%');assert.ok(await evaluate(()=>document.querySelector('.first-price-display').textContent===`$39.99/ year`));await capture('plus-selected');await click('.first-offer-plus .plus-buy','Get Privet Plus');assert.equal((await stored(SUBSCRIPTION_KEY)).plan,'yearly','A finished purchase goes straight home with Plus');}
-  assert.ok(await evaluate(()=>document.querySelector('#native-card-cafe').closest('section').textContent.includes('Passed')));
-  assert.ok(await evaluate(()=>document.querySelector('#native-card-introductions').closest('section').textContent.includes('Up next')));
+  // Home after the welcome: café is passed (under Completed, with its score), lesson 2 is the Up next card.
+  await until(()=>!!document.querySelector('#native-card-cafe')?.closest('.home-row')?.querySelector('.home-row-score'));
+  assert.ok(await evaluate(()=>document.querySelector('#native-card-introductions').closest('.home-hero')?.querySelector('.home-kicker').textContent.startsWith('Up next')));
   assert.equal((await stored(FIRST_RUN_KEY)).completed,true);firstTime=false;await open({},undefined,true);assert.ok(await evaluate(()=>!!document.querySelector('.native-home-scroll')));firstTime=true;
   assert.deepEqual(await stored(NATIVE_STATS_KEY),earned,'Offer/home/normal relaunch do not grant more rewards');
   console.log(`PASS ${viewport.width}×${viewport.height}: fresh welcome→all personalization selections/reload→companion→guided café with Cyrillic/audio/hearts→completion/reload→paywall→home/next lesson; one reward receipt, no hardware required.`);
@@ -1071,7 +1077,7 @@ try{
   learningCards=true;russianAudio=true;await open({[sessionKey(town)]:at(town,'listen'),[sessionKey(plans)]:at(plans,'match')});
   await openPhysicalSettings();await click('.native-physical-actions .button','Connect');await click('.native-physical-devices button');
   await until(()=>window.__bleFrames.some(p=>p[0]===1&&p[6]===10));await physicalBackHome();
-  await click('#native-card-around-town ~ .button');await until(()=>window.__cards.at(-1)?.primary==='Listen on phone');
+  await openCard('around-town');await until(()=>window.__cards.at(-1)?.primary==='Listen on phone');
   const listenStart=await evaluate(()=>window.__cards.length);
   assert.ok(await evaluate(()=>!document.querySelector('.question-word')&&!!document.querySelector('.listen-play')&&!document.querySelector('.choices .native-russian-reading')),'Listening shows a player, no written word and no option readings');
   await click('.listen-play');await until(()=>window.__speechTaps.at(-1)==='Налево.');assert.equal(await evaluate(()=>window.__utterances.at(-1).rate),.8);assert.equal(await evaluate(()=>window.__utterances.at(-1).text),'Нале́во.','The voice gets the stress mark');
@@ -1085,7 +1091,7 @@ try{
   assert.equal(await evaluate(()=>document.querySelectorAll('.choices .native-russian-reading').length),3,'Readings return after a correct answer');
   await click('[aria-label="Return to app home"]');
   const pick=text=>evaluate(text=>{const b=[...document.querySelectorAll('.match-item')].find(b=>(b.querySelector('span')?.textContent??b.textContent)===text&&!b.disabled);b.click();return true;},text);
-  await click('#native-card-making-plans ~ .button');await until(()=>window.__cards.at(-1)?.primary==='Match the pairs');
+  await openCard('making-plans');await until(()=>window.__cards.at(-1)?.primary==='Match the pairs');
   const matchStart=await evaluate(()=>window.__cards.length);
   // Hold speech like a real utterance: the listening face, and no card, lasts until the audio ends;
   // then the question's own card returns immediately.
@@ -1109,7 +1115,7 @@ try{
   await click('.lesson-bottom .button','Continue');assert.equal((await stored(sessionKey(plans))).progress.results.at(-1),false,'A slipped match is not a first try');
   await click('[aria-label="Return to app home"]');
   // Without a Russian voice, the listening question is still fully answerable from the written sound guide.
-  learningCards=false;russianAudio=false;await open({[sessionKey(town)]:at(town,'listen')});await click('#native-card-around-town ~ .button');
+  learningCards=false;russianAudio=false;await open({[sessionKey(town)]:at(town,'listen')});await openCard('around-town');
   await until(()=>!!document.querySelector('.listen-fallback'));
   assert.ok(await evaluate(()=>document.querySelector('.listen-fallback').textContent.includes('Audio isn’t available')&&document.querySelector('.listen-fallback').textContent.includes('na-LE-va')&&!document.querySelector('.listen-play')));
   await click('.choice','2Налево.');await click('.lesson-bottom .button','Check answer');await until(()=>!!document.querySelector('.feedback.correct'));
@@ -1133,7 +1139,7 @@ try{
    await click('.lesson-bottom .button','Continue');
   };
   for(const lesson of nativeLessons.slice(2)){
-   await click(`#native-card-${lesson.id} ~ .button`);
+   await openCard(lesson.id);
    for(const [index,e] of lesson.exercises.entries()){
     await until(n=>document.querySelector('.lesson-step-count')?.textContent.startsWith(`STEP ${n}`),index+1);
     if(process.env.PRIVET_PLAY_DEBUG)console.log(`PLAY ${lesson.id} ${index+1} ${e.kind} ${e.id}`);await answer(e);
@@ -1152,17 +1158,19 @@ try{
    }
    if(lesson===nativeLessons[2]){
     // Home first shows the order as last seen, then the just-passed lesson glides down under "Completed".
+    assert.equal(await evaluate(()=>document.querySelector('.native-home-scroll').scrollTop),0,'After passing a lesson home opens at the top, to show the glide');
     const flips=()=>evaluate(()=>[...document.querySelectorAll('.native-lesson-list [data-flip]')].map(el=>el.dataset.flip));
     const before=await flips();
-    assert.deepEqual(before.slice(0,3),[nativeLessons[0].id,nativeLessons[1].id,lesson.id],'Coming home, the passed lesson is still where it was');
+    assert.ok(before.indexOf(lesson.id)>before.indexOf('chapter-1')&&before.indexOf(lesson.id)<before.indexOf('chapter-2'),'Coming home, the passed lesson is still in its chapter, where it was');
     assert.ok(!before.includes('completed-title'));
-    await scrollToCentre(`[data-flip="${lesson.id}"]`);await pause(800);await capture('reorder-before');await pause(350);await capture('reorder-moving');
+    await scrollToCentre(`[data-flip="${lesson.id}"]`);await pause(600);await capture('reorder-before');
     // It glides (a transform animation) without replaying the card's CSS fade-in.
     await until(id=>{const anims=document.querySelector(`[data-flip="${id}"]`)?.getAnimations()??[];return anims.some(a=>a.playState==='running'&&a.effect?.getKeyframes().some(k=>k.transform))&&!anims.some(a=>a.animationName==='app-rise-in');},lesson.id);
+    await capture('reorder-moving');
     await until(id=>{const order=[...document.querySelectorAll('.native-lesson-list [data-flip]')].map(el=>el.dataset.flip);return order.indexOf(id)>order.indexOf('completed-title')&&order.indexOf('completed-title')>0;},lesson.id);
     assert.equal(await evaluate(()=>document.querySelector('.native-completed-title').textContent),'Completed · 1');
     await pause(400);await scrollToCentre('.native-completed-title');await capture('reorder-after');
-    assert.equal((await flips())[0],nativeLessons[0].id,'Lesson 1 stays up next');
+    assert.equal(await evaluate(()=>document.querySelector('.home-hero h2').id),`native-card-${nativeLessons[0].id}`,'Lesson 1 stays up next');
     await assertNativeLayout();
     await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
    }
@@ -1170,35 +1178,74 @@ try{
   console.log('PASS 320×568: lessons 3–8 play start to finish (vocabulary, choice, listening, matching, building, typing), all first-try correct, with no horizontal overflow at any step; a passed lesson glides down under Completed.');
  }
 
- // Without Plus: lesson 4 is readable and locked, 5–8 are blurred behind one button; locked taps open the paywall,
- // Back returns where you were, and buying goes straight into the lesson that was tapped.
+ // Without Plus: chapter 1 is free, chapters 2 and 3 are locked rows behind one unlock button; locked taps open the
+ // paywall, Back returns where you were, and buying goes straight into the lesson that was tapped.
  {
   await call('Emulation.setDeviceMetricsOverride',{width:375,height:667,deviceScaleFactor:1,mobile:true});
   learningCards=false;russianAudio=false;await open();
-  assert.equal(await evaluate(()=>document.querySelectorAll('.native-lesson-card.is-blurred').length),4);
-  assert.ok(await evaluate(()=>document.querySelector('.native-unlock-more').textContent.includes('Unlock 5 more lessons')));
-  await scrollToCentre('.native-unlock-more');await assertNativeLayout();await capture('locked-home');
-  await click('.native-unlock-more');await until(()=>!!document.querySelector('#native-plus-title'));
+  assert.equal(await evaluate(()=>document.querySelectorAll('.home-row.is-locked').length),5);
+  assert.equal(await evaluate(()=>document.querySelectorAll('.home-chapter.is-locked').length),2);
+  assert.ok(await evaluate(()=>document.querySelector('.home-plus').textContent.includes('Unlock chapters 2 and 3')));
+  await capture('locked-home');await scrollToCentre('.home-plus');await assertNativeLayout();
+  await click('.home-plus');await until(()=>!!document.querySelector('#native-plus-title'));
   await click('[aria-label="Back"]');await until(()=>!!document.querySelector('.native-home-scroll'));
   // The end of lesson 3 offers lesson 4 through Plus; Back returns to the results.
   const steps=nativeLessons[2].exercises.length,done=freshSession();done.progress={...done.progress,index:steps,complete:true,results:Array(steps).fill(true)};
-  await open({[sessionKey(nativeLessons[2])]:done});await click(`#native-card-${nativeLessons[2].id} ~ .button`);
+  await open({[sessionKey(nativeLessons[2])]:done});await openCard(nativeLessons[2].id);
   await click('.native-next-lesson',`Unlock Lesson ${Number(nativeLessons[3].number)} with Plus`);await until(()=>!!document.querySelector('#native-plus-title'));
   await click('[aria-label="Back"]');await until(()=>!!document.querySelector('.completion .native-next-lesson'));
   await click('[aria-label="Return to app home"]');
+  // A finished chapter folds into one line that opens on tap; the next (locked) lesson leads, inviting Plus.
+  const passedSave=n=>({preferences:{stress:false,pronunciation:true},bestFirstTry:n,completion:{results:Array(n).fill(true),date:'2026-10-16',hearts:3,bestCombo:n}});
+  await open({[savedKey(nativeLessons[0])]:passedSave(5),[savedKey(nativeLessons[1])]:passedSave(5),[savedKey(nativeLessons[2])]:passedSave(8)});
+  assert.equal(await evaluate(()=>document.querySelector('.home-fold').textContent.replace(/\s+/g,' ').trim()),'✓Chapter 1 · First steps3/3 ›');
+  assert.equal(await evaluate(()=>!!document.querySelector('#native-card-cafe')),false,'A folded chapter hides its lessons');
+  assert.equal(await evaluate(()=>document.querySelectorAll('.home-hero').length),0,'Without Plus a locked lesson is never the big card');
+  await capture('folded-chapter');await click('.home-fold');
+  assert.ok(await evaluate(()=>document.querySelector('.home-fold').getAttribute('aria-expanded')==='true'&&!!document.querySelector('#native-card-cafe')));
+  await assertNativeLayout();
   // Out of hearts: Try again comes first; gems and Plus follow.
   const paused=freshSession();paused.progress={...paused.progress,hearts:0,failed:true,attempts:3,feedback:'incorrect'};
-  await open({[sessionKey(nativeLessons[1])]:paused});await click(`#native-card-${nativeLessons[1].id} ~ .button`);
+  await open({[sessionKey(nativeLessons[1])]:paused});await openCard(nativeLessons[1].id);
   await capture('out-of-hearts');
   assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.failure-screen .button')].map(b=>b.textContent.replace(/\s*[↻∞]\s*$/,'').trim())),['Try again from the start','Refill needs 20 gems · you have 0','Unlimited hearts with Plus']);
   await click('[aria-label="Return to app home"]');
   // Buying from the locked lesson 4 card opens lesson 4 right away; nothing is locked or blurred afterwards.
-  await click(`#native-card-${nativeLessons[3].id} ~ .button`,'Unlock with Plus');await until(()=>!!document.querySelector('#native-plus-title'));
+  await openCard(nativeLessons[3].id,'Unlock with Plus');await until(()=>!!document.querySelector('#native-plus-title'));
   await click('.plus-buy',`Continue · ${PLUS_YEARLY_PRICE}/year`);
   await until(title=>document.querySelector('.app-navigation strong')?.textContent===title,nativeLessons[3].title);
   await click('[aria-label="Return to app home"]');
-  assert.equal(await evaluate(()=>document.querySelectorAll('.native-lesson-card.is-locked,.native-lesson-card.is-blurred,.native-unlock-more').length),0);
-  console.log('PASS: without Plus lesson 4 is locked and 5–8 blurred behind one button; locked taps and the lesson 3 results open the paywall, Back returns, buying opens the tapped lesson; out of hearts offers Try again first.');
+  assert.equal(await evaluate(()=>document.querySelectorAll('.home-row.is-locked,.home-chapter.is-locked,.home-hero.is-locked,.home-plus').length),0);
+  console.log('PASS: without Plus chapters 2–3 are locked rows behind one unlock button; locked taps and the lesson 3 results open the paywall, Back returns, buying opens the tapped lesson; a finished chapter folds and opens on tap; out of hearts offers Try again first.');
+ }
+ // One big card at a time: tapping a row grows it into the big card and the previous big card becomes a row.
+ {
+  await call('Emulation.setDeviceMetricsOverride',{width:375,height:667,deviceScaleFactor:1,mobile:true});
+  const bigCards=()=>evaluate(()=>[...document.querySelectorAll('.home-hero')].map(el=>el.querySelector('h2').id.replace('native-card-','')));
+  await open();assert.deepEqual(await bigCards(),['cafe'],'The lesson up next starts big');
+  await click('#native-card-introductions ~ .button',`Show ${nativeLessons[1].title}`);
+  assert.deepEqual(await bigCards(),['introductions']);assert.ok(await evaluate(()=>!!document.querySelector('#native-card-cafe').closest('.home-row')),'Up next shrinks to a row');
+  assert.ok(await evaluate(()=>document.querySelector('.home-hero .home-kicker').textContent==='Chapter 1 · Lesson 02'));await capture('picked-card');
+  // Opening a lesson and closing it brings home back where it was, with the same big card.
+  const scrolled=await evaluate(()=>{const pane=document.querySelector('.native-home-scroll');pane.scrollTop=260;return pane.scrollTop;});
+  await click('#native-card-introductions ~ .button','Start lesson');await until(()=>!!document.querySelector('.lesson-bottom'));
+  await click('[aria-label="Return to app home"]');await until(()=>!!document.querySelector('.home-lessons'));
+  assert.equal(await evaluate(()=>Math.round(document.querySelector('.native-home-scroll').scrollTop)),Math.round(scrolled),'Home keeps its scroll position');
+  assert.deepEqual(await bigCards(),['introductions'],'Home keeps the card you opened');
+  // Tapping the picture shrinks the big card back to a row.
+  await click('.home-hero .home-scene');assert.deepEqual(await bigCards(),[]);assert.ok(await evaluate(()=>!!document.querySelector('#native-card-introductions').closest('.home-row')));
+  // Without Plus a locked row never grows: it goes straight to Plus.
+  await click('#native-card-shopping ~ .button','Unlock with Plus');await until(()=>!!document.querySelector('#native-plus-title'));
+  await click('[aria-label="Back"]');await until(()=>!!document.querySelector('.home-lessons'));assert.deepEqual(await bigCards(),[],'Coming back, home is as you left it (all cards shrunk)');
+  await assertNativeLayout();
+  // A newcomer's big card is the quick start; tapping a lesson swaps them.
+  skipQuickStart=false;await open();
+  assert.deepEqual(await bigCards(),['native-quick-title'],'Only the quick start is big');
+  assert.ok(await evaluate(()=>!!document.querySelector('.home-hero.home-cyrillic')&&!!document.querySelector('#native-card-cafe').closest('.home-row')));
+  await click('#native-card-cafe ~ .button',`Show ${nativeLessons[0].title}`);
+  assert.ok(await evaluate(()=>!!document.querySelector('.home-row.home-cyrillic')&&document.querySelectorAll('.home-hero').length===1&&!!document.querySelector('#native-card-cafe').closest('.home-hero')),'The quick start becomes a row');
+  skipQuickStart=true;
+  console.log('PASS: home keeps its scroll and big card after closing a lesson; one big card at a time: open rows grow into it, the previous big card becomes a row, tapping the picture shrinks it; locked rows go to Plus; a newcomer starts with the quick start big.');
  }
  // Spaced review: a lesson passed before review existed is scheduled on load; its mistake is due today.
  {
@@ -1206,13 +1253,13 @@ try{
   const cafe=nativeLessons[0],today=localDay(new Date(2026,9,17,12)),tomorrow=localDay(new Date(2026,9,18,12));
   const results=cafe.exercises.map(e=>e.id!=='meaning');
   learningCards=true;russianAudio=true;await open({[savedKey(cafe)]:{preferences:{stress:false,pronunciation:true},completion:{results,date:new Date(2026,9,16,12).toISOString(),hearts:3,bestCombo:0}}});
-  await until(()=>document.querySelector('.native-review-card')?.textContent.includes('1 word or phrase is ready.'));
+  await until(()=>document.querySelector('#native-review-open')?.textContent.includes('1 word to review'));
   const seeded=await stored(REVIEW_KEY);assert.deepEqual(seeded.items['cafe/w/coffee'],{box:0,due:today,lapses:0,reviews:0});assert.equal(seeded.items['cafe/w/tea'].due,tomorrow);
   await openPhysicalSettings();await click('.native-physical-actions .button','Connect');await click('.native-physical-devices button');
   await until(()=>window.__bleFrames.some(p=>p[0]===1&&p[6]===10));await physicalBackHome();
   assert.ok(await evaluate(()=>document.querySelector('.native-greeting-row').textContent.includes('1 to review today')),'The companion greeting mentions due reviews');
   // Returning home from any lesson shows only the due count, with the neutral face.
-  await click('#native-card-introductions ~ .button');await click('[aria-label="Return to app home"]');
+  await openCard('introductions');await click('[aria-label="Return to app home"]');
   await until(()=>window.__cards.at(-1)?.primary==='1 to review');assert.deepEqual(await evaluate(()=>[window.__cards.at(-1).secondary,window.__cards.at(-1).mode,window.__bleCommands.at(-1)]),['Practice on phone',1,4]);
   const statsBefore=await stored(NATIVE_STATS_KEY);
   await click('#native-review-open');await until(()=>document.querySelector('.native-app')?.dataset.view==='review'&&document.activeElement?.tagName==='H3');
@@ -1231,12 +1278,12 @@ try{
   const statsAfter=await stored(NATIVE_STATS_KEY);
   assert.equal(statsAfter.days[today],(statsBefore.days[today]??0)+1,'Review keeps the streak');assert.ok(statsAfter.xp[today]>(statsBefore.xp[today]??0));assert.equal(statsAfter.gems.balance,statsBefore.gems.balance,'Review awards no gems');
   const commands=await evaluate(()=>window.__bleCommands.length);
-  await click('.native-completion-home');await until(()=>document.activeElement?.id==='native-review-title');
-  assert.ok(await evaluate(()=>document.querySelector('.native-review-card').textContent.includes('All caught up. Next review tomorrow.')&&!document.querySelector('#native-review-open')));
+  await click('.native-completion-home');await until(()=>document.activeElement?.id==='native-home-title');
+  assert.equal(await evaluate(()=>!!document.querySelector('#native-review-open')),false,'Nothing due: no review bar');
   assert.equal(await evaluate(n=>window.__bleCommands.slice(n).at(-1),commands),4);assert.notEqual(await evaluate(()=>window.__cards.at(-1).primary),'0 to review');
   await open({[savedKey(cafe)]:{preferences:{stress:false,pronunciation:true},completion:{results,date:new Date(2026,9,16,12).toISOString(),hearts:3,bestCombo:0}},[REVIEW_KEY]:after},new Date(2026,9,18,12).getTime());
-  await until(()=>document.querySelector('.native-review-card')?.textContent.includes('ready.'));
-  console.log('PASS: passed lessons seed review; home card, greeting and OLED show only the due count; a review session reuses lesson UI with free mistakes, safe OLED cards and CELEBRATE, reschedules the item, keeps the streak/XP without gems, and items return the next day.');
+  await until(()=>document.querySelector('#native-review-open')?.textContent.includes('to review'));
+  console.log('PASS: passed lessons seed review; home review bar, greeting and OLED show only the due count; a review session reuses lesson UI with free mistakes, safe OLED cards and CELEBRATE, reschedules the item, keeps the streak/XP without gems, and items return the next day.');
  }
  assert.deepEqual(browserErrors,[],'No uncaught browser exceptions');
  console.log('PASS: interaction checks use isolated Chromium shims; no real iPhone, ESP32, speech or payment verification.');

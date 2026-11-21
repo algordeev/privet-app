@@ -4,7 +4,7 @@ export const lesson:LessonDefinition={
  "number": "07",
  "title": "Study and work",
  "description": "Meet a classmate and talk about where you study or work.",
- "icon": "▱",
+ "icon": "🎓",
  "motivationTags": [
   "Studies",
   "Conversations"

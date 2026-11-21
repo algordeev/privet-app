@@ -4,7 +4,7 @@ export const lesson:LessonDefinition={
  "number": "03",
  "title": "Around town",
  "description": "Find the metro with help from a passer-by.",
- "icon": "⌖",
+ "icon": "🚇",
  "motivationTags": [
   "Travel"
  ],

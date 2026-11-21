@@ -43,22 +43,7 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-welcome h1 > span { display: block; }
 .native-welcome h1 > span:last-child { font-size: 25px; line-height: 1.3; margin-top: 9px; letter-spacing: -.7px; }
 .native-welcome > p:last-child { font-size: 15px; line-height: 1.7; color: #627458; margin-top: 14px; }
-.native-lesson-card { padding: 24px 22px; border: 1px solid #d3dec7; border-radius: 22px; background: #e9efdf; }
 /* Where a lesson stands on the path: a small pill at the right end of the card's top row. */
-.native-card-top > .native-path-state { margin-left:auto; padding:5px 9px; border-radius:999px; background:#f8f6f0; color:#627657; font-size:10px; font-weight:600; letter-spacing:0; white-space:nowrap; }
-.native-card-top > .native-path-state.passed { background:#397756; color:#fffdf7; }
-.native-card-top > .native-path-state.up-next { background:#fffdf7; color:#246653; box-shadow:inset 0 0 0 1px #a8bea0; }
-.native-card-top { display: flex; align-items: center; gap: 12px; }
-.native-cup { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: #f7f3e5; font-size: 25px; }
-.native-card-top > .native-lesson-meta { font-size: 9px; font-weight: 600; letter-spacing: 1px; color: #617650; }
-.native-app .native-lesson-card h2 { margin-top: 18px; font-size: 27px; font-weight: 600; letter-spacing: -.8px; }
-.native-lesson-card > p { margin-top: 10px; font-size: 15px; line-height: 1.65; color: #627657; }
-.native-card-progress { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 24px; font-size: 11px; color: #5b714e; }
-.native-card-bar { display: block; position: relative; margin: 9px 0 24px; }
-.native-lesson-card progress { display: block; appearance: none; width: 100%; height: 5px; margin: 0; border: 0; border-radius: 5px; background: #cedbbe; accent-color: #38724d; overflow: hidden; }
-.native-lesson-card progress::-webkit-progress-bar { background: #cedbbe; }
-.native-lesson-card progress::-webkit-progress-value { background: #38724d; border-radius: 5px; }
-.native-lesson-card .button { width: 100%; justify-content: space-between; }
 .native-app .native-text-button { display: block; min-height: 44px; padding: 10px 0; margin: 9px auto 0; color: #4b6b3c; background: transparent; font-size: 13px; text-decoration: underline; text-underline-offset: 4px; }
 .native-companion-card { display: flex; align-items: center; gap: 12px; margin-top: 22px; border: 1px solid #e1e4d6; border-radius: 17px; padding: 16px 12px; background: #f2f2e8; }
 .native-home-robot { width: 115px; height: 109px; flex-shrink: 0; }
@@ -382,12 +367,6 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* Optional Cyrillic aids: native-only, separate from lesson/reward state. */
-.native-app .native-quick-card { margin: 24px 0 18px; padding: 22px; border: 1px solid #d6d9c9; border-top: 3px solid #d98a70; border-radius: 20px; background: #fffdf7; }
-.native-app .native-quick-heading { display: flex; gap: 12px; align-items: center; margin: 14px 0 10px; }
-.native-app .native-quick-heading > span { color: #246653; background: #e9efdf; border-radius: 12px; padding: 9px; font-size: 23px; }
-.native-app .native-quick-heading h2 { font-size: 24px; line-height: 1.2; letter-spacing: -.5px; }
-.native-app .native-quick-card > p { color: #627458; font-size: 15px; margin-bottom: 20px; }
-.native-app .native-quick-card .button { width: 100%; justify-content: space-between; }
 .native-app .native-alphabet-trigger { font-size: 12px; font-weight: 650; color: #246653; border: 1px solid #d3dec7; }
 .native-app .app-navigation { gap: 7px; }
 .native-app .app-navigation > div { flex: 1; min-width: 0; }
@@ -456,15 +435,6 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-sheet[data-closing=true] { pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .native-app .native-sheet-panel, .native-app .native-sheet::backdrop { animation: none !important; } }
 
-.native-app .native-quick-card.is-collapsed { display: flex; align-items: center; gap: 10px; padding: 14px; border-top-width: 1px; border-color: #d6d9c9; }
-.native-app .native-quick-monogram { display: grid; place-items: center; width: 38px; height: 42px; flex-shrink: 0; border-radius: 10px; background: #e9efdf; color: #246653; font-size: 21px; }
-.native-app .native-quick-card.is-collapsed > div { flex: 1; min-width: 0; }
-.native-app .native-quick-card.is-collapsed h2 { font-size: 17px; letter-spacing: -.3px; line-height: 1.3; }
-.native-app .native-quick-card.is-collapsed p { font-size: 12px; color: #627458; margin-top: 3px; }
-.native-app .native-quick-open { min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid #c6d4bc; border-radius: 12px; background: #fffdf7; color: #246653; font-size: 14px; font-weight: 600; }
-.native-app .native-quick-card + .native-review-card { margin-top: 0; }
-.native-app .native-review-card.is-due { border-color: #a8bea0; box-shadow: inset 3px 0 0 #397756; }
-.native-app .native-review-card.is-due .native-quick-monogram { background: #397756; color: #fffdf7; }
 
 /* App Settings shares the profile typography and lesson button proportions. */
 .native-app .native-settings-list { display:grid;gap:16px;margin-top:24px; }
@@ -499,13 +469,6 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-companion-chip > span[aria-hidden=true] { flex:none;font-size:20px;line-height:1; }
 
 /* Later and completed lessons stay scannable; the next lesson keeps its full card. */
-.native-app .native-lesson-compact { padding:18px; }
-.native-app .native-lesson-compact .native-card-top { gap:8px; }
-.native-app .native-lesson-compact .native-cup { width:36px;height:36px;font-size:22px; }
-.native-app .native-lesson-compact h2 { font-size:22px;margin:12px 0 6px; }
-.native-app .native-lesson-compact > p { font-size:14px;line-height:1.5;margin-bottom:12px; }
-.native-app .native-lesson-compact .native-card-progress { margin-top:12px; }
-.native-app .native-lesson-compact > .button { min-height:44px;padding:10px 14px;margin-top:12px;font-size:15px; }
 
 /* Whole-word reading aids use the same native typeface and quiet secondary tone. */
 .native-app .native-example-reading,
@@ -525,16 +488,13 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
    through any delay) rather than `both`: WebKit then drops each animation's layer once it finishes. */
 .native-app .button { transition: background .2s, transform 120ms var(--ease); }
 .native-app .button:active:not(:disabled) { transform: scale(.98); }
-.native-home-scroll > *, .native-lesson-list > .native-lesson-card { animation: app-rise-in 340ms var(--ease) backwards; animation-delay: calc(var(--i,0) * 50ms); }
+.native-home-scroll > * { animation: app-rise-in 340ms var(--ease) backwards; animation-delay: calc(var(--i,0) * 50ms); }
 .native-home-scroll > .native-lesson-list { animation: none; }
 .native-home-scroll > :nth-child(2) { --i: 1; }
 .native-home-scroll > :nth-child(3) { --i: 2; }
 .native-home-scroll > :nth-child(4) { --i: 3; }
 .native-home-scroll > :nth-child(5) { --i: 4; }
 .native-home-scroll > .native-home-footer { --i: 8; }
-.native-card-bar::after { content: ''; position: absolute; inset: 0; border-radius: 5px; background: #cedbbe; transform: scaleX(0); transform-origin: right; animation: app-bar-reveal 650ms var(--ease) backwards; animation-delay: calc(var(--i,0) * 50ms + 220ms); }
-.native-lesson-card.is-up-next .native-path-state { animation: app-glow 1.6s ease-out 1 backwards; animation-delay: calc(var(--i,0) * 50ms + 350ms); }
-.native-lesson-card.is-up-next .button > span { animation: app-nudge 700ms var(--ease) 1 backwards; animation-delay: calc(var(--i,0) * 50ms + 600ms); }
 .native-streak-badge.is-bumped svg, .native-gems-pill.is-bumped { animation: app-pop 420ms var(--spring) 380ms backwards; }
 @keyframes app-fade-in { from { opacity: 0; } }
 @keyframes app-rise-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -724,17 +684,7 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .robot-3d-fallback-printer { display: grid; place-items: center; height: 100%; color: #3f7fd0; }
 .robot-3d-fallback-printer svg { width: 96px; height: 96px; }
 
-/* Locked lessons (no Plus): lesson 4 readable with a lock, the rest blurred behind one unlock button. */
-.native-card-top > .native-path-state.locked { background:#fff6dd; color:#7a5a12; box-shadow:inset 0 0 0 1px #e6cf8f; }
-.native-app .native-lesson-card.is-locked { padding:18px; }
-.native-app .native-lesson-card.is-locked .native-cup { width:36px;height:36px;font-size:22px; }
-.native-app .native-lesson-card.is-locked h2 { font-size:22px;margin:12px 0 6px; }
-.native-app .native-lesson-card.is-locked > p { font-size:14px;line-height:1.5;margin-bottom:12px; }
-.native-app .native-lesson-card.is-locked > .button { min-height:44px;padding:10px 14px;margin-top:4px;font-size:15px; }
-.native-app .native-locked-group { position:relative; display:grid; gap:inherit; }
-.native-app .native-lesson-card.is-blurred > [aria-hidden] { filter:blur(5px); opacity:.75; user-select:none; pointer-events:none; }
 /* Centred by inset + auto margins, not transform, so the shared press effect (a transform) can't move it. */
-.native-app .native-unlock-more { position:absolute; inset:0; margin:auto; width:max-content; height:fit-content; max-width:calc(100% - 32px); justify-content:center; gap:8px; box-shadow:0 10px 28px #31513a33; }
 
 /* Settings › Help & privacy: rows that open Safari or Mail, then the app version. */
 .native-app .native-settings-help ul { margin:-6px 0 0; padding:0; list-style:none; }
@@ -745,4 +695,72 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 
 /* Home: passed lessons gather under a small "Completed · N" label at the end of the list. */
 .native-app .native-completed-title { margin:10px 4px -6px; font-family:inherit; font-size:12px; font-weight:600; letter-spacing:1.6px; text-transform:uppercase; color:#627458; }
-.native-app .native-lesson-list[data-settled] > .native-lesson-card { animation:none; }
+
+/* ---------- Home lessons: chapters, the "Up next" card with its scene, slim rows, Completed ---------- */
+.native-app .home-lessons { display:flex; flex-direction:column; gap:10px; }
+.native-app .home-chapter { display:flex; align-items:center; gap:10px; margin:8px 2px 0; --c:#2f7a52; }
+.native-app .home-chapter.is-locked { --c:#8a917f; }
+.native-app .home-chapter-no { flex:none; width:28px; height:28px; border-radius:9px; background:var(--c,#2f7a52); color:#fffdf7; display:grid; place-items:center; font-weight:800; font-size:13px; }
+.native-app .home-chapter.is-locked .home-chapter-no { background:#b9bfb1; }
+.native-app .home-chapter h2 { flex:1; min-width:0; margin:0; font-family:inherit; font-size:16px; font-weight:700; line-height:1.15; letter-spacing:-.2px; color:#232b29; }
+.native-app .home-chapter h2 small { display:block; font-size:10px; font-weight:700; letter-spacing:1.3px; text-transform:uppercase; color:var(--c); margin-bottom:2px; }
+.native-app .home-chapter-state { font-size:11px; font-weight:700; color:#7a5a12; white-space:nowrap; }
+.native-app .home-chapter-dots { display:flex; gap:4px; }
+.native-app .home-chapter-dots i { width:16px; height:6px; border-radius:3px; background:#d6dccb; }
+.native-app .home-chapter-dots i.is-done { background:var(--c); }
+
+.native-app .home-hero { border-radius:24px; overflow:hidden; background:#fffdf7; border:1px solid #d6e0cc; box-shadow:0 10px 26px #31513a14; }
+.native-app .home-scene { background:var(--t); }
+.native-app .home-scene svg { display:block; width:100%; height:auto; aspect-ratio:320/120; }
+.native-app .home-hero-body { padding:14px 16px 16px; }
+.native-app .home-kicker { margin:0 0 3px; font-size:10.5px; font-weight:700; letter-spacing:1.3px; text-transform:uppercase; color:var(--d); }
+.native-app .home-hero h2 { margin:0 0 4px; font-family:inherit; font-size:24px; font-weight:700; line-height:1.15; letter-spacing:-.6px; }
+.native-app .home-hero-text { margin:0 0 10px; font-size:14px; line-height:1.45; color:#5c6b58; }
+.native-app .home-phrases { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 12px; padding:0; list-style:none; }
+.native-app .home-phrases li { padding:4px 9px; border-radius:9px; background:var(--t); font-size:13px; color:#2b332f; }
+.native-app .home-bar progress { display:block; width:100%; height:7px; border:0; border-radius:9px; overflow:hidden; background:#e4e9dc; appearance:none; -webkit-appearance:none; }
+.native-app .home-bar progress::-webkit-progress-bar { background:#e4e9dc; border-radius:9px; }
+.native-app .home-bar progress::-webkit-progress-value { background:var(--d); border-radius:9px; }
+.native-app .home-bar progress::-moz-progress-bar { background:var(--d); border-radius:9px; }
+.native-app .home-hero-meta { display:flex; justify-content:space-between; margin:5px 0 12px; font-size:12px; color:#6b7a63; }
+.native-app .home-hero > .home-hero-body > .button { width:100%; }
+.native-app .home-hero.is-locked .home-scene { filter:saturate(.55); }
+
+.native-app .home-rows { border-radius:18px; background:#fffdf7; border:1px solid #e1e6d8; overflow:hidden; }
+.native-app .home-row { position:relative; display:flex; align-items:center; gap:11px; padding:10px 12px; border-top:1px solid #edf0e6; }
+.native-app .home-row:first-child { border-top:0; }
+.native-app .home-row-icon { flex:none; width:42px; height:42px; border-radius:12px; background:var(--t); display:grid; place-items:center; font-size:21px; }
+.native-app .home-row h2 { flex:1; min-width:0; margin:0; font-family:inherit; font-size:15px; font-weight:400; line-height:1.25; letter-spacing:0; }
+.native-app .home-row h2 b { display:block; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#232b29; }
+.native-app .home-row h2 span { display:block; font-size:12px; color:#6b7a63; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.native-app .home-row.is-locked .home-row-icon { filter:grayscale(.8); opacity:.6; }
+.native-app .home-row.is-locked h2 b { color:#5f6a5c; }
+.native-app .home-row-score { font-size:12px; font-weight:700; color:#397756; white-space:nowrap; }
+.native-app .home-row-lock { font-size:13px; }
+.native-app .home-row-chev { font-size:20px; color:#9aab90; }
+/* The whole row is the button (a stretched, transparent button over it). */
+.native-app .home-row-open { position:absolute; inset:0; width:100%; min-height:0; padding:0; border-radius:0; background:transparent; }
+.native-app .home-row-open:active:not(:disabled) { transform:none; background:#24665312; }
+
+.native-app .home-plus { display:flex; align-items:center; gap:8px; width:100%; min-height:48px; padding:12px 14px; border-radius:15px; border:1px solid #ecd99e; background:#fff6dd; color:#6b4e0f; font-size:14px; font-weight:600; text-align:left; }
+.native-app .home-plus > span:last-child { margin-left:auto; font-size:18px; }
+.native-app .home-fold { display:flex; align-items:center; gap:10px; width:100%; min-height:48px; padding:10px 12px; border-radius:15px; border:1px solid #dfe5d6; background:#fffdf7; color:#232b29; font-size:14px; text-align:left; }
+.native-app .home-fold .home-chapter-no { width:24px; height:24px; border-radius:8px; font-size:12px; background:#397756; }
+.native-app .home-fold b { flex:1; font-weight:600; }
+.native-app .home-fold > span:last-child { color:#397756; font-weight:700; font-size:12px; }
+.native-app .native-lesson-list[data-settled] > * { animation:none; }
+
+/* Review: a slim bar under the robot's greeting while words are due. */
+.native-app .native-review-bar { display:flex; align-items:center; gap:10px; width:100%; min-height:48px; padding:10px 14px; border-radius:15px; background:#2f6b4b; color:#fffdf7; font-size:14px; font-weight:600; text-align:left; }
+.native-app .native-review-bar-icon { font-size:17px; }
+.native-app .native-review-bar-text { flex:1; min-width:0; }
+.native-app .native-review-bar-text small { display:block; font-size:11.5px; font-weight:400; opacity:.85; }
+.native-app .native-review-bar-go { white-space:nowrap; }
+
+/* Home rows and big cards: the Cyrillic quick start shares their look. */
+.native-app .home-row-go { font-size:13px; font-weight:600; color:#246653; white-space:nowrap; }
+.native-app .home-cyrillic .home-row-icon { font-size:17px; font-weight:700; color:#246653; }
+.native-app .home-hero .home-skip { display:block; margin:8px auto 0; }/* The big card's picture is a button: tapping it shrinks the card back to a row. */
+.native-app .home-scene { display:block; width:100%; padding:0; border:0; border-radius:0; cursor:pointer; }
+.native-app .home-scene > span { display:block; }
+.native-app .home-scene:focus-visible { outline:3px solid #246653; outline-offset:-3px; }
