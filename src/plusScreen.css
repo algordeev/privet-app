@@ -36,6 +36,3 @@
 .native-plus-card p { font-size:13px; color:#627458; }
 .native-app .native-plus-card .button { width:100%; }
 
-/* Settings › Privet Plus: Restore sits under the main button. */
-.native-app .native-settings-plus > .native-text-button { margin-top:6px; text-decoration:none; color:#4b6b3c; }
-.native-app .native-settings-plus > .native-text-button:disabled { opacity:.6; }
