@@ -356,6 +356,11 @@ try{
   await click('[aria-label="Return to app home"]');
   // Settings: a later time pauses the last call; switching off clears everything.
   await click('#native-settings-open');assert.ok(await evaluate(()=>document.querySelector('[aria-label="Daily reminder"]').checked));
+  // Settings also opens from Profile's gear; Back returns to Profile and focus goes back to the gear.
+  await click('[aria-label="Back to home"]');await click('[aria-label="Open your profile and statistics"]');await click('#native-profile-settings');
+  await until(()=>!!document.querySelector('#native-settings-title'));await click('[aria-label="Back to profile"]');
+  await until(()=>!!document.querySelector('#native-profile-title')&&document.activeElement?.id==='native-profile-settings');
+  await click('[aria-label="Back to home"]');await click('#native-settings-open');
   // Help & privacy: Support, email, Privacy Policy and Terms leave the app (Safari / Mail).
   assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.native-settings-help a')].map(a=>[a.textContent.replace('›','').trim(),a.getAttribute('href').split('?')[0],a.target])),[['Support','https://algordeev.github.io/privet-app/support.html','_blank'],['Email privetapp.help@gmail.com','mailto:privetapp.help@gmail.com','_blank'],['Privacy Policy','https://algordeev.github.io/privet-app/privacy.html','_blank'],['Terms of Use','https://www.apple.com/legal/internet-services/itunes/dev/stdeula/','_blank']]);
   await evaluate(()=>{const input=document.querySelector('.reminder-time');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'20:30');input.dispatchEvent(new Event('input',{bubbles:true}));});
