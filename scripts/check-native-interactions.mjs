@@ -188,10 +188,10 @@ try{
   assert.equal((await stored(NATIVE_SESSION_KEY)).progress.hearts,0);
   await click('.failure-screen .button','Get unlimited hearts');
   await until(()=>!!document.querySelector('#native-plus-title'));
-  assert.ok(await evaluate(()=>document.querySelector('.native-plus-demo').textContent.includes('No payment processing')));
+  assert.ok(await evaluate(()=>document.querySelector('.native-plus-demo').textContent.includes('Browser preview · No payment')));
   await click('[aria-label="Back"]');assert.ok(await evaluate(()=>!!document.querySelector('.failure-screen')));
   assert.equal((await stored(NATIVE_SESSION_KEY)).progress.failed,true);
-  await click('.failure-screen .button','Get unlimited hearts');await click('.native-plus-start','Activate Plus demo');
+  await click('.failure-screen .button','Get unlimited hearts');await click('.plus-plans button',`Monthly${PLUS_MONTHLY_PRICE} / month`);await click('.plus-buy',`Continue · ${PLUS_MONTHLY_PRICE}/month`);
   await until(()=>!!document.querySelector('.lesson-bottom'));
   assert.equal((await stored(SUBSCRIPTION_KEY)).plan,'monthly');
   assert.equal((await stored(NATIVE_SESSION_KEY)).progress.hearts,3);assert.equal((await stored(NATIVE_SESSION_KEY)).progress.failed,false);
@@ -200,8 +200,8 @@ try{
   assert.equal((await stored(NATIVE_SESSION_KEY)).progress.hearts,3,'Plus wrong answer must not consume a heart');
   await click('[aria-label="Return to app home"]');await click('[aria-label="Open your profile and statistics"]');
   assert.ok(await evaluate(()=>!!document.querySelector('.native-profile-avatar.is-plus')));
-  await click('#native-profile-plus-open','Manage Plus');await click('.native-plus-card .button','Cancel Plus');
-  await until(()=>!!document.querySelector('.native-plus-start'));
+  await click('#native-profile-plus-open','Manage Plus');await click('.native-plus-card .button','Cancel Plus demo');
+  await until(()=>!!document.querySelector('.plus-buy'));
   assert.equal((await stored(SUBSCRIPTION_KEY)).plan,null);
   await click('[aria-label="Back"]');assert.equal(await evaluate(()=>!!document.querySelector('.native-profile-avatar.is-plus')),false);
   await click('[aria-label="Back to home"]');assert.equal(await evaluate(()=>!!document.querySelector('#native-profile-open.is-plus')),false);await startCafe();
@@ -209,7 +209,7 @@ try{
   assert.equal((await stored(NATIVE_SESSION_KEY)).progress.hearts,2,'After cancellation mistakes consume hearts again');
   await open({},undefined,true);assert.equal((await stored(SUBSCRIPTION_KEY)).plan,null,'Cancellation persists on reload');
   await click('[aria-label="Open your profile and statistics"]');await click('#native-profile-plus-open','Get Plus');
-  await click('.native-plus-plans button',`Yearly${PLUS_YEARLY_PRICE} / year · Concept pricing`);await click('.native-plus-start','Activate Plus demo');
+  await click('.plus-plans button',`YearlyBest value${PLUS_YEARLY_PRICE} / year$3.33 / month`);await click('.plus-buy',`Continue · ${PLUS_YEARLY_PRICE}/year`);
   await open({},undefined,true);assert.equal((await stored(SUBSCRIPTION_KEY)).plan,'yearly');assert.ok(await evaluate(()=>!!document.querySelector('#native-profile-open.is-plus')));assert.equal(await evaluate(()=>document.querySelector('#native-plus-open')),null);
 
   // Profile activation must recover an already failed selected lesson without
@@ -217,7 +217,7 @@ try{
   const paused=meaning();paused.progress={...paused.progress,hearts:0,failed:true,attempts:3,feedback:'incorrect'};paused.selected='tea';
   await open({[NATIVE_SESSION_KEY]:paused});
   assert.equal((await stored(NATIVE_SESSION_KEY)).progress.failed,true,'Without Plus a paused lesson stays paused');
-  await click('[aria-label="Open your profile and statistics"]');await click('#native-profile-plus-open','Get Plus');await click('.native-plus-start','Activate Plus demo');
+  await click('[aria-label="Open your profile and statistics"]');await click('#native-profile-plus-open','Get Plus');await click('.plus-buy',`Continue · ${PLUS_YEARLY_PRICE}/year`);
   await until(key=>JSON.parse(localStorage.getItem(key)).progress.failed===false,NATIVE_SESSION_KEY);
   let recovered=await stored(NATIVE_SESSION_KEY);
   assert.equal(recovered.progress.hearts,3);assert.equal(recovered.progress.index,1);assert.equal(recovered.progress.attempts,3);assert.deepEqual(recovered.progress.results,[true]);assert.equal(recovered.selected,'tea');
@@ -860,18 +860,20 @@ try{
   assert.equal((await stored(NATIVE_SESSION_KEY)).progress.complete,true,'Guided completion credits existing Lesson 1');await capture(`first-result-${viewport.width}`);
   await open({},undefined,true);assert.deepEqual(await stored(NATIVE_STATS_KEY),earned,'Reopening completion cannot duplicate XP, gems or statistics');
   await click('.native-next-lesson','Choose how to continue');assert.equal(await evaluate(()=>document.querySelectorAll('.first-offer').length),3);
-  assert.equal(await evaluate(()=>document.querySelectorAll('.first-offer a[href]').length),0);await capture('offer-hero');
+  assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.first-offers .plus-legal a[href]')].map(a=>a.textContent)),['Terms of Use','Privacy Policy']);
+  assert.ok(await evaluate(()=>{const b=document.querySelector('.first-offer-companion .button');return b.disabled&&b.textContent==='Future concept';}),'The companion is shown, never sold');
+  assert.ok(await evaluate(()=>{const order=['.first-offer-plus','.first-offer-companion','.first-offer-free'].map(s=>document.querySelector(s));return order[0].compareDocumentPosition(order[1])&4&&order[1].compareDocumentPosition(order[2])&4;}),'Plus, then Companion, then Free');await capture('offer-hero');
   await scrollToCentre('.first-offer-companion');await capture('offer-companion');
   await scrollToCentre('.first-offer-free .button');await assertNativeLayout();assert.ok(await fitsOnScreen('.first-offer-free .button'),'Free choice fits the current viewport');
   await capture('free');assert.equal(await evaluate(()=>window.__openCalls.length),0);
   // The 375-wide run leaves through Free, the 430-wide run through Plus.
   if(viewport.width===375)await click('.first-offer-free .button','Continue with Free');
-  else {await click('.first-plan-options button','Annual Save 33%');await capture('plus-selected');await click('.first-offer-plus .button','Try Privet Plus');assert.equal((await stored(SUBSCRIPTION_KEY)).plan,null,'Paid choice first shows confirmation, without activation');assert.equal(await evaluate(()=>document.querySelectorAll('.first-scroll a[href]').length),0);assert.equal(await evaluate(()=>window.__openCalls.length),0);await capture('confirmation');await click('.first-actions .button','Continue');assert.equal((await stored(SUBSCRIPTION_KEY)).plan,'yearly');}
+  else {await click('.first-plan-options button','Annual Save 33%');assert.ok(await evaluate(()=>document.querySelector('.first-price-display').textContent===`$39.99/ year`));await capture('plus-selected');await click('.first-offer-plus .plus-buy','Get Privet Plus');assert.equal((await stored(SUBSCRIPTION_KEY)).plan,'yearly','A finished purchase goes straight home with Plus');}
   assert.ok(await evaluate(()=>document.querySelector('#native-card-cafe').closest('section').textContent.includes('Passed')));
   assert.ok(await evaluate(()=>document.querySelector('#native-card-introductions').closest('section').textContent.includes('Up next')));
   assert.equal((await stored(FIRST_RUN_KEY)).completed,true);firstTime=false;await open({},undefined,true);assert.ok(await evaluate(()=>!!document.querySelector('.native-home-scroll')));firstTime=true;
   assert.deepEqual(await stored(NATIVE_STATS_KEY),earned,'Offer/home/normal relaunch do not grant more rewards');
-  console.log(`PASS ${viewport.width}×${viewport.height}: fresh welcome→all personalization selections/reload→companion→guided café with Cyrillic/audio/hearts→completion/reload→concept offer→home/next lesson; one reward receipt, no hardware required.`);
+  console.log(`PASS ${viewport.width}×${viewport.height}: fresh welcome→all personalization selections/reload→companion→guided café with Cyrillic/audio/hearts→completion/reload→paywall→home/next lesson; one reward receipt, no hardware required.`);
  }
  // Existing paired controller stays mounted during replay, and no learner data
  // or paid entitlement is erased or awarded again by the classroom demonstration.
@@ -885,30 +887,26 @@ try{
  await click('.first-actions .button','Start lesson');assert.deepEqual(await codes(),[1,6],'First unanswered onboarding question enters THINKING');
  await finishWelcomeLesson();assert.equal((await codes()).filter(code=>code===3).length,1,'Accepted final Continue sends CELEBRATE exactly once');
  assert.ok(await evaluate(()=>document.querySelector('.xp-breakdown').textContent.includes('practice score')));
- await openOffers();await click('.first-offer-companion .button','Explore Companion');
- assert.ok(await evaluate(()=>document.querySelector('.first-scroll').textContent.includes('Nothing was ordered, charged or sent')));
- await click('.first-actions .button','Continue');
- assert.deepEqual(await Promise.all(preservedKeys.map(stored)),preserved,'Replay/companion confirmation preserve all lessons, statistics and Plus');
+ await openOffers();await evaluate(()=>document.querySelector('.first-offer-free .button').click());await until(()=>!document.querySelector('.native-first-run'));
+ assert.deepEqual(await Promise.all(preservedKeys.map(stored)),preserved,'Replay preserves all lessons, statistics and Plus');
  await click('#native-settings-open');
  assert.equal(await evaluate(()=>document.querySelector('.native-physical-home-status')?.textContent.includes('Connected')??document.querySelector('#native-physical-open').textContent.includes('Connected')),true,'Established link survives onboarding replay');
  await evaluate(()=>window.privetResetOnboarding());await until(()=>!!document.querySelector('.native-first-run[data-stage="welcome"]'));
  assert.deepEqual(await Promise.all(preservedKeys.map(stored)),preserved,'Developer reset changes only the onboarding flag');
- console.log('PASS: connected replay greeting/THINKING/CELEBRATE, local Companion confirmation, no duplicate rewards or erased data, retained connection and onboarding-only developer reset.');
- // Monthly confirmation uses the same existing subscription demo, with no checkout.
+ console.log('PASS: connected replay greeting/THINKING/CELEBRATE, no duplicate rewards or erased data, retained connection and onboarding-only developer reset.');
+ // Monthly Plus from the onboarding paywall (browser demo store).
  firstTime=true;
  const restoredResult={...freshSession(),progress:{...freshSession().progress,index:5,complete:true,results:[true,true,true,true,true]}};
  const atOffers={[FIRST_RUN_KEY]:{...initialFirstRun(),stage:'offer',reason:'Travel',level:'New to Russian'},[sessionKey(firstRunLesson)]:restoredResult};
  await open(atOffers);
- await click('.first-offer-plus .button','Try Privet Plus');assert.deepEqual(await evaluate(()=>Array.from(document.querySelectorAll('.first-review dl>div')).map(row=>[row.querySelector('dt').textContent,row.querySelector('dd').textContent])),[['Selected plan','Monthly'],['Concept price',PLUS_MONTHLY_PRICE+' / month'],['Hearts','Unlimited'],['Payment today','None · local demo']]);
- assert.equal((await stored(SUBSCRIPTION_KEY)).plan,null,'Review must not activate Plus before Continue');
- await click('.first-actions .button','Continue');assert.equal((await stored(SUBSCRIPTION_KEY)).plan,'monthly');
+ assert.equal((await stored(SUBSCRIPTION_KEY)).plan,null);assert.ok(await evaluate(()=>document.querySelector('.first-price-display').textContent===`$4.99/ month`),'Monthly is chosen first, as before');await click('.first-offer-plus .plus-buy','Get Privet Plus');assert.equal((await stored(SUBSCRIPTION_KEY)).plan,'monthly');assert.equal((await stored(FIRST_RUN_KEY)).completed,true);assert.equal((await stored(FIRST_RUN_KEY)).choice,'plus');
  // The narrower iPhone viewport also keeps choices and the primary action usable.
  await call('Emulation.setDeviceMetricsOverride',{width:320,height:568,deviceScaleFactor:1,mobile:true});
  await open(atOffers);await assertNativeLayout();await scrollToCentre('.first-offer-free .button');await assertNativeLayout();
- assert.ok(await fitsOnScreen('.first-offer-free .button'));assert.equal(await evaluate(()=>document.querySelectorAll('.first-offer a[href]').length),0);await capture('free');
+ assert.ok(await fitsOnScreen('.first-offer-free .button'));await scrollToCentre('.plus-buy');assert.ok(await fitsOnScreen('.plus-buy'));await capture('free');
  await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});await open();await evaluate(()=>document.querySelector('.first-actions .button').click());assert.ok(await evaluate(()=>document.querySelector('.first-scroll h1').textContent.includes('Listen and repeat')),'No-preference entrance keeps Continue immediately clickable');await capture('reduced-motion');
  await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await open();await click('.first-actions .button','Get started');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue with virtual companion');await click('.first-options button[aria-label="Conversations"]');await click('.first-actions .button','Continue');await click('.first-options button[aria-label="New to Russian"]');await click('.first-actions .button','A little Cyrillic first');assert.ok(await evaluate(()=>!!document.querySelector('[data-stage=alphabet]')));await assertNativeLayout();await click('.first-actions .button','Continue');assert.ok(await evaluate(()=>document.body.textContent.includes('Same shape. Different sound.')));await click('.first-actions .button','Ready for the mini-class');await capture('handoff');await capture('reduced-motion');await assertNativeLayout();
- console.log('PASS: choosing monthly Plus activates it only after confirming; Continue is never blocked by entrance motion; offers and onboarding controls fit at 320×568 and 430×932.');
+ console.log('PASS: buying monthly Plus on the onboarding paywall finishes the welcome; Continue is never blocked by entrance motion; offers and onboarding controls fit at 320×568 and 430×932.');
 
  // A first-time owner can pair before personalization, without leaving onboarding.
  await open({[FIRST_RUN_KEY]:{...initialFirstRun(),stage:'connection'}});

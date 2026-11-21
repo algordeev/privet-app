@@ -1,8 +1,10 @@
-import type {Ref} from 'react';
+import {useState,type Ref} from 'react';
 import {PRODUCT} from './config';
-import {LEVELS,REASONS,type Offer} from './firstRun';
+import {LEVELS,REASONS} from './firstRun';
 import type {NativeCompanionController} from './useNativeCompanion';
-import {COMPANION_PRICE,PLUS_MONTHLY_PRICE,PLUS_YEARLY_PRICE,type PlusPlan} from './subscription';
+import type {SubscriptionController} from './useSubscription';
+import {PlusActive,PlusLegal,PlusMessage} from './PlusScreen';
+import {introText,perPeriod,PLUS_PRODUCTS,yearlySaving,type PlusPlan} from './store';
 import {NativeRobot} from './NativeRobot';
 import {NativeCompanionImages} from './NativeCompanionImages';
 import {ExpressionStrip,StoryArt} from './OnboardingArt';
@@ -79,47 +81,59 @@ function Option({label,icon,picked,onPick}:{label:string;icon?:string;picked:boo
  </button>;
 }
 
-// After the first lesson: the companion, Plus and Free side by side. The offers need a finished lesson.
-export function Offers({companion,lessonDone,plan,onPlan,onChoose,onResume,heading}:{companion:NativeCompanionController;lessonDone:boolean;plan:PlusPlan;onPlan:(plan:PlusPlan)=>void;onChoose:(offer:Offer)=>void;onResume:()=>void;heading:Heading}){
- const yearly=plan==='yearly';
+// After the first lesson: Plus, the companion (a concept, not for sale) and Free side by side. The offers need a finished lesson.
+export function Offers({companion,subscription,lessonDone,onFree,onPurchased,onResume,heading}:{companion:NativeCompanionController;subscription:SubscriptionController;lessonDone:boolean;onFree:()=>void;onPurchased:()=>void;onResume:()=>void;heading:Heading}){
+ const [plan,setPlan]=useState<PlusPlan>('monthly');
+ const {products,productsState,busy,purchase,retryProducts}=subscription;
+ const yearly=plan==='yearly',product=products.find(item=>item.id===PLUS_PRODUCTS[plan]);
+ const saving=yearlySaving(products),intro=product?introText(product):null;
+ const ready=productsState==='ready'&&!!product;
+ async function buy(){if(ready&&!busy&&await purchase(plan)==='purchased')onPurchased();}
  return <>
   <div className="first-offer-hero">
    <div className="first-robot"><div className="first-halo"/><NativeRobot companion={companion} size="greeting"/></div>
    <p className="native-kicker">YOUR NEXT LITTLE WIN</p>
    <h1 ref={heading} tabIndex={-1}>Keep learning with a companion by your side</h1>
-   <p>Unlock the complete course with Privet Plus—or bring Privet to life with the physical companion.</p>
+   <p>Unlock the complete course with Privet Plus—or meet the physical companion we’re working on.</p>
   </div>
   {!lessonDone
    ?<div className="first-note"><p>Your saved first lesson is unavailable. Finish it before exploring offers.</p><button className="button teal" onClick={onResume}>Resume first lesson</button></div>
    :<div className="first-offers">
+    <section className="first-offer first-offer-plus">
+     <p className="native-kicker">PRIVET PLUS</p>
+     <h2>More room to grow.</h2>
+     <ul><li>All 8 lessons, and every new one</li><li>Unlimited hearts</li></ul>
+     {subscription.plus?<PlusActive subscription={subscription}/>:<>
+      <div className="first-plan-options" role="group" aria-label="Plus plan">
+       <span className={`first-plan-indicator is-${plan}`}/>
+       <button aria-pressed={!yearly} onClick={()=>setPlan('monthly')}>Monthly</button>
+       <button aria-pressed={yearly} onClick={()=>setPlan('yearly')}>Annual{saving&&<> <b>Save {saving}%</b></>}</button>
+      </div>
+      <div className="first-price-display"><strong>{product?.displayPrice??'…'}</strong><span>{perPeriod(product?.period??null)}</span></div>
+      {intro&&<p className="first-plus-intro">{intro}</p>}
+      {productsState==='failed'
+       ?<div className="plus-note" role="status"><p>Prices couldn’t load. Check your connection and try again.</p><button className="native-text-button" onClick={retryProducts}>Try again</button></div>
+       :<button className="button teal plus-buy" disabled={!ready||!!busy} onClick={buy}>{busy==='purchase'?'Opening the App Store…':!ready?'Loading prices…':intro&&product?.introOffer?.paymentMode==='freeTrial'?'Start free trial':'Get Privet Plus'}</button>}
+      <p className="first-plus-terms">Renews automatically until cancelled. Cancel anytime in Settings.</p>
+     </>}
+     <PlusMessage subscription={subscription}/>
+    </section>
     <section className="first-offer first-offer-companion">
      <NativeCompanionImages compact/>
      <p className="native-kicker">THE PRIVET COMPANION · CONCEPT</p>
      <h2>A learning companion to call your own.</h2>
-     <ul><li>Expressive OLED face</li><li>Servo head movement</li><li>Real-time Bluetooth reactions</li><li>Lifetime Privet Plus included</li></ul>
+     <ul><li>Expressive OLED face</li><li>Servo head movement</li><li>Real-time Bluetooth reactions</li></ul>
      <ExpressionStrip/>
      <p className="first-honest-line">Working ESP32 prototype today · finished companion is a concept</p>
-     <p className="first-price-line">{COMPANION_PRICE} · One-time preorder concept</p>
-     <button className="button teal" onClick={()=>onChoose('companion')}>Explore Companion</button>
-    </section>
-    <section className="first-offer first-offer-plus">
-     <p className="native-kicker">PRIVET PLUS</p>
-     <h2>More room to grow.</h2>
-     <ul><li>Unlimited hearts</li><li>Full course and practice access <small>Planned</small></li><li>Advanced progress insights <small>Planned</small></li></ul>
-     <div className="first-plan-options" role="group" aria-label="Plus demo plan">
-      <span className={`first-plan-indicator is-${plan}`}/>
-      <button aria-pressed={!yearly} onClick={()=>onPlan('monthly')}>Monthly</button>
-      <button aria-pressed={yearly} onClick={()=>onPlan('yearly')}>Annual <b>Save 33%</b></button>
-     </div>
-     <div className="first-price-display"><strong>{yearly?PLUS_YEARLY_PRICE:PLUS_MONTHLY_PRICE}</strong><span>{yearly?'/ year':'/ month'} · Concept pricing</span></div>
-     <button className="button teal" onClick={()=>onChoose(yearly?'plus-yearly':'plus-monthly')}>Try Privet Plus</button>
+     <button className="button first-secondary" disabled>Future concept</button>
     </section>
     <section className="first-offer first-offer-free">
      <p className="native-kicker">FREE</p>
      <h2>Keep learning at your pace.</h2>
-     <ul><li>Basic lessons</li><li>Limited hearts</li><li>Virtual companion</li></ul>
-     <button className="button first-secondary" onClick={()=>onChoose('free')}>Continue with Free</button>
+     <ul><li>First three lessons</li><li>Limited hearts</li><li>Virtual companion</li></ul>
+     <button className="button first-secondary" onClick={onFree}>{subscription.plus?'Continue':'Continue with Free'}</button>
     </section>
+    <PlusLegal subscription={subscription} restore={!subscription.plus}/>
    </div>}
  </>;
 }
