@@ -37,12 +37,7 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-home-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .native-app .wordmark { font-family: inherit; font-size: 32px; }
 .native-level { color: #65765a; font-size: 9px; font-weight: 600; letter-spacing: 1px; }
-.native-welcome { margin-block: 37px 27px; }
 .native-kicker { color: #657a55; font-size: 10px; font-weight: 600; letter-spacing: 1.3px; }
-.native-app .native-welcome h1 { margin-top: 13px; letter-spacing: -1px; font-size: 38px; line-height: 1.2; font-weight: 650; outline: none; }
-.native-welcome h1 > span { display: block; }
-.native-welcome h1 > span:last-child { font-size: 25px; line-height: 1.3; margin-top: 9px; letter-spacing: -.7px; }
-.native-welcome > p:last-child { font-size: 15px; line-height: 1.7; color: #627458; margin-top: 14px; }
 /* Where a lesson stands on the path: a small pill at the right end of the card's top row. */
 .native-app .native-text-button { display: block; min-height: 44px; padding: 10px 0; margin: 9px auto 0; color: #4b6b3c; background: transparent; font-size: 13px; text-decoration: underline; text-underline-offset: 4px; }
 .native-companion-card { display: flex; align-items: center; gap: 12px; margin-top: 22px; border: 1px solid #e1e4d6; border-radius: 17px; padding: 16px 12px; background: #f2f2e8; }
@@ -162,8 +157,6 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app[data-keyboard=true] .lesson-bottom > .app-audio-note { display: none; }
 
 /* Native virtual companion: all selectors stay within the app shell. */
-.native-app .native-welcome { margin-block: 24px 18px; }
-.native-app .native-welcome h1 { font-size: 28px; line-height: 1.2; margin: 0; }
 .native-companion-greeting { margin-bottom: 20px; }
 .native-greeting-row { display: flex; align-items: center; gap: 13px; }
 .native-companion-bubble { flex: 1; min-width: 0; position: relative; border: 1px solid #d9e1cf; border-radius: 16px; padding: 15px; background: #fffdf7; color: #39563d; font-size: 14px; line-height: 1.55; }
@@ -764,3 +757,4 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .home-scene { display:block; width:100%; padding:0; border:0; border-radius:0; cursor:pointer; }
 .native-app .home-scene > span { display:block; }
 .native-app .home-scene:focus-visible { outline:3px solid #246653; outline-offset:-3px; }
+.native-app .native-companion-greeting { margin-top:18px; }
