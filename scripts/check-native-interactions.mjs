@@ -305,6 +305,26 @@ try{
   await assertNativeLayout();
   console.log(`PASS ${viewport.width}×${viewport.height}: Plus activate/cancel/reload/zero-heart recovery via lesson and Profile, restored heart consumption, freeze lifecycle→finish, replay reward separation, refill/freeze prices; native panes cannot scroll sideways, all exercises/header controls fit, vertical scroll retained.`);
  }
+ // Typing: letter buttons fill the app's own answer box (no iPhone keyboard); the keyboard is opt-in and keeps what was typed.
+ {
+  await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+  const typedStep=freshSession();typedStep.progress={...typedStep.progress,index:4,results:[true,true,true,true]};
+  await open({[NATIVE_SESSION_KEY]:typedStep});await startCafe();await until(()=>!!document.querySelector('.translation-display'));
+  assert.equal(await evaluate(()=>!!document.querySelector('input#translation')),false,'No text field (so no iPhone keyboard) by default');
+  const shown=()=>evaluate(()=>document.querySelector('.translation-display span[lang]')?.textContent??'');
+  const letter=l=>evaluate(l=>[...document.querySelectorAll('.letter-bank button')].find(b=>b.textContent===l).click(),l);
+  await letter('с');await letter('п');await letter('о');assert.equal(await shown(),'спо');
+  await click('[aria-label="Delete last letter"]');assert.equal(await shown(),'сп');
+  await click('.keyboard-switch .native-text-button','Use iPhone keyboard');await until(()=>!!document.querySelector('input#translation'));
+  assert.equal(await evaluate(()=>document.querySelector('input#translation').value),'сп','The iPhone keyboard keeps what was typed');
+  assert.equal(await evaluate(()=>document.activeElement?.id),'translation');assert.equal(await evaluate(()=>!!document.querySelector('.letter-bank')),false);
+  assert.ok(await evaluate(()=>document.querySelector('.keyboard-switch').textContent.includes('🌐')));
+  await click('.keyboard-switch .native-text-button','Use letter buttons');await until(()=>!!document.querySelector('.translation-display'));
+  for(const l of Array.from('асибо'))await letter(l);assert.equal(await shown(),'спасибо');await assertNativeLayout();
+  await click('.lesson-bottom .button','Check answer');await until(()=>!!document.querySelector('.feedback.correct'));
+  assert.equal(await evaluate(()=>!!document.querySelector('.keyboard-switch')),false,'No switch once answered');
+  console.log('PASS: typing uses letter buttons in the app’s own answer box; the iPhone keyboard is opt-in, keeps the typed letters, and switches back.');
+ }
  // Reminders: the one-time invitation, the iOS permission answer, Settings, and exactly what gets scheduled.
  {
   await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
@@ -1098,7 +1118,7 @@ try{
    if(e.kind==='vocabulary'){await evaluate(()=>document.querySelectorAll('.vocab-reveal').forEach(b=>b.click()));}
    else if(e.kind==='choice'||e.kind==='listen'){await evaluate(text=>{[...document.querySelectorAll('.choice')].find(b=>b.querySelector('.native-choice-copy > span').textContent===text).click();},e.answer);}
    else if(e.kind==='sentence'){for(const word of e.answer.split(' '))await evaluate(word=>{[...document.querySelectorAll('.word-bank button')].find(b=>!b.disabled&&b.textContent===word).click();},word);}
-   else if(e.kind==='typed'){await evaluate(text=>{const input=document.querySelector('#translation');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,text);input.dispatchEvent(new Event('input',{bubbles:true}));},e.answer);}
+   else if(e.kind==='typed'){for(const letter of Array.from(e.answer.toLowerCase()))await evaluate(letter=>{[...document.querySelectorAll('.letter-bank button')].find(b=>b.textContent===letter).click();},letter);}
    else if(e.kind==='match'){const tap=text=>evaluate(text=>{[...document.querySelectorAll('.match-item')].find(b=>!b.disabled&&(b.querySelector('span')?.textContent??b.textContent)===text).click();},text);for(const [ru,en] of e.pairs){await tap(ru);await pause(40);await tap(en);await pause(40);}}
    await pause(60);await assertNativeLayout();
    if(e.kind!=='match')await click('.lesson-bottom .button','Check answer');
