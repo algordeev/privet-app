@@ -13,6 +13,11 @@ export function recordLessonCompletion(saved:Saved,completion:NonNullable<Saved[
 }
 // A practice attempt can restart without undoing a previously earned completion.
 export function lessonPassed(progress:Pick<Progress,'complete'>,saved:Saved){return progress.complete||!!saved.completion;}
+// Version of a lesson's saved results and of its saved attempt. When their shape changes, raise it and
+// convert older data in readSaved/restoreSession (never drop it: see storageCompat.test.ts).
+// Data written before versions existed has none and reads as version 1.
+export const LESSON_DATA_VERSION=1;
+const knownVersion=(version:unknown)=>version===undefined||version===LESSON_DATA_VERSION;
 export const NATIVE_SESSION_KEY=`${PRODUCT.storageKey}-native-session`;
 export const sessionKey=(definition:LessonDefinition=cafeLesson)=>definition.id===cafeLesson.id?NATIVE_SESSION_KEY:`${NATIVE_SESSION_KEY}-${definition.id}`;
 export const savedKey=(definition:LessonDefinition=cafeLesson)=>definition.id===cafeLesson.id?PRODUCT.storageKey:`${PRODUCT.storageKey}-${definition.id}`;
@@ -51,6 +56,7 @@ export function restoreSession(serialized:string|null,definition:LessonDefinitio
  try {
   if(!serialized) return freshSession();
   const s=JSON.parse(serialized);
+  if(!knownVersion(s?.version))return freshSession();
   const matches=s.matches??[];
   const p=s.progress;
   if(!validProgress(p,lesson.length)||
@@ -74,8 +80,13 @@ export function loadSession(enabled:boolean,definition:LessonDefinition=cafeLess
  }catch{return freshSession();}
 }
 export function readSaved(definition:LessonDefinition=cafeLesson):Saved {
+ try{return parseSaved(appStorage.getItem(savedKey(definition)),definition);}catch{return {preferences:{stress:false,pronunciation:true}};}
+}
+// A lesson's saved results as stored; anything missing or damaged falls back to "not passed yet".
+export function parseSaved(raw:string|null,definition:LessonDefinition=cafeLesson):Saved {
  try {
-  const data=JSON.parse(appStorage.getItem(savedKey(definition))||'{}');
+  const data=JSON.parse(raw||'{}');
+  if(!knownVersion(data?.version))return {preferences:{stress:false,pronunciation:true}};
   const {completion}=data,steps=definition.exercises.length;
   const validCompletion=Array.isArray(completion?.results)&&completion.results.length===steps&&completion.results.every((v:unknown)=>typeof v==='boolean')
    &&typeof completion.date==='string'&&isWholeNumberIn(completion.hearts,0,MAX_HEARTS)&&isWholeNumberIn(completion.bestCombo,0,steps);

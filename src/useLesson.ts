@@ -2,7 +2,7 @@ import {appStorage} from './previewStorage';
 import {useEffect,useReducer,useRef,useState,type Dispatch,type SetStateAction} from 'react';
 import {cafeLesson,type LessonDefinition} from './lessons';
 import {companionReaction,isPair,lessonCompanionEvent,matchValue,progressReducer,type Action,type Progress} from './engine';
-import {loadSession,sessionKey,savedKey,readSaved,lessonPassed,recordLessonCompletion,type Preferences} from './session';
+import {LESSON_DATA_VERSION,loadSession,sessionKey,savedKey,readSaved,lessonPassed,recordLessonCompletion,type Preferences} from './session';
 import {useSpeech} from './useSpeech';
 import {hapticFor} from './haptics';
 import {playHaptic} from './nativeHaptics';
@@ -44,7 +44,7 @@ export function useLesson({persistSession=false,saveResults=true,definition=cafe
  const exercise=lesson[Math.min(progress.index,lesson.length-1)];
  const hintRequested=hintAt===progress.index;
  const reaction=companionReaction(lessonCompanionEvent(progress,{thinking:thinkingAt===progress.index,hintRequested,vocabularyWord},lesson));
- useEffect(()=>{if(!saveResults)return;try{appStorage.setItem(savedKey(definition),JSON.stringify({...saved,preferences}));}catch{/* Storage is optional. */}},[saved,preferences,saveResults]);
+ useEffect(()=>{if(!saveResults)return;try{appStorage.setItem(savedKey(definition),JSON.stringify({version:LESSON_DATA_VERSION,...saved,preferences}));}catch{/* Storage is optional. */}},[saved,preferences,saveResults]);
  useEffect(()=>{
   if(previousStep.current!==progress.index){setSelected('');setTokens([]);setMatches([]);setLessonSettings(false);setHintAt(null);}
   previousStep.current=progress.index;
@@ -58,7 +58,7 @@ export function useLesson({persistSession=false,saveResults=true,definition=cafe
   // A transition may render before the step-cleanup effect; don't persist a
   // prior step's hint as though it belonged to the newly opened question.
   const snapshot={progress,selected,tokens,matches,revealed,hintAt:hintAt===progress.index&&!progress.complete?hintAt:null,vocabularyWord};
-  try{appStorage.setItem(sessionKey(definition),JSON.stringify(snapshot));}catch{/* Continue without persistence. */}
+  try{appStorage.setItem(sessionKey(definition),JSON.stringify({version:LESSON_DATA_VERSION,...snapshot}));}catch{/* Continue without persistence. */}
  },[persistSession,progress,selected,tokens,matches,revealed,hintAt,vocabularyWord]);
  useEffect(()=>{if(progress.feedback&&lessonScroll.current)lessonScroll.current.scrollTop=lessonScroll.current.scrollHeight;},[progress.feedback]);
  const display=(id:string)=>{const w=words.find(w=>w.id===id)!;return preferences.stress?w.stressed:w.text;};
