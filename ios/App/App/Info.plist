@@ -22,6 +22,8 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Privet uses Bluetooth to connect to your Privet desk companion, keychain Mini or pocket thermal printer when you choose Connect or Print.</string>
 	<key>UIBackgroundModes</key>

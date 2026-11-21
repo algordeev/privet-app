@@ -1,18 +1,41 @@
-/* Plus screen: a centred intro, then either the two plans to choose from or the active plan's card. */
-.native-plus-intro { margin:34px 0 26px; text-align:center; }
+/* Plus screen: a centred intro, then either the offer (perks, plans, buy button) or the active plan's card. */
+.native-plus-intro { margin:34px 0 22px; text-align:center; }
 .native-plus-intro > span { display:grid; place-items:center; width:76px; height:76px; margin:0 auto 18px; border-radius:24px; background:#eaf0e1; color:#397756; font-size:50px; }
 .native-app .native-plus-intro h2 { font-size:25px; line-height:1.3; letter-spacing:-.6px; }
-.native-plus-intro p { margin-top:9px; font-size:14px; color:#627458; }
-
-.native-plus-plans { display:grid; gap:11px; }
-.native-plus-plans button { display:grid; gap:5px; width:100%; padding:16px; border:1px solid #dce4d2; border-radius:16px; background:#fffdf7; color:#315a3c; text-align:left; }
-/* The chosen plan: thicker border, one pixel less padding so nothing moves. */
-.native-plus-plans button[aria-pressed=true] { padding:15px; border:2px solid #397756; background:#edf1e6; }
-.native-plus-plans strong { font-size:16px; }
-.native-plus-plans span { font-size:12px; color:#68785e; }
-.native-app .native-plus-start { width:100%; margin-top:18px; }
+.native-app .native-plus-restore { margin:0; padding:10px 4px; font-size:14px; text-decoration:none; font-weight:600; }
 .native-plus-demo { margin-top:13px; font-size:12px; line-height:1.6; color:#68785e; text-align:center; }
+
+/* The offer, shared with the onboarding paywall. */
+.native-app .plus-perks { display:grid; gap:9px; margin:0 0 18px; padding:0; list-style:none; font-size:15px; line-height:1.4; color:#315a3c; }
+.native-app .plus-perks li { display:flex; gap:10px; }
+.native-app .plus-perks li::before { content:'✓'; flex:none; color:#397756; font-weight:700; }
+
+.native-app .plus-plans { display:grid; gap:11px; }
+.native-app .plus-plans button { display:grid; gap:4px; width:100%; padding:15px 16px; border:1px solid #dce4d2; border-radius:16px; background:#fffdf7; color:#315a3c; text-align:left; }
+/* The chosen plan: thicker border, one pixel less padding so nothing moves. */
+.native-app .plus-plans button[aria-checked=true] { padding:14px 15px; border:2px solid #397756; background:#edf1e6; }
+.native-app .plus-plan-name { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:13px; font-weight:600; color:#627458; }
+.native-app .plus-plan-name b { padding:3px 8px; border-radius:99px; background:#397756; color:#fffdf7; font-size:11px; font-weight:600; }
+/* The billed amount is the most prominent price; the monthly equivalent stays small. */
+.native-app .plus-plans strong { font-size:19px; letter-spacing:-.3px; }
+.native-app .plus-plans small { font-size:12px; color:#68785e; }
+
+.native-app .plus-intro { margin:14px 0 0; font-size:14px; font-weight:600; text-align:center; color:#315a3c; }
+.native-app .plus-buy { width:100%; min-height:52px; margin-top:16px; white-space:normal; }
+.native-app .plus-buy:disabled { opacity:.6; }
+.native-app .plus-terms { margin:10px 0 0; font-size:12px; line-height:1.5; text-align:center; color:#68785e; }
+.native-app .plus-note { margin-top:16px; padding:14px; border-radius:14px; background:#f4f1e6; font-size:13px; line-height:1.5; color:#5a5f4c; text-align:center; }
+.native-app .plus-note .native-text-button { margin:4px auto 0; }
+.native-app .plus-message { margin:14px 0 0; padding:12px 14px; border-radius:13px; background:#edf1e6; font-size:13px; line-height:1.5; color:#315a3c; text-align:center; }
+
+/* Restore · Terms of Use · Privacy Policy */
+.native-app .plus-legal { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:0 2px; margin:14px 0 0; font-size:12px; color:#68785e; }
+.native-app .plus-legal a,.native-app .plus-legal .native-text-button { display:inline-flex; align-items:center; min-height:44px; margin:0; padding:0 4px; color:#4b6b3c; font-size:12px; }
 
 .native-plus-card { display:grid; gap:12px; padding:19px; border:1px solid #d3dec7; border-radius:17px; background:#edf1e6; color:#315a3c; }
 .native-plus-card p { font-size:13px; color:#627458; }
 .native-app .native-plus-card .button { width:100%; }
+
+/* Settings › Privet Plus: Restore sits under the main button. */
+.native-app .native-settings-plus > .native-text-button { margin-top:6px; text-decoration:none; color:#4b6b3c; }
+.native-app .native-settings-plus > .native-text-button:disabled { opacity:.6; }

@@ -109,6 +109,10 @@ try {
  console.log('PASS: physical companion settings stay native-only; test requires subscribed connection and no pending command.');
  assert.ok(home.includes('Open your profile and statistics'));
  assert.ok(!home.includes('native-plus-open'));assert.ok(!home.includes('is-plus'));
+ // Without Plus: lessons 1–3 open, lesson 4 readable and locked, 5–8 blurred behind one button (still read by VoiceOver).
+ assert.equal((home.match(/class="native-lesson-card is-locked"/g)??[]).length,1);assert.ok(home.includes('Unlock with Plus'));
+ assert.equal((home.match(/is-blurred/g)??[]).length,4);assert.ok(home.includes('Unlock 5 more lessons'));
+ assert.ok(home.includes('Lesson 05, My day, locked.')&&home.includes('Lesson 08, A Russian weekend, locked.'));assert.equal((home.match(/>Start lesson</g)??[]).length,3);
  assert.ok(home.includes('0-day learning streak'));
  function Profile(){const activity=useNativeStats();const subscription=useSubscription();return createElement(NativeProfile,{activity,subscription,onPlus:()=>{},onClose:()=>{}});}
  const emptyProfile=renderToStaticMarkup(createElement(Profile));
@@ -236,16 +240,18 @@ try {
  }
  for(const text of ['−20','Refill your hearts','−30','A streak freeze for a missed day','$4.99','$39.99','$59.99','Concept pricing · no checkout','Lifetime Privet Plus included','Planned'])assert.ok(website.includes(text),text);
  assert.ok(website.includes('The robots on this page are simulated'));assert.ok(website.includes('class="companion-gallery"'));assert.ok(!website.includes('id="companion"'));assert.ok(website.includes('Working prototype'));assert.ok(website.includes('Privet body is a concept'));assert.ok(!/iprint/i.test(website));
+ // The website footer links the Support and Privacy pages published from public/.
+ assert.ok(website.includes('href="support.html">Support</a>'));assert.ok(website.includes('href="privacy.html">Privacy Policy</a>'));assert.ok(website.includes('Independent app'));
  function Plus(){const subscription=useSubscription();return createElement(PlusScreen,{subscription,onClose:()=>{}});}
- storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));assert.ok(renderToStaticMarkup(createElement(Plus)).includes('Activate Plus demo'));
+ storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));const offer=renderToStaticMarkup(createElement(Plus));for(const text of ['All 8 lessons, and every new one','Unlimited hearts','$39.99 / year','$3.33 / month','$4.99 / month','Best value','Continue · $39.99/year','Renews automatically until cancelled','Restore','Terms of Use','Privacy Policy','Browser preview · No payment'])assert.ok(offer.includes(text),text);assert.ok(offer.indexOf('Yearly')<offer.indexOf('Monthly'),'Yearly is listed (and chosen) first');assert.ok(/role="radio" aria-checked="true"[^>]*><span class="plus-plan-name">Yearly/.test(offer),'Yearly starts selected');assert.ok(!offer.includes('Concept pricing'));
  storage.set(SUBSCRIPTION_KEY,JSON.stringify({version:1,plan:'monthly',since:'2026-10-18'}));
- assert.ok(renderToStaticMarkup(createElement(Plus)).includes('Cancel Plus'));assert.ok(renderToStaticMarkup(createElement(Profile)).includes('Manage Plus'));
+ const active=renderToStaticMarkup(createElement(Plus));assert.ok(active.includes('Plus is active'));assert.ok(active.includes('Monthly'));assert.ok(active.includes('Cancel Plus demo'));assert.ok(!active.includes('plus-buy'));assert.ok(renderToStaticMarkup(createElement(Profile)).includes('Manage Plus'));
  Capacitor.isNativePlatform=()=>true;
- const plusHome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(plusHome.includes('native-profile-open is-plus'));assert.ok(plusHome.includes('Plus demo active'));assert.ok(!plusHome.includes('native-plus-open'));
+ const plusHome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(plusHome.includes('native-profile-open is-plus'));assert.ok(plusHome.includes('Plus active'));assert.ok(!plusHome.includes('native-plus-open'));assert.ok(!plusHome.includes('native-locked-group'));assert.ok(!plusHome.includes('is-locked'));
  const plusProfile=renderToStaticMarkup(createElement(Profile));assert.ok(plusProfile.includes('native-profile-avatar is-plus'));assert.ok(plusProfile.includes('native-profile-plus-tag'));
  Capacitor.isNativePlatform=()=>false;
  storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));assert.ok(renderToStaticMarkup(createElement(Profile)).includes('Get Plus'));
- console.log('PASS: own-feature descriptions replace comparisons, prices/hardware states are accurate, and Plus demo screens render inactive/active states.');
+ console.log('PASS: own-feature descriptions replace comparisons, prices/hardware states are accurate, and the Plus paywall and active plan render (browser demo store).');
  console.log('PASS: native completion/replay and saved results render; browser sessions still start fresh.');
  const {NativeAlphabetGuide,NativeCyrillicQuickStart,CyrillicExample}=await server.ssrLoadModule('/src/NativeCyrillic.tsx');
  const {CYRILLIC,targetLetterParts}=await server.ssrLoadModule('/src/cyrillic.ts');

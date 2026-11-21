@@ -1,0 +1,88 @@
+{
+  "identifier" : "5C2E7A41",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21600001",
+      "localizations" : [
+
+      ],
+      "name" : "Privet Plus",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "39.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6760000001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "All lessons and unlimited hearts, billed yearly.",
+              "displayName" : "Privet Plus Yearly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.algordeev.privet.plus.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Plus Yearly",
+          "subscriptionGroupID" : "21600001",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "6760000002",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "All lessons and unlimited hearts, billed monthly.",
+              "displayName" : "Privet Plus Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.algordeev.privet.plus.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Plus Monthly",
+          "subscriptionGroupID" : "21600001",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

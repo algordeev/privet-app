@@ -24,11 +24,13 @@ test('every motivation and level persists, with progression gated on both select
   assert.equal(s.reason,reason);assert.equal(s.level,level);assert.equal(updateFirstRun(s,{type:'personalized'}).stage,level===LEVELS[0]?'alphabet':'companion');
  }
 });
-test('free finishes and paid choices require local confirmation, with valid completion persistence',()=>{
+test('continuing free or buying Plus both finish the welcome, with valid completion persistence',()=>{
  const s=offer();assert.equal(s.stage,'offer');
- const free=updateFirstRun(s,{type:'choose',choice:'free'});assert.equal(free.stage,'done');assert.equal(free.completed,true);
- for(const choice of ['plus-monthly','plus-yearly','companion'] as const){const confirmation=updateFirstRun(s,{type:'choose',choice});assert.equal(confirmation.stage,'confirmation');assert.equal(confirmation.completed,false);const done=updateFirstRun(confirmation,{type:'finish'});assert.equal(done.completed,true);assert.deepEqual(restoreFirstRun(JSON.stringify(done)),done);}
+ for(const choice of ['free','plus'] as const){const done=updateFirstRun(s,{type:'choose',choice});assert.equal(done.stage,'done');assert.equal(done.completed,true);assert.equal(done.choice,choice);assert.deepEqual(restoreFirstRun(JSON.stringify(done)),done);}
  assert.equal(updateFirstRun(initialFirstRun(),{type:'choose',choice:'free'}).stage,'welcome');
+ // The removed concept choices and confirmation step no longer restore.
+ assert.deepEqual(restoreFirstRun(JSON.stringify({...s,stage:'confirmation',choice:'plus'})),initialFirstRun());
+ assert.deepEqual(restoreFirstRun(JSON.stringify({...s,choice:'companion'})),initialFirstRun());
 });
 test('replay and developer reset touch only onboarding state, retaining personalization',()=>{
  const done=updateFirstRun(offer(),{type:'choose',choice:'free'}),before=JSON.stringify(done);

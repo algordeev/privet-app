@@ -108,9 +108,9 @@
 .native-app .first-offer > .button { width:100%; min-height:50px; white-space:normal; }
 .native-app .first-secondary { border:1px solid #6b967e; background:var(--first-card); color:var(--first-green); }
 .native-app .first-offer-companion { padding:16px; border:2px solid #6d9c80; background:linear-gradient(160deg,#f4f7ee,var(--first-card) 72%); }
-.native-app .first-honest-line,.native-app .first-price-line { margin:9px 0; font-size:12px; line-height:1.5; color:#496b55; }
-.native-app .first-honest-line { font-weight:600; }
-.native-app .first-price-line { color:#6d7668; }
+.native-app .first-honest-line { margin:9px 0; font-size:12px; line-height:1.5; color:#496b55; font-weight:600; }
+/* The companion is a concept: shown, never sold, so its button stays visibly unavailable. */
+.native-app .first-offer-companion > .button:disabled { border-style:dashed; background:transparent; color:var(--first-quiet); opacity:1; cursor:default; }
 .native-app .first-offer-plus { border:2px solid var(--first-green); background:var(--first-surface); }
 /* Monthly/Annual switch: a white pill slides under the chosen plan. */
 .native-app .first-plan-options { position:relative; isolation:isolate; display:flex; gap:4px; margin:12px 0 13px; padding:4px; border-radius:15px; background:#dce7d7; }
@@ -122,16 +122,11 @@
 .native-app .first-price-display { display:flex; align-items:baseline; gap:7px; margin:0 0 14px; }
 .native-app .first-price-display strong { font-size:27px; color:var(--first-green); }
 .native-app .first-price-display span { font-size:11px; color:var(--first-quiet); }
-
-/* Confirmation: what was chosen, as a short list. */
-.native-app .first-review { margin:24px 0 16px; padding:22px; border:1px solid #c6d5bd; border-radius:22px; background:var(--first-card); }
-.native-app .first-review h2 { margin-bottom:18px; font-size:25px; line-height:1.25; }
-.native-app .first-review dl { margin:0; }
-.native-app .first-review dl > div { display:flex; justify-content:space-between; gap:18px; padding:13px 0; border-top:1px solid #e0e6d9; font-size:14px; line-height:1.5; }
-.native-app .first-review dt { color:var(--first-muted); }
-.native-app .first-review dd { max-width:60%; margin:0; text-align:right; color:#285b48; font-weight:600; }
-.native-app .first-review p { margin-top:16px; font-size:13px; line-height:1.6; color:var(--first-muted); }
-.native-app .first-review-symbol { display:grid; place-items:center; width:52px; height:52px; margin-bottom:14px; border-radius:16px; background:var(--first-surface); color:var(--first-green); font-size:30px; }
+/* What Apple asks a subscription offer to say: any intro offer, and that it renews until cancelled. */
+.native-app .first-plus-intro { margin:-6px 0 12px; font-size:13px; font-weight:600; color:var(--first-green); }
+.native-app .first-plus-terms { margin:10px 0 0; font-size:12px; line-height:1.5; text-align:center; color:var(--first-quiet); }
+.native-app .first-offer-plus > .button:disabled { opacity:.6; }
+.native-app .first-offer-plus .native-plus-card { margin-top:4px; }
 
 @keyframes first-enter { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
 @keyframes first-stagger { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }

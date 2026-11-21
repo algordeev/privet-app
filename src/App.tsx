@@ -1,5 +1,5 @@
 import {Fragment,useState} from 'react';
-import {PRODUCT} from './config';
+import {LEGAL,PRODUCT} from './config';
 import {Companion} from './Companion';
 import {useLesson} from './useLesson';
 import {LessonPanel} from './LessonPanel';
@@ -89,7 +89,7 @@ function App(){
    <PlansSection/>
    <section className="closing-section"><div className="wrap"><div className="closing-top"><div className="eyebrow">A WORK IN PROGRESS. A GOOD PLACE TO START.</div><span className="closing-flower" aria-hidden="true">✳</span></div><h2>Every conversation<br/>starts with <span className="serif-accent" lang="ru">привет.</span></h2><div className="closing-bottom"><p>{PRODUCT.name} is a work in progress: an iPhone app, eight lessons and three little devices so far. Try the lesson, notice what clicks, and imagine where a few minutes a day could take you.</p><a className="button dark" href="#demo" onClick={restart}>Give it another go <Arrow/></a></div><div className="roadmap" aria-label="Project roadmap">{roadmap.map((step,index)=><Fragment key={step.label}>{index>0&&<span className="roadmap-arrow" aria-hidden="true">→</span>}<div className={step.state==='done'?'complete':step.state==='current'?'current':'upcoming'} aria-current={step.state==='current'?'step':undefined}><span>{String(index+1).padStart(2,'0')} <i>{step.state==='done'?'DONE':step.state==='current'?'WE ARE HERE':'NEXT'}</i></span><strong>{step.label}</strong></div></Fragment>)}</div></div></section>
   </main>
-  <footer className="wrap"><a className="wordmark" href="#"><span className="brand-icon" aria-hidden="true"><i/><i/></span>{PRODUCT.name}<span className="brand-dot">.</span></a><p>A little Russian. A little every day.</p><div><span>Independent concept · {new Date().getFullYear()}</span><button onClick={resetAll}>Reset saved demo data</button></div></footer>
+  <footer className="wrap"><a className="wordmark" href="#"><span className="brand-icon" aria-hidden="true"><i/><i/></span>{PRODUCT.name}<span className="brand-dot">.</span></a><p>A little Russian. A little every day.</p><div><nav className="site-legal" aria-label="Help and legal"><a href="support.html">Support</a><a href="privacy.html">Privacy Policy</a><a href={LEGAL.terms} target="_blank" rel="noopener noreferrer">Terms of Use</a></nav><span>Independent app · {new Date().getFullYear()}</span><button onClick={resetAll}>Reset saved demo data</button></div></footer>
   <div className="global-notice" role="status">{(notice||speech.message)&&<><span>{notice||speech.message}</span><button aria-label="Dismiss notice" onClick={()=>{setNotice('');speech.stop();}}>×</button></>}</div>
  </>;
 }

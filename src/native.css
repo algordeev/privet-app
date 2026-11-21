@@ -331,6 +331,9 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .failure-screen .button { width:100%; }
 .native-app .failure-screen .button + .button { margin-top:9px; }
 .native-app .failure-screen .button:disabled { opacity:.48; cursor:default; }
+/* Gems and Plus sit under Try again, so a free learner never feels stuck. */
+.native-app .failure-screen .failure-secondary { border:1px solid #a8bea0; background:#fffdf7; color:#246653; }
+.native-app .failure-screen .failure-secondary:disabled { border-color:#dfe7d5; background:#f4f1e6; color:#5d7052; }
 /* Home header: the gem balance as a gold pill. */
 .native-app .native-gems-pill { display:inline-flex; align-items:center; gap:5px; padding:8px 10px; border:1px solid #ead89a; border-radius:999px; background:#fff8dc; color:#806515; font-size:13px; font-weight:600; white-space:nowrap; }
 .native-gems-pill span { color:#d2a72d; }
@@ -723,3 +726,22 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-print-practice svg, .native-app .native-profile-print svg { width: 20px; height: 20px; vertical-align: -4px; margin-right: 6px; }
 .robot-3d-fallback-printer { display: grid; place-items: center; height: 100%; color: #3f7fd0; }
 .robot-3d-fallback-printer svg { width: 96px; height: 96px; }
+
+/* Locked lessons (no Plus): lesson 4 readable with a lock, the rest blurred behind one unlock button. */
+.native-card-top > .native-path-state.locked { background:#fff6dd; color:#7a5a12; box-shadow:inset 0 0 0 1px #e6cf8f; }
+.native-app .native-lesson-card.is-locked { padding:18px; }
+.native-app .native-lesson-card.is-locked .native-cup { width:36px;height:36px;font-size:22px; }
+.native-app .native-lesson-card.is-locked h2 { font-size:22px;margin:12px 0 6px; }
+.native-app .native-lesson-card.is-locked > p { font-size:14px;line-height:1.5;margin-bottom:12px; }
+.native-app .native-lesson-card.is-locked > .button { min-height:44px;padding:10px 14px;margin-top:4px;font-size:15px; }
+.native-app .native-locked-group { position:relative; display:grid; gap:inherit; }
+.native-app .native-lesson-card.is-blurred > [aria-hidden] { filter:blur(5px); opacity:.75; user-select:none; pointer-events:none; }
+/* Centred by inset + auto margins, not transform, so the shared press effect (a transform) can't move it. */
+.native-app .native-unlock-more { position:absolute; inset:0; margin:auto; width:max-content; height:fit-content; max-width:calc(100% - 32px); justify-content:center; gap:8px; box-shadow:0 10px 28px #31513a33; }
+
+/* Settings › Help & privacy: rows that open Safari or Mail, then the app version. */
+.native-app .native-settings-help ul { margin:-6px 0 0; padding:0; list-style:none; }
+.native-app .native-settings-help li + li { border-top:1px solid #e6ecdf; }
+.native-app .native-settings-help a { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:48px; color:#285b48; font-size:15px; font-weight:600; text-decoration:none; overflow-wrap:anywhere; }
+.native-app .native-settings-help a > span { color:#8aa080; font-size:20px; font-weight:400; }
+.native-app .native-settings-version { margin:12px 0 0; font-size:12px; color:#7a8a72; }
