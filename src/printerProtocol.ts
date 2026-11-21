@@ -20,9 +20,8 @@ export const ROW_BYTES=PRINTER_WIDTH/8;
 export const CMD={STATE:0xA3,QUALITY:0xA4,SPEED:0xBD,ENERGY:0xAF,APPLY_ENERGY:0xBE,UPDATE:0xA9,LATTICE:0xA6,ROW:0xA2,FEED:0xA1,FLOW:0xAE} as const;
 export const LATTICE_START=[0xAA,0x55,0x17,0x38,0x44,0x5F,0x5F,0x5F,0x44,0x38,0x2C] as const;
 export const LATTICE_END=[0xAA,0x55,0x17,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x17] as const;
-export const ENERGY={light:8000,normal:12000,dark:20000} as const;
-export type EnergyLevel=keyof typeof ENERGY;
-export const DEFAULT_ENERGY=ENERGY.normal;
+// Print darkness: 12000 is the tested "normal" (lighter ~8000, darker ~20000; the app always uses normal).
+export const DEFAULT_ENERGY=12000;
 
 // CRC-8, polynomial 0x07, init 0, no reflection, no final XOR, over the data bytes only.
 export function crc8(data:ArrayLike<number>){

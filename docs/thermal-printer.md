@@ -17,9 +17,9 @@ Tested on an **SC03h** printer (advertised as `SC03h-438F`).
    - **Print a practice strip** on the end-of-lesson summary, and **Print a review strip** on the review summary;
    - **Print today's progress receipt** on Profile;
    - **Print word of the day** and **Print a test page** on Settings → Printer.
-4. Each opens a sheet with a preview of exactly what will print (the 1-bit image), the darkness setting and Print. While printing it shows rows sent / total and **Cancel printing**.
+4. Each opens a sheet with a preview of exactly what will print (the 1-bit image), and Print. While printing it shows rows sent / total and **Cancel printing**.
 
-**Darkness:** Light (energy 8000), Normal (12000, the default) or Dark (20000), saved on the phone (`privet-demo-v1-printer-energy`) and sent with every print.
+**Darkness:** every print uses the normal darkness, energy 12000 (`DEFAULT_ENERGY`), which suits the SC03h. Lighter (about 8000) and darker (about 20000) values also work but aren't offered in the app.
 
 ## Automatic reconnect
 
@@ -97,7 +97,7 @@ Content (`src/printContent.ts`) is built only from the existing lessons, reviews
 - **Practice strip:** three fill-in-the-blank lines, each with three tick-box options. Blanks come from the lesson's multi-word lines; wrong options are other words of the lesson, then of the course, never a word of the same line, and names (such as Анна) are never blanked or offered. A lesson with too few lines also gets "____ (meaning)" items. Then **trace & write**: the lesson's typed-exercise word in dithered grey to write over (without stress marks), with a line to write it again. The answers are printed upside down below a cut line.
 - **Review strip:** the practice strip for a finished review session, titled "Review · *date*". Its lines come from the lessons the reviewed words belong to and contain at least one of them. Words answered wrong come first: each gets a blank in a line, or a "____ (meaning)" item when no line uses it; then words answered correctly. The word to trace is the first one missed (else the first reviewed).
 - **Progress receipt:** like a shop receipt: the date and time, the streak in days with Mon–Sun boxes, then dotted-leader lines for new words (from lessons finished today), reviewed (today's review answers), accuracy (first-try results from today's lessons and reviews together) and XP today. Then today's words with 1–3 stars from their review box (0–1, 2–3, 4–5), an XP bar chart of the last 7 days (dithered bars, today solid), total XP and "Молодец! До завтра!". Minutes studied, robot nods and levels are not tracked, so they are not shown.
-- **Test page:** text with stress marks, a dithered gradient and line weights, for checking a new printer and the darkness.
+- **Test page:** text with stress marks, a dithered gradient and line weights, for checking a new printer.
 
 ## Source
 
@@ -107,7 +107,7 @@ Content (`src/printContent.ts`) is built only from the existing lessons, reviews
 | `src/printerTransport.ts` | Scan, connect, quiet discovery and offers, paced batched sending, flow control, cancel, background and the busy hint |
 | `src/printerDriver.ts` | Plugin adapter: its own scan lease, disconnect listener, notifications and MTU-sized writes without response |
 | `src/bleShared.ts`, `src/bleNative.ts` | The plugin's shared state: one initialization, the shared scan with leases, the Bluetooth-enabled fan-out |
-| `src/usePrinter.ts` | App-wide printer hook: remembered printer, darkness, auto-reconnect loop, home offers, print-when-connected |
+| `src/usePrinter.ts` | App-wide printer hook: remembered printer, auto-reconnect loop, home offers, print-when-connected |
 | `src/printContent.ts`, `src/printRender.ts` | Card content from lessons/reviews/stats; canvas drawing, hand-drawn stress marks and packing |
 | `src/PrinterScreen.tsx` | Settings → Printer, the print sheet with preview and progress, the settings button |
 | `src/PrinterFoundCard.tsx`, `src/foundCards.ts` | "Printer found" card, which printer to offer, one found card at a time |

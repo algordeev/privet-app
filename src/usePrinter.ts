@@ -3,7 +3,7 @@ import {App} from '@capacitor/app';
 import {Capacitor} from '@capacitor/core';
 import {appStorage} from './previewStorage';
 import {PRODUCT} from './config';
-import {DEFAULT_ENERGY,ENERGY,printJob} from './printerProtocol';
+import {printJob} from './printerProtocol';
 import {createNativePrinterDriver} from './printerDriver';
 import {BLE_USED_KEY} from './usePhysicalCompanion';
 import {createPrinterTransport,initialPrinterState,type PrinterDevice,type PrinterState,type PrinterTransport} from './printerTransport';
@@ -16,9 +16,6 @@ export const PRINTER_AUTO_OFF_KEY=`${PRODUCT.storageKey}-printer-auto-off`;
 // Same rhythm as the companion: a quick look every 4 s for two minutes after the printer went away (or
 // the app came back), then every 20 s.
 const LOOK_FAST_MS=4000,LOOK_FAST_FOR_MS=120000,LOOK_SLOW_MS=20000;
-export const PRINTER_ENERGY_KEY=`${PRODUCT.storageKey}-printer-energy`;
-const energies=Object.values(ENERGY) as number[];
-function savedEnergy(){try{const value=Number(appStorage.getItem(PRINTER_ENERGY_KEY)??DEFAULT_ENERGY);return energies.includes(value)?value:DEFAULT_ENERGY;}catch{return DEFAULT_ENERGY;}}
 export function rememberedPrinter():PrinterDevice|undefined{
  try{
   const saved=JSON.parse(appStorage.getItem(PRINTER_KEY)??'null') as unknown;
@@ -66,7 +63,8 @@ export function usePrinter(){
  const cancelConnection=useCallback(()=>{pending.current=undefined;transport.current?.cancel();},[]);
  const getState=useCallback(()=>store.current!.state,[]);
  const subscribe=useCallback((listener:()=>void)=>{store.current!.listeners.add(listener);return ()=>{store.current!.listeners.delete(listener);};},[]);
- const start=useCallback((rows:Uint8Array[])=>{void transport.current?.print(printJob(rows,{energy:savedEnergy()}));},[]);
+ // Always the Normal darkness (printJob's default), which suits the SC03h-type printers.
+ const start=useCallback((rows:Uint8Array[])=>{void transport.current?.print(printJob(rows));},[]);
  const setState=useCallback((next:PrinterState)=>{
   const previous=store.current!.state;
   store.current!.state=next;
@@ -126,9 +124,8 @@ export function usePrinter(){
   try{appStorage.setItem(PRINTER_AUTO_OFF_KEY,'1');}catch{/* Reconnecting stays on. */}
   void transport.current?.disconnect();
  },[]);
- const setEnergy=useCallback((value:number)=>{if(!energies.includes(value))return;try{appStorage.setItem(PRINTER_ENERGY_KEY,String(value));}catch{/* Used for this print only. */}},[]);
  const forget=useCallback(()=>{try{appStorage.removeItem(PRINTER_KEY);}catch{/* Nothing to forget. */}},[]);
- return {getState,subscribe,connect,choose,discover,dismissDiscovery,holdScan,cancelConnection,print,cancel,disconnect,energy:savedEnergy,setEnergy,remembered:rememberedPrinter,autoTarget:autoReconnectPrinter,forget,supported:printingSupported};
+ return {getState,subscribe,connect,choose,discover,dismissDiscovery,holdScan,cancelConnection,print,cancel,disconnect,remembered:rememberedPrinter,autoTarget:autoReconnectPrinter,forget,supported:printingSupported};
 }
 export type PrinterController=ReturnType<typeof usePrinter>;
 export function usePrinterState(controller:PrinterController){return useSyncExternalStore(controller.subscribe,controller.getState,controller.getState);}
