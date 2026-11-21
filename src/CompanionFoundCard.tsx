@@ -5,6 +5,7 @@ import {playHaptic} from './nativeHaptics';
 import {foundCardFree,holdFoundCard} from './foundCards';
 import type {PhysicalDevice} from './bleTransport';
 import {useBleState,type PhysicalCompanionController} from './usePhysicalCompanion';
+import {DEVICE} from './device';
 
 const loadRobot3D=()=>import('./Robot3D');
 const Robot3D=lazy(loadRobot3D);
@@ -49,7 +50,7 @@ export function CompanionFoundCard({controller,where}:{controller:PhysicalCompan
  const connect=()=>{setCard({...card,attempted:true});controller.connect(card.device.deviceId);};
  const name=card.device.name||BLE_NAME,model=companionModel(card.device.name);
  const message=stage==='found'?`Your ${model==='mini'?'pocket':'desk'} companion is nearby. Connect to wake it up.`
-  :stage==='connecting'?'Connecting… keep it close to your iPhone.'
+  :stage==='connecting'?`Connecting… keep it close to your ${DEVICE}.`
   :stage==='connected'?'Connected. It will react as you learn.'
   :state.message;
  return <NativeSheet id="companion-found" variant="card" title={name} onClose={close}

@@ -1,5 +1,6 @@
 import {CAPABILITIES,CARD_LIMITS,encodeControl,decodeControlAck,decodeCapabilities,decodeContentAck,cardFrames,validateCard,type Capabilities,type LearningCard} from './learningProtocol.ts';
 import {BLE_SERVICE,COMMAND,EXTENDED_FALLBACK,VOLUME_LEVELS,decodeAcknowledgement,encodeCommand,encodeVolume,nextRequestId,type CommandCode} from './bleProtocol.ts';
+import {DEVICE} from './device.ts';
 
 export type PhysicalDevice={deviceId:string;name?:string};
 export interface BleDriver {
@@ -161,8 +162,8 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
  function failure(error:unknown,g:number){
   if(!current(g)||error instanceof Cancelled)return;
   const message=error instanceof Error?error.message:String(error);
-  if(/permission|unauthoriz|denied/i.test(message))invalidate('permission-denied','Allow Bluetooth for Privet in iPhone Settings, then try again.');
-  else if(/unsupported|unavailable|not enabled|powered off/i.test(message))invalidate('unavailable','Bluetooth is unavailable. Use a real iPhone with Bluetooth turned on.');
+  if(/permission|unauthoriz|denied/i.test(message))invalidate('permission-denied',`Allow Bluetooth for Privet in ${DEVICE} Settings, then try again.`);
+  else if(/unsupported|unavailable|not enabled|powered off/i.test(message))invalidate('unavailable',`Bluetooth is unavailable. Use a real ${DEVICE} with Bluetooth turned on.`);
   else invalidate('error',(/timed out|too long|did not respond|No reply|Could not start scanning|Could not stop scanning/i.test(message))?message:'Could not reach the companion. Try connecting again.');
  }
  // target: the remembered companion's ID; a quiet scan that sees it connects to it at once.
@@ -185,7 +186,7 @@ export function createBleTransport(driver:BleDriver,emit:(state:BleState)=>void,
    if(!current(g))return;
    const enabled=await wait(raw(()=>driver.isEnabled()),g,time.subscribe,'Bluetooth did not respond. Try again.');
    if(!current(g))return;
-   if(!enabled){stop('unavailable','Bluetooth is off. Turn it on in iPhone Settings, then connect again.');return;}
+   if(!enabled){stop('unavailable',`Bluetooth is off. Turn it on in ${DEVICE} Settings, then connect again.`);return;}
    await wait(raw(()=>driver.watchEnabled(enabled=>{if(sameConnection(g)&&!enabled)stop('unavailable','Bluetooth is off or unavailable. Turn it on, then connect again.');})),g,time.subscribe,'Bluetooth did not respond. Try again.');
    if(!current(g))return;
    if(!quiet)update({message:'Scanning for companions… Choose a device below.'});

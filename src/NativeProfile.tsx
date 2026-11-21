@@ -4,6 +4,7 @@ import {CountedNumber} from './CountedNumber';
 import {GEM_RULES} from './gems';
 import type {NativeStatsController} from './useNativeStats';
 import type {SubscriptionController} from './useSubscription';
+import {DEVICE} from './device';
 
 export function ProfileIcon(){return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg>;}
 export function StreakIcon(){return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M13 3c1 5-4 6-3 10 1-1 2-2 2-4 4 2 6 5 5 8a6 6 0 0 1-11-4c0-4 4-6 7-10Z"/></svg>;}
@@ -34,6 +35,6 @@ export function NativeProfile({activity,subscription,onPlus,onClose,onPrint,onSe
   <section className="native-profile-week" aria-labelledby="native-week-title"><h2 id="native-week-title">Your last seven days</h2><ol aria-label="Daily lesson finishes">{summary.week.map(day=><li key={day.day} className={`${day.finishes?'practised':''} ${day.today?'today':''}`} aria-label={`${displayDate(day.day,{weekday:'long',month:'short',day:'numeric'})}${day.today?', today':''}: ${day.finishes} ${day.finishes===1?'lesson finish':'lesson finishes'}, ${day.xp} XP`}><span aria-hidden="true">{displayDate(day.day,{weekday:'short'})}</span><i aria-hidden="true">{day.finishes?<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m5 10 3 3 7-7"/></svg>:new Date(`${day.day}T12:00:00`).getDate()}</i><small>{day.xp} XP</small></li>)}</ol></section>
   {onPrint&&<button className="native-text-button native-profile-print" id="native-profile-print" onClick={onPrint}><PrintIcon/> Print today’s progress receipt</button>}
   <section className="native-profile-result" aria-labelledby="native-result-title"><div><span>LATEST ATTEMPT</span><h2 id="native-result-title">{lessonById(stats.latest?.lessonId).title}</h2></div>{stats.latest?<><p className="native-profile-score"><strong>{stats.latest.firstTry}<span>/{lessonById(stats.latest?.lessonId).exercises.length}</span></strong><span>Correct on first<br/>submission</span></p><p>{stats.latest.day?displayDate(stats.latest.day,{month:'long',day:'numeric',year:'numeric'}):'Earlier result · Practice date not recorded'}</p></>:<p>Finish the lesson to see your first result here.</p>}</section>
-  <footer className="native-profile-footer"><p>{persistent?'Your statistics stay on this iPhone. No account needed.':'Local saving is unavailable. These statistics last for this session.'}</p></footer>
+  <footer className="native-profile-footer"><p>{persistent?`Your statistics stay on this ${DEVICE}. No account needed.`:'Local saving is unavailable. These statistics last for this session.'}</p></footer>
  </div>;
 }

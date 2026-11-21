@@ -3,6 +3,7 @@ import {NativeSheet} from './NativeSheet';
 import {LAST_CALL_TIME} from './reminders';
 import type {RemindersController} from './useReminders';
 import './reminders.css';
+import {DEVICE} from './device';
 
 // The once-only invitation, shown on home after the first finished lesson: a lock-screen preview of the two
 // reminders, then a choice. Only "Allow reminders" brings up the iOS question (which iOS shows just once).
@@ -44,6 +45,6 @@ export function ReminderSettings({reminders}:{reminders:RemindersController}){
    <input className="reminder-time" type="time" aria-label="Reminder time" value={settings.time} onChange={event=>reminders.setTime(event.target.value)}/></label>}
   {on&&<label className="native-settings-row"><span><strong>Streak last call · {LAST_CALL_TIME}</strong><small>{lastCallFits?'If your streak hasn’t been kept that day':'Paused while your reminder is after 20:00'}</small></span>
    <input type="checkbox" role="switch" aria-label="Streak last call" checked={settings.lastCall&&lastCallFits} disabled={!lastCallFits} onChange={event=>reminders.setLastCall(event.target.checked)}/></label>}
-  {blocked&&<p className="reminder-blocked" role="note">Notifications for Privet are turned off on this iPhone. To use reminders, open the iOS Settings app → Notifications → Privet, and allow notifications.</p>}
+  {blocked&&<p className="reminder-blocked" role="note">Notifications for Privet are turned off on this {DEVICE}. To use reminders, open the iOS Settings app → Notifications → Privet, and allow notifications.</p>}
  </section>;
 }

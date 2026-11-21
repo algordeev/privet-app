@@ -44,6 +44,7 @@ import {PrinterFoundCard} from './PrinterFoundCard';
 import {practiceStrip,progressReceipt,reviewStrip,wordCard,wordOfTheDay} from './printContent';
 import {renderPracticeStrip,renderReceipt,renderTestPage,renderWordCard,type Rendered} from './printRender';
 import {localDay} from './days';
+import {DEVICE} from './device';
 
 // Survives NativeHome remounts, so the badges only pop when a number grew since the last home visit.
 const seenHomeStats={streak:-1,gems:-1};
@@ -66,7 +67,7 @@ export function NativeHome({controller,controllers,companion,activity,plus,onSta
   <section className="native-companion-greeting" aria-label="Your virtual companion"><div className="native-greeting-row"><NativeRobot companion={companion} size="greeting"/><PhysicalCompanionChip controller={physical} onOpen={onPhysical} greeting={greeting}/></div></section>
   {review&&onReview&&<ReviewBar review={review} onStart={onReview}/>}
   <HomeLessons controllers={controllers} plus={plus} onStart={onStart} onUnlock={onUnlock} onboarding={onboarding} onQuickStart={onQuickStart}/>
-  <div className="native-home-footer"><p>Your progress stays on this iPhone.</p>{onSettings&&<button className="native-text-button" id="native-settings-open" onClick={onSettings}>Settings</button>}</div>
+  <div className="native-home-footer"><p>{`Your progress stays on this ${DEVICE}.`}</p>{onSettings&&<button className="native-text-button" id="native-settings-open" onClick={onSettings}>Settings</button>}</div>
  </div>;
 }
 

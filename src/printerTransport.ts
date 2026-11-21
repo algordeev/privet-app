@@ -1,4 +1,5 @@
 import {decodeFlowControl,isRowPacket,latticeEnd} from './printerProtocol.ts';
+import {DEVICE} from './device.ts';
 
 // The thermal printer's own connection, separate from the companion's (src/bleTransport.ts), so both
 // can be connected at once. It connects only when the user asks: Connect, or Print while disconnected.
@@ -70,8 +71,8 @@ export function createPrinterTransport(driver:PrinterDriver,emit:(state:PrinterS
  function failure(error:unknown,g:number,fallback:string){
   if(!current(g))return;
   const message=error instanceof Error?error.message:String(error);
-  if(/permission|unauthoriz|denied/i.test(message))invalidate('permission-denied','Allow Bluetooth for Privet in iPhone Settings, then try again.');
-  else if(/unsupported|unavailable|not enabled|powered off/i.test(message))invalidate('unavailable','Bluetooth is unavailable. Use a real iPhone with Bluetooth turned on.');
+  if(/permission|unauthoriz|denied/i.test(message))invalidate('permission-denied',`Allow Bluetooth for Privet in ${DEVICE} Settings, then try again.`);
+  else if(/unsupported|unavailable|not enabled|powered off/i.test(message))invalidate('unavailable',`Bluetooth is unavailable. Use a real ${DEVICE} with Bluetooth turned on.`);
   else invalidate('error',fallback);
  }
  // target: the remembered printer, connected to as soon as it's seen.
@@ -95,7 +96,7 @@ export function createPrinterTransport(driver:PrinterDriver,emit:(state:PrinterS
    if(!current(g))return;
    const enabled=await bounded(driver.isEnabled(),time.subscribe,'Bluetooth did not respond. Try again.');
    if(!current(g))return;
-   if(!enabled){stop('unavailable','Bluetooth is off. Turn it on in iPhone Settings, then try again.');return;}
+   if(!enabled){stop('unavailable',`Bluetooth is off. Turn it on in ${DEVICE} Settings, then try again.`);return;}
    if(!quiet)update({message:'Looking for your printer…'});
    scanTimer=timer.set(()=>{
     if(!current(g)||state.phase!=='scanning')return;

@@ -1228,7 +1228,8 @@ try{
   assert.ok(await evaluate(()=>document.querySelector('.home-hero .home-kicker').textContent==='Chapter 1 · Lesson 02'));await capture('picked-card');
   // Opening a lesson and closing it brings home back where it was, with the same big card.
   const scrolled=await evaluate(()=>{const pane=document.querySelector('.native-home-scroll');pane.scrollTop=260;return pane.scrollTop;});
-  await click('#native-card-introductions ~ .button','Start lesson');await until(()=>!!document.querySelector('.lesson-bottom'));
+  // Tap without the click helper's scrollIntoView, which would move home first.
+  await evaluate(()=>document.querySelector('#native-card-introductions ~ .button').click());await until(()=>!!document.querySelector('.lesson-bottom'));
   await click('[aria-label="Return to app home"]');await until(()=>!!document.querySelector('.home-lessons'));
   assert.equal(await evaluate(()=>Math.round(document.querySelector('.native-home-scroll').scrollTop)),Math.round(scrolled),'Home keeps its scroll position');
   assert.deepEqual(await bigCards(),['introductions'],'Home keeps the card you opened');
