@@ -186,12 +186,12 @@ try{
   }
   await until(()=>!!document.querySelector('.failure-screen'));
   assert.equal((await stored(NATIVE_SESSION_KEY)).progress.hearts,0);
-  await click('.failure-screen .button','Get unlimited hearts');
+  await click('.failure-screen .button','Unlimited hearts with Plus');
   await until(()=>!!document.querySelector('#native-plus-title'));
   assert.ok(await evaluate(()=>document.querySelector('.native-plus-demo').textContent.includes('Browser preview · No payment')));
   await click('[aria-label="Back"]');assert.ok(await evaluate(()=>!!document.querySelector('.failure-screen')));
   assert.equal((await stored(NATIVE_SESSION_KEY)).progress.failed,true);
-  await click('.failure-screen .button','Get unlimited hearts');await click('.plus-plans button',`Monthly${PLUS_MONTHLY_PRICE} / month`);await click('.plus-buy',`Continue · ${PLUS_MONTHLY_PRICE}/month`);
+  await click('.failure-screen .button','Unlimited hearts with Plus');await click('.plus-plans button',`Monthly${PLUS_MONTHLY_PRICE} / month`);await click('.plus-buy',`Continue · ${PLUS_MONTHLY_PRICE}/month`);
   await until(()=>!!document.querySelector('.lesson-bottom'));
   assert.equal((await stored(SUBSCRIPTION_KEY)).plan,'monthly');
   assert.equal((await stored(NATIVE_SESSION_KEY)).progress.hearts,3);assert.equal((await stored(NATIVE_SESSION_KEY)).progress.failed,false);
@@ -224,7 +224,7 @@ try{
   assert.ok(await evaluate(()=>!!document.querySelector('#native-plus-title')),'Profile activation must not unexpectedly navigate into a lesson');
   await click('[aria-label="Back"]');await click('[aria-label="Back to home"]');await startCafe();
   assert.equal(await evaluate(()=>!!document.querySelector('.failure-screen')),false);
-  assert.equal(await evaluate(()=>[...document.querySelectorAll('button')].some(button=>button.textContent.includes('Get unlimited hearts'))),false);
+  assert.equal(await evaluate(()=>[...document.querySelectorAll('button')].some(button=>button.textContent.includes('Unlimited hearts with Plus'))),false);
   await click('.lesson-bottom .button','Try again');await click('.choice','1tea');await click('.lesson-bottom .button','Check answer');
   assert.equal((await stored(NATIVE_SESSION_KEY)).progress.hearts,3);
 
@@ -272,7 +272,7 @@ try{
   // A real refill interaction uses the 20-gem price; a freeze purchase uses 30.
   const failed=meaning();failed.progress={...failed.progress,hearts:0,failed:true,attempts:3,feedback:'incorrect'};
   await open({[NATIVE_SESSION_KEY]:failed,[NATIVE_STATS_KEY]:{...emptyStats(),gems:{...emptyStats().gems,balance:50}}});
-  await startCafe();await click('.failure-screen .button','Refill hearts · 20 gems');
+  await startCafe();await click('.failure-screen .button','Refill with 20 gems');
   assert.equal((await stored(NATIVE_STATS_KEY)).gems.balance,30);assert.equal((await stored(NATIVE_SESSION_KEY)).progress.hearts,3);
   await click('[aria-label="Return to app home"]');await click('#native-gems-open');await click('.native-gem-shop-card .gems-buy');
   assert.equal((await stored(NATIVE_STATS_KEY)).gems.balance,0);assert.equal((await stored(NATIVE_STATS_KEY)).gems.freezes,1);
@@ -293,7 +293,8 @@ try{
   // Cover every exercise layout, not just the meaning/paused screens above.
   for(const definition of nativeLessons){for(let index=0;index<definition.exercises.length;index++){
    const snapshot=freshSession();snapshot.progress.index=index;snapshot.progress.results=Array(index).fill(true);
-   await open({[sessionKey(definition)]:snapshot});await click(`#native-card-${definition.id} ~ .button`);
+   // Plus, so every lesson opens (access itself is checked separately).
+   await open({[sessionKey(definition)]:snapshot,[SUBSCRIPTION_KEY]:{version:1,plan:'yearly',since:'2026-10-17'}});await click(`#native-card-${definition.id} ~ .button`);
   }}
   await open();
   const vertical=await evaluate(()=>{const pane=document.querySelector('.native-home-scroll');pane.scrollTop=1000;return {top:pane.scrollTop,height:pane.clientHeight,content:pane.scrollHeight};});
@@ -476,7 +477,7 @@ try{
   await click('[aria-label="Return to app home"]');assert.deepEqual(await codes(),[...expected,4],`${scenario.name}: close sends IDLE`);
  }
  for(const definition of nativeLessons.slice(2)){
-  await open();await connectAtHome();await click(`#native-card-${definition.id} ~ .button`);assert.deepEqual(await codes(),[6]);
+  await open({[SUBSCRIPTION_KEY]:{version:1,plan:'yearly',since:'2026-10-17'}});await connectAtHome();await click(`#native-card-${definition.id} ~ .button`);assert.deepEqual(await codes(),[6]);
   await click('[aria-label="Return to app home"]');assert.equal((await codes()).at(-1),4);
  }
  // Latest finished practice can be lower without reducing the Home high score.
@@ -746,7 +747,7 @@ try{
  for(const definition of nativeLessons){
   const viewport=definition.id==='cafe'?{width:320,height:568}:{width:430,height:932};
   await call('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:true});
-  await open();await click(`#native-card-${definition.id} ~ .button`);await click('[aria-label="Open Cyrillic guide"]');
+  await open({[SUBSCRIPTION_KEY]:{version:1,plan:'yearly',since:'2026-10-17'}});await click(`#native-card-${definition.id} ~ .button`);await click('[aria-label="Open Cyrillic guide"]');
   await assertLetterExamples();await click('.native-guide-tabs button','See full alphabet');
   const cards=await assertLetterExamples();assert.equal(cards.length,33);await capture(`guide-dual-audio-${viewport.width}`);
   assert.equal(await evaluate(()=>document.querySelectorAll('.native-letter-sound').length),31,'All speaking letters have their own control, excluding Ъ and Ь');
@@ -1111,7 +1112,8 @@ try{
  // Lessons 3–8 can be played start to finish on the smallest phone, every step answered the way a learner would.
  {
   await call('Emulation.setDeviceMetricsOverride',{width:320,height:568,deviceScaleFactor:1,mobile:true});
-  learningCards=false;russianAudio=true;await open();
+  // With Plus, so lessons 4–8 open (access itself is checked separately).
+  learningCards=false;russianAudio=true;await open({[SUBSCRIPTION_KEY]:{version:1,plan:'yearly',since:'2026-10-17'}});
   const answer=async e=>{
    if(e.kind==='vocabulary'){await evaluate(()=>document.querySelectorAll('.vocab-reveal').forEach(b=>b.click()));}
    else if(e.kind==='choice'||e.kind==='listen'){await evaluate(text=>{[...document.querySelectorAll('.choice')].find(b=>b.querySelector('.native-choice-copy > span').textContent===text).click();},e.answer);}
@@ -1135,6 +1137,37 @@ try{
    await click('[aria-label="Return to app home"]');
   }
   console.log('PASS 320×568: lessons 3–8 play start to finish (vocabulary, choice, listening, matching, building, typing), all first-try correct, with no horizontal overflow at any step.');
+ }
+
+ // Without Plus: lesson 4 is readable and locked, 5–8 are blurred behind one button; locked taps open the paywall,
+ // Back returns where you were, and buying goes straight into the lesson that was tapped.
+ {
+  await call('Emulation.setDeviceMetricsOverride',{width:375,height:667,deviceScaleFactor:1,mobile:true});
+  learningCards=false;russianAudio=false;await open();
+  assert.equal(await evaluate(()=>document.querySelectorAll('.native-lesson-card.is-blurred').length),4);
+  assert.ok(await evaluate(()=>document.querySelector('.native-unlock-more').textContent.includes('Unlock 5 more lessons')));
+  await scrollToCentre('.native-unlock-more');await assertNativeLayout();await capture('locked-home');
+  await click('.native-unlock-more');await until(()=>!!document.querySelector('#native-plus-title'));
+  await click('[aria-label="Back"]');await until(()=>!!document.querySelector('.native-home-scroll'));
+  // The end of lesson 3 offers lesson 4 through Plus; Back returns to the results.
+  const steps=nativeLessons[2].exercises.length,done=freshSession();done.progress={...done.progress,index:steps,complete:true,results:Array(steps).fill(true)};
+  await open({[sessionKey(nativeLessons[2])]:done});await click(`#native-card-${nativeLessons[2].id} ~ .button`);
+  await click('.native-next-lesson',`Unlock Lesson ${Number(nativeLessons[3].number)} with Plus`);await until(()=>!!document.querySelector('#native-plus-title'));
+  await click('[aria-label="Back"]');await until(()=>!!document.querySelector('.completion .native-next-lesson'));
+  await click('[aria-label="Return to app home"]');
+  // Out of hearts: Try again comes first; gems and Plus follow.
+  const paused=freshSession();paused.progress={...paused.progress,hearts:0,failed:true,attempts:3,feedback:'incorrect'};
+  await open({[sessionKey(nativeLessons[1])]:paused});await click(`#native-card-${nativeLessons[1].id} ~ .button`);
+  await capture('out-of-hearts');
+  assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.failure-screen .button')].map(b=>b.textContent.replace(/\s*[↻∞]\s*$/,'').trim())),['Try again from the start','Refill needs 20 gems · you have 0','Unlimited hearts with Plus']);
+  await click('[aria-label="Return to app home"]');
+  // Buying from the locked lesson 4 card opens lesson 4 right away; nothing is locked or blurred afterwards.
+  await click(`#native-card-${nativeLessons[3].id} ~ .button`,'Unlock with Plus');await until(()=>!!document.querySelector('#native-plus-title'));
+  await click('.plus-buy',`Continue · ${PLUS_YEARLY_PRICE}/year`);
+  await until(title=>document.querySelector('.app-navigation strong')?.textContent===title,nativeLessons[3].title);
+  await click('[aria-label="Return to app home"]');
+  assert.equal(await evaluate(()=>document.querySelectorAll('.native-lesson-card.is-locked,.native-lesson-card.is-blurred,.native-unlock-more').length),0);
+  console.log('PASS: without Plus lesson 4 is locked and 5–8 blurred behind one button; locked taps and the lesson 3 results open the paywall, Back returns, buying opens the tapped lesson; out of hearts offers Try again first.');
  }
  // Spaced review: a lesson passed before review existed is scheduled on load; its mistake is due today.
  {

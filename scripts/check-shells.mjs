@@ -109,6 +109,10 @@ try {
  console.log('PASS: physical companion settings stay native-only; test requires subscribed connection and no pending command.');
  assert.ok(home.includes('Open your profile and statistics'));
  assert.ok(!home.includes('native-plus-open'));assert.ok(!home.includes('is-plus'));
+ // Without Plus: lessons 1–3 open, lesson 4 readable and locked, 5–8 blurred behind one button (still read by VoiceOver).
+ assert.equal((home.match(/class="native-lesson-card is-locked"/g)??[]).length,1);assert.ok(home.includes('Unlock with Plus'));
+ assert.equal((home.match(/is-blurred/g)??[]).length,4);assert.ok(home.includes('Unlock 5 more lessons'));
+ assert.ok(home.includes('Lesson 05, My day, locked.')&&home.includes('Lesson 08, A Russian weekend, locked.'));assert.equal((home.match(/>Start lesson</g)??[]).length,3);
  assert.ok(home.includes('0-day learning streak'));
  function Profile(){const activity=useNativeStats();const subscription=useSubscription();return createElement(NativeProfile,{activity,subscription,onPlus:()=>{},onClose:()=>{}});}
  const emptyProfile=renderToStaticMarkup(createElement(Profile));
@@ -241,7 +245,7 @@ try {
  storage.set(SUBSCRIPTION_KEY,JSON.stringify({version:1,plan:'monthly',since:'2026-10-18'}));
  const active=renderToStaticMarkup(createElement(Plus));assert.ok(active.includes('Plus is active'));assert.ok(active.includes('Monthly'));assert.ok(active.includes('Cancel Plus demo'));assert.ok(!active.includes('plus-buy'));assert.ok(renderToStaticMarkup(createElement(Profile)).includes('Manage Plus'));
  Capacitor.isNativePlatform=()=>true;
- const plusHome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(plusHome.includes('native-profile-open is-plus'));assert.ok(plusHome.includes('Plus active'));assert.ok(!plusHome.includes('native-plus-open'));
+ const plusHome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(plusHome.includes('native-profile-open is-plus'));assert.ok(plusHome.includes('Plus active'));assert.ok(!plusHome.includes('native-plus-open'));assert.ok(!plusHome.includes('native-locked-group'));assert.ok(!plusHome.includes('is-locked'));
  const plusProfile=renderToStaticMarkup(createElement(Profile));assert.ok(plusProfile.includes('native-profile-avatar is-plus'));assert.ok(plusProfile.includes('native-profile-plus-tag'));
  Capacitor.isNativePlatform=()=>false;
  storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));assert.ok(renderToStaticMarkup(createElement(Profile)).includes('Get Plus'));
