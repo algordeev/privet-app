@@ -1,6 +1,6 @@
 import type {LessonDefinition} from '../types.ts';
 export const introductionsLesson:LessonDefinition={
- id:'introductions',motivationTags:['Conversations','Studies'],skills:['introduce yourself','ask a name','say goodbye'],prerequisiteIds:['cafe'],number:'02',title:'Nice to meet you',icon:'↗',
+ id:'introductions',motivationTags:['Conversations','Studies'],skills:['introduce yourself','ask a name','say goodbye'],prerequisiteIds:['cafe'],number:'02',title:'Nice to meet you',icon:'👋',
  description:'Introduce yourself, ask someone’s name, and say goodbye.',
  summary:'You practised introducing yourself, asking someone’s name, saying nice to meet you, and saying goodbye.',
  completionTip:'Try Меня зовут… with your own name. Анна was just our example.',

@@ -4,7 +4,7 @@ export const lesson:LessonDefinition={
  "number": "06",
  "title": "Making plans",
  "description": "Invite Alex for a walk and agree to meet tomorrow.",
- "icon": "↗",
+ "icon": "🗓️",
  "motivationTags": [
   "Conversations",
   "Travel"

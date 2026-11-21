@@ -51,9 +51,9 @@ try {
  Capacitor.isNativePlatform=()=>true;
  storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));
  const home=renderToStaticMarkup(createElement(RuntimeApp));
- for(const marker of ['class="native-app"','Café essentials','Start lesson','Your virtual companion','Have a physical companion? Let’s connect it.'])assert.ok(home.includes(marker),marker);
+ for(const marker of ['class="native-app"','Café essentials','Show Café essentials','Your virtual companion','Have a physical companion? Let’s connect it.'])assert.ok(home.includes(marker),marker);
  for(const marker of ['site-header','class="hero','lesson-phone','ios-status-bar','dynamic-island','ios-home-area','Demo connection'])assert.ok(!home.includes(marker),marker);
- assert.ok(home.includes('Nice to meet you'));assert.ok(home.includes('LESSON 02'));
+ assert.ok(home.includes('Nice to meet you'));assert.ok(home.includes('02 · Nice to meet you'));
  console.log('PASS: Capacitor runtime renders app home with local lesson entry and simulated companion.');
  assert.ok(home.includes('Have a physical companion? Let’s connect it.'));assert.ok(!website.includes('native-companion-chip'));
  assert.ok(!home.includes('Physical companion settings'));assert.ok(home.includes('native-settings-open'));assert.ok(!home.includes('Reset saved lesson &amp; preferences'));
@@ -110,9 +110,14 @@ try {
  assert.ok(home.includes('Open your profile and statistics'));
  assert.ok(!home.includes('native-plus-open'));assert.ok(!home.includes('is-plus'));
  // Without Plus: lessons 1–3 open, lesson 4 readable and locked, 5–8 blurred behind one button (still read by VoiceOver).
- assert.equal((home.match(/class="native-lesson-card is-locked"/g)??[]).length,1);assert.ok(home.includes('Unlock with Plus'));
- assert.equal((home.match(/is-blurred/g)??[]).length,4);assert.ok(home.includes('Unlock 5 more lessons'));
- assert.ok(home.includes('Lesson 05, My day, locked.')&&home.includes('Lesson 08, A Russian weekend, locked.'));assert.equal((home.match(/>Start lesson</g)??[]).length,3);
+ // Chapters: 1 First steps (free), 2 and 3 locked; the Up next card with its scene, the rest as rows.
+ assert.ok(!home.includes('Chapter 1 · Free')&&!home.includes('Chapter 2 · Plus'),'Chapter headers show just the number');
+ for(const text of ['Chapter 1','First steps','Everyday life','Making friends','Unlock chapters 2 and 3'])assert.ok(home.includes(text),text);
+ // One big card at a time: a newcomer's is the recommended Cyrillic quick start, so lessons are rows.
+ assert.equal((home.match(/class="home-hero[ "]/g)??[]).length,1);assert.ok(home.includes('class="home-hero home-cyrillic"'));assert.ok(home.includes('aria-label="Letter tiles spelling кофе'));
+ assert.equal((home.match(/class="home-row is-locked"/g)??[]).length,5);assert.equal((home.match(/class="home-chapter is-locked"/g)??[]).length,2);
+ assert.equal((home.match(/>Show [^<]+</g)??[]).length,3,'Open lesson rows grow on tap');assert.equal((home.match(/>Unlock with Plus</g)??[]).length,5,'Locked rows go to Plus instead');
+ assert.ok(!home.includes('native-review-open'),'No review bar while nothing is due');
  assert.ok(home.includes('0-day learning streak'));
  function Profile(){const activity=useNativeStats();const subscription=useSubscription();return createElement(NativeProfile,{activity,subscription,onPlus:()=>{},onClose:()=>{}});}
  const emptyProfile=renderToStaticMarkup(createElement(Profile));
@@ -157,7 +162,8 @@ try {
  assert.ok(results.includes('Progress saved on this iPhone.'));
  assert.ok(!results.includes('Check answer'));
  const completedHome=renderToStaticMarkup(createElement(RuntimeApp));
- assert.ok(completedHome.includes('See your results'));
+ // A passed lesson sits under Completed as a row with its score; tapping it shows See your results.
+ assert.ok(completedHome.includes('Completed · <!-- -->1')||completedHome.includes('Completed · 1'));assert.ok(/home-row-score">\d+\/5 ✓/.test(completedHome.replace(/<!-- -->/g,'')));
  assert.ok(connectedGreeting().includes('Молодец! You finished Café essentials.'));
  assert.ok(!completedHome.includes('Practise again'));
  assert.ok(results.includes('You practised greetings, tea and coffee, ordering tea, and saying thank you.'));
@@ -262,11 +268,11 @@ try {
  }
  const {useCyrillicProgress}=await server.ssrLoadModule('/src/useCyrillicProgress.ts');
  const {CYRILLIC_KEY}=await server.ssrLoadModule('/src/cyrillicProgress.ts');
- assert.ok(home.includes('Cyrillic quick start'));assert.ok(home.includes('RECOMMENDED · ABOUT 3 MIN'));
+ assert.ok(home.includes('Cyrillic quick start'));assert.ok(home.includes('Recommended · About 3 min'));
  for(const [status,page,action] of [['skipped',0,'Open'],['started',1,'Continue'],['completed',3,'Review']]){
-  storage.set(CYRILLIC_KEY,JSON.stringify({version:1,status,page}));Capacitor.isNativePlatform=()=>true;const compactHome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(compactHome.includes('native-quick-card is-collapsed'));assert.ok(compactHome.includes(`${action} Cyrillic quick start`));assert.ok(!compactHome.includes('Skip for now'));assert.ok(!compactHome.includes('RECOMMENDED · ABOUT 3 MIN'));
+  storage.set(CYRILLIC_KEY,JSON.stringify({version:1,status,page}));Capacitor.isNativePlatform=()=>true;const compactHome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(compactHome.includes('home-row home-cyrillic'));assert.ok(compactHome.includes(`${action} Cyrillic quick start`));assert.ok(!compactHome.includes('Skip for now'));assert.ok(!compactHome.includes('Recommended · About 3 min'));assert.ok(compactHome.includes('Up next · Chapter 1'),'Without the recommendation, the lesson up next is the big card');
  }Capacitor.isNativePlatform=()=>false;
- assert.ok(!website.includes('native-quick-card'));assert.ok(!website.includes('Open Cyrillic guide'));
+ assert.ok(!website.includes('home-cyrillic'));assert.ok(!website.includes('Open Cyrillic guide'));
  storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));
  function QuickStart(){const onboarding=useCyrillicProgress();const controller=useLesson();return createElement(NativeCyrillicQuickStart,{onboarding,speech:controller.speech,onClose:noOp,onLesson:noOp});}
  for(const [status,page] of [['started',0],['started',1],['started',2],['started',3],['completed',3]]){

@@ -4,7 +4,7 @@ export const lesson:LessonDefinition={
  "number": "08",
  "title": "A Russian weekend",
  "description": "Meet Anna at a museum, then plan tea after your visit.",
- "icon": "✦",
+ "icon": "🏛️",
  "motivationTags": [
   "Culture",
   "Conversations",

@@ -37,11 +37,6 @@ export function NativeAlphabetGuide({definition,exercise,speech,onListen,onClose
   </div>
  </NativeSheet>;
 }
-export function CyrillicQuickCard({onboarding,onStart}:{onboarding:CyrillicController;onStart:()=>void}){
- const {status}=onboarding.state;
- if(status!=='unseen')return <section className="native-quick-card is-collapsed" aria-labelledby="native-quick-title"><span className="native-quick-monogram" lang="ru" aria-hidden="true">Аа</span><div><h2 id="native-quick-title">Cyrillic quick start</h2><p>{status==='completed'?'Always here for reference.':status==='started'?'Continue at your pace.':'Optional alphabet help'}</p></div><button id="native-quick-open" className="native-quick-open" aria-label={`${status==='completed'?'Review':status==='started'?'Continue':'Open'} Cyrillic quick start`} onClick={onStart}>{status==='completed'?'Review':status==='started'?'Continue':'Open'} <span aria-hidden="true">→</span></button></section>;
- return <section className="native-quick-card" aria-labelledby="native-quick-title"><span className="native-kicker">RECOMMENDED · ABOUT 3 MIN</span><div className="native-quick-heading"><span lang="ru" aria-hidden="true">Аа</span><h2 id="native-quick-title">Cyrillic quick start</h2></div><p>Recognize the letters you’ll meet in your first lessons.</p><button id="native-quick-open" className="button teal" onClick={onStart}>Start quick start <span aria-hidden="true">→</span></button>{status==='unseen'&&<button className="native-text-button" onClick={()=>onboarding.dispatch({type:'skip'})}>Skip for now</button>}</section>;
-}
 const titles=['A few familiar faces.','Same shape. New sound.','A few new friends.','You can already read a little.'];
 export function NativeCyrillicQuickStart({onboarding,speech,onClose,onLesson,onListen,onListenEnd}:{onboarding:CyrillicController;speech:Speech;onClose:()=>void;onLesson:()=>void;onListen?:()=>void;onListenEnd?:()=>void}){
  const [page,setPage]=useState(onboarding.state.status==='completed'?0:onboarding.state.page);

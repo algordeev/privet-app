@@ -6,7 +6,7 @@ import {Capacitor} from '@capacitor/core';
 import {useFirstRun} from './useFirstRun';
 import {NativeFirstRun} from './NativeFirstRun';
 import {initialProgress,type Progress} from './engine';
-import {useEffect,useRef,useState,type CSSProperties} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState,type CSSProperties} from 'react';
 import {PhysicalCompanionSettings,PhysicalCompanionHomeStatus,PhysicalCompanionChip} from './PhysicalCompanionSettings';
 import {usePhysicalCompanion,type PhysicalCompanionController} from './usePhysicalCompanion';
 import {NativeProfile,ProfileIcon,StreakIcon} from './NativeProfile';
@@ -21,9 +21,9 @@ import {type LessonController} from './useLesson';
 import {useNativeViewport} from './useNativeViewport';
 import {useSubscription} from './useSubscription';
 import {HelpSettings} from './HelpSettings';
-import {lessonOpen,lockedLessons} from './access';
-import {homeOrder} from './homeOrder';
-import {useHomeReorder} from './useHomeReorder';
+import {lessonOpen} from './access';
+import {HomeLessons} from './HomeLessons';
+import {homeMemory,newlyPassedSince} from './homeMemory';
 import {PlusScreen} from './PlusScreen';
 import {GemsScreen} from './GemsScreen';
 import {StreakScreen} from './StreakScreen';
@@ -32,11 +32,11 @@ import {onReminderTap} from './reminderScheduler';
 import {ReminderInvite,ReminderSettings} from './ReminderScreens';
 import {useCyrillicProgress,type CyrillicController} from './useCyrillicProgress';
 import {recommendCyrillic} from './cyrillicProgress';
-import {CyrillicQuickCard,NativeCyrillicQuickStart} from './NativeCyrillic';
+import {NativeCyrillicQuickStart} from './NativeCyrillic';
 import {NativeSheet} from './NativeSheet';
 import {CompanionFoundCard,preloadCompanionRobot} from './CompanionFoundCard';
 import {useReview,type ReviewController} from './useReview';
-import {NativeReviewSession,ReviewHomeCard} from './NativeReview';
+import {NativeReviewSession,ReviewBar} from './NativeReview';
 import type {ReviewSession} from './review';
 import {usePrinter,usePrinterConnected,type PrinterController} from './usePrinter';
 import {PrinterSettings,PrinterSettingsButton,PrinterSheet} from './PrinterScreen';
@@ -44,6 +44,7 @@ import {PrinterFoundCard} from './PrinterFoundCard';
 import {practiceStrip,progressReceipt,reviewStrip,wordCard,wordOfTheDay} from './printContent';
 import {renderPracticeStrip,renderReceipt,renderTestPage,renderWordCard,type Rendered} from './printRender';
 import {localDay} from './days';
+import {DEVICE} from './device';
 
 // Survives NativeHome remounts, so the badges only pop when a number grew since the last home visit.
 const seenHomeStats={streak:-1,gems:-1};
@@ -53,54 +54,20 @@ export function NativeHome({controller,controllers,companion,activity,plus,onSta
  const {current:streak,gems}=activity.summary;
  const [bumped]=useState(()=>({streak:seenHomeStats.streak>=0&&streak>seenHomeStats.streak,gems:seenHomeStats.gems>=0&&gems>seenHomeStats.gems}));
  useEffect(()=>{seenHomeStats.streak=streak;seenHomeStats.gems=gems;},[streak,gems]);
- // Up next first, passed lessons last under "Completed"; a newly passed lesson glides down (useHomeReorder).
- const list=useRef<HTMLDivElement>(null);
- const access=controllers.map((item,index)=>({index,plus,started:lessonStarted(item),passed:item.passed,open:lessonOpen({index,plus,started:lessonStarted(item),passed:item.passed})}));
- const ids=controllers.map(item=>item.definition.id);
- const shown=useHomeReorder(ids.filter((_,index)=>access[index].passed),ids.filter((_,index)=>access[index].started&&!access[index].passed),list);
- // Labels follow the real state; the order may briefly show the last-seen one before it moves.
- const upNext=homeOrder(access).upNext;
- const order=homeOrder(access.map((lesson,index)=>({...lesson,passed:shown.passed.has(ids[index]),started:shown.started.has(ids[index])||shown.passed.has(ids[index])})));
- return <div className="native-home-scroll">
+ // Back on home: the same scroll position as when you left, unless a lesson was just passed (then the top).
+ const scroller=useRef<HTMLDivElement>(null);
+ const passedIds=controllers.filter(item=>item.passed).map(item=>item.definition.id);
+ const [restore]=useState(()=>!newlyPassedSince(passedIds));
+ useLayoutEffect(()=>{if(scroller.current)scroller.current.scrollTop=restore?homeMemory.scroll:0;},[]);
+ useEffect(()=>{homeMemory.passed=new Set(passedIds);},[passedIds.join('|')]);
+ return <div className="native-home-scroll" ref={scroller} onScroll={event=>{homeMemory.scroll=event.currentTarget.scrollTop;}}>
   <header className="native-home-header"><div className="wordmark"><span className="brand-icon" aria-hidden="true"><i/><i/></span>{PRODUCT.name}<span className="brand-dot">.</span></div><div className="native-home-tools"><button id="native-streak-open" className={`native-streak-badge${bumped.streak?' is-bumped':''}`} onClick={onStreak} aria-label={`${activity.summary.current}-day learning streak; open streak`}><StreakIcon/><span>{activity.summary.current}</span><span className="native-streak-unit">{activity.summary.current===1?'day':'days'}</span></button><button id="native-gems-open" className={`native-gems-pill${bumped.gems?' is-bumped':''}`} onClick={onGems} aria-label={`${activity.summary.gems} gems; open gems`}><span aria-hidden="true">◆</span> {activity.summary.gems}</button><button id="native-profile-open" className={`native-profile-open ${plus?'is-plus':''}`} onClick={onProfile} aria-label="Open your profile and statistics" aria-describedby={plus?'native-profile-plus-status':undefined}><ProfileIcon/>{plus&&<span className="native-profile-plus-tag" aria-hidden="true">PLUS</span>}</button>{plus&&<span id="native-profile-plus-status" className="native-sr-only">Plus active</span>}</div></header>
-  <section className="native-welcome" aria-labelledby="native-home-title"><h1 id="native-home-title" tabIndex={-1}>Your next little win.</h1></section>
+  {/* No visible headline; VoiceOver and focus still get the page's main heading. */}
+  <h1 id="native-home-title" className="native-sr-only" tabIndex={-1}>Home</h1>
   <section className="native-companion-greeting" aria-label="Your virtual companion"><div className="native-greeting-row"><NativeRobot companion={companion} size="greeting"/><PhysicalCompanionChip controller={physical} onOpen={onPhysical} greeting={greeting}/></div></section>
-  <CyrillicQuickCard onboarding={onboarding} onStart={onQuickStart}/>
-  {review&&onReview&&<ReviewHomeCard review={review} onStart={onReview}/>}
-  {(()=>{
-   // Without Plus: the first locked lesson stays readable, the rest are blurred behind one unlock button.
-   const locks=lockedLessons(access);
-   const openCard=(item:LessonController,index:number)=>{
-   const {progress,definition,passed,saved}=item;const started=lessonStarted(item);const total=definition.exercises.length;
-   const pathState=passed?'Passed':index===upNext?'Up next':'Available';
-   return <section className={`native-lesson-card ${pathState!=='Up next'?'native-lesson-compact':'is-up-next'}`} style={{'--i':Math.min(index+4,8)} as CSSProperties} aria-labelledby={`native-card-${definition.id}`} key={definition.id} data-flip={definition.id}>
-    <div className="native-card-top"><span className="native-cup" aria-hidden="true">{definition.icon}</span><span className="native-lesson-meta">LESSON {definition.number} · ABOUT 3 MIN</span><span className={`native-path-state ${passed?'passed':pathState==='Up next'?'up-next':''}`}>{pathState}</span></div>
-    <h2 id={`native-card-${definition.id}`}>{definition.title}</h2><p>{definition.description}</p>
-    <div className="native-card-progress"><span>{passed?(progress.complete?'Lesson complete':`Practice · Step ${progress.index+1} of ${total}`):started?`Step ${progress.index+1} of ${total}`:`${total} small steps`}</span>{(started||passed)&&<span>{passed?`Best: ${Math.max(saved.bestFirstTry??saved.completion?.results.filter(Boolean).length??0,progress.complete?progress.results.filter(Boolean).length:0)}/${total}`:'Progress saved'}</span>}</div>
-    <span className="native-card-bar"><progress max={total} value={passed?total:progress.index} aria-label={`${definition.title} lesson progress`}/></span>
-    <button className="button teal" onClick={()=>onStart(definition.id)}>{progress.complete?'See your results':passed?'Continue practice':started?'Continue lesson':'Start lesson'}<span aria-hidden="true">→</span></button>
-   </section>;
-   };
-   const lockedCard=({definition}:LessonController,index:number)=><section className="native-lesson-card is-locked" style={{'--i':Math.min(index+4,8)} as CSSProperties} aria-labelledby={`native-card-${definition.id}`} key={definition.id} data-flip={definition.id}>
-    <div className="native-card-top"><span className="native-cup" aria-hidden="true">{definition.icon}</span><span className="native-lesson-meta">LESSON {definition.number} · ABOUT 3 MIN</span><span className="native-path-state locked"><span aria-hidden="true">🔒 </span>Plus</span></div>
-    <h2 id={`native-card-${definition.id}`}>{definition.title}</h2><p>{definition.description}</p>
-    <button className="button teal" onClick={()=>onStart(definition.id)}>Unlock with Plus<span aria-hidden="true">∞</span></button>
-   </section>;
-   const blurred=locks.blurred.map(index=>controllers[index]);
-   return <div className="native-lesson-list" ref={list}>
-    {order.upcoming.map(index=>locks.blurred.includes(index)?null:index===locks.first?lockedCard(controllers[index],index):openCard(controllers[index],index))}
-    {blurred.length>0&&<div className="native-locked-group" style={{'--i':8} as CSSProperties} data-flip="locked-group">
-     {blurred.map(({definition})=><div className="native-lesson-card native-lesson-compact is-blurred" key={definition.id}>
-      <span className="native-sr-only">{`Lesson ${definition.number}, ${definition.title}, locked. ${definition.description}`}</span>
-      <div aria-hidden="true"><div className="native-card-top"><span className="native-cup">{definition.icon}</span><span className="native-lesson-meta">LESSON {definition.number} · ABOUT 3 MIN</span></div><h2>{definition.title}</h2><p>{definition.description}</p></div>
-     </div>)}
-     {onUnlock&&<button className="button teal native-unlock-more" onClick={onUnlock}><span aria-hidden="true">∞ </span>Unlock {locks.count} more lessons</button>}
-    </div>}
-    {order.completed.length>0&&<h2 className="native-completed-title" data-flip="completed-title">Completed · {order.completed.length}</h2>}
-    {order.completed.map(index=>openCard(controllers[index],index))}
-   </div>;
-  })()}
-  <div className="native-home-footer"><p>Your progress stays on this iPhone.</p>{onSettings&&<button className="native-text-button" id="native-settings-open" onClick={onSettings}>Settings</button>}</div>
+  {review&&onReview&&<ReviewBar review={review} onStart={onReview}/>}
+  <HomeLessons controllers={controllers} plus={plus} onStart={onStart} onUnlock={onUnlock} onboarding={onboarding} onQuickStart={onQuickStart}/>
+  <div className="native-home-footer"><p>{`Your progress stays on this ${DEVICE}.`}</p>{onSettings&&<button className="native-text-button" id="native-settings-open" onClick={onSettings}>Settings</button>}</div>
  </div>;
 }
 
@@ -193,7 +160,7 @@ function NativeAppContent({controllers,physical,onboarding,companion,activity,su
   if(view==='plus'&&unlocking&&subscription.plus){const id=unlocking;setUnlocking(null);openLesson(id);return;}
   if(view==='plus'&&plusOrigin==='lesson'&&subscription.plus){setView('lesson');return;}
   if(view==='lesson')controller.lessonHeading.current?.focus({preventScroll:true});
-  else root.current?.querySelector<HTMLElement>(view==='settings'?(previousView.current==='physical'?'#native-physical-open':previousView.current==='printer'?'#native-printer-open':'#native-settings-title'):view==='printer'?'#native-printer-title':view==='physical'?'#native-physical-title':view==='profile'?(previousView.current==='plus'?'#native-profile-plus-open':previousView.current==='settings'?'#native-profile-settings':'#native-profile-title'):view==='plus'?'#native-plus-title':view==='gems'?'#native-gems-title':view==='streak'?'#native-streak-title':previousView.current==='quick-start'?'#native-quick-open':previousView.current==='review'?'#native-review-title':previousView.current==='gems'?'#native-gems-open':previousView.current==='streak'?'#native-streak-open':previousView.current==='physical'?'#native-companion-chip':previousView.current==='settings'?'#native-settings-open':previousView.current==='profile'?'#native-profile-open':previousView.current==='plus'?'#native-profile-open':'#native-home-title')?.focus({preventScroll:true});
+  else root.current?.querySelector<HTMLElement>(view==='settings'?(previousView.current==='physical'?'#native-physical-open':previousView.current==='printer'?'#native-printer-open':'#native-settings-title'):view==='printer'?'#native-printer-title':view==='physical'?'#native-physical-title':view==='profile'?(previousView.current==='plus'?'#native-profile-plus-open':previousView.current==='settings'?'#native-profile-settings':'#native-profile-title'):view==='plus'?'#native-plus-title':view==='gems'?'#native-gems-title':view==='streak'?'#native-streak-title':previousView.current==='quick-start'?'#native-quick-open':previousView.current==='review'?(root.current?.querySelector('#native-review-open')?'#native-review-open':'#native-home-title'):previousView.current==='gems'?'#native-gems-open':previousView.current==='streak'?'#native-streak-open':previousView.current==='physical'?'#native-companion-chip':previousView.current==='settings'?'#native-settings-open':previousView.current==='profile'?'#native-profile-open':previousView.current==='plus'?'#native-profile-open':'#native-home-title')?.focus({preventScroll:true});
   previousView.current=view;
  },[view,plusOrigin,unlocking,subscription.plus,controller.lessonHeading,firstRunActive]);
  useEffect(()=>{

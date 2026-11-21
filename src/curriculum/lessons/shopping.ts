@@ -4,7 +4,7 @@ export const lesson:LessonDefinition={
  "number": "04",
  "title": "At the shop",
  "description": "Buy bread at a small neighbourhood shop.",
- "icon": "▤",
+ "icon": "🥖",
  "motivationTags": [
   "Travel"
  ],

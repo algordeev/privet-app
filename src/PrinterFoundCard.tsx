@@ -4,6 +4,7 @@ import {playHaptic} from './nativeHaptics';
 import {foundCardFree,holdFoundCard,offeredPrinter} from './foundCards';
 import type {PrinterDevice} from './printerTransport';
 import {usePrinterState,type PrinterController} from './usePrinter';
+import {DEVICE} from './device';
 
 const Robot3D=lazy(()=>import('./Robot3D'));
 type Stage='found'|'connecting'|'connected'|'failed'|'gone';
@@ -43,7 +44,7 @@ export function PrinterFoundCard({printer,where}:{printer:PrinterController;wher
  }
  const connect=()=>{setCard({...card,attempted:true});printer.choose(card.device.deviceId);};
  const message=stage==='found'?'Your thermal printer is nearby. Connect to print learning cards.'
-  :stage==='connecting'?'Connecting… keep it close to your iPhone.'
+  :stage==='connecting'?`Connecting… keep it close to your ${DEVICE}.`
   :stage==='connected'?'Connected. Print buttons are ready in your lessons and profile.'
   :state.message;
  return <NativeSheet id="printer-found" variant="card" title={card.device.name||'Thermal printer'} onClose={close}
