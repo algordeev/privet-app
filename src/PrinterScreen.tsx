@@ -1,7 +1,6 @@
 import {useEffect,useState} from 'react';
 import {NativeSheet} from './NativeSheet';
 export {PrintIcon} from './Icons';
-import {ENERGY} from './printerProtocol';
 import {rowsToDataUrl,type Rendered} from './printRender';
 import {usePrinterState,type PrinterController} from './usePrinter';
 import {PRINTER_IDLE,type PrinterState} from './printerTransport';
@@ -9,7 +8,6 @@ import {PRINTER_IDLE,type PrinterState} from './printerTransport';
 const shown=(state:PrinterState):PrinterState=>state.quiet&&state.phase==='scanning'?{...state,phase:'disconnected',message:PRINTER_IDLE,devices:[]}:state;
 
 const phases={disconnected:'Not connected',scanning:'Looking for printer',connecting:'Connecting',connected:'Connected',printing:'Printing',unavailable:'Bluetooth unavailable','permission-denied':'Permission denied',error:'Printer error'} as const;
-const darkness=[['Light',ENERGY.light],['Normal',ENERGY.normal],['Dark',ENERGY.dark]] as const;
 
 // waiting: the printer the app reconnects to by itself, while it isn't connected.
 function PrinterStatus({state,remembered,waiting}:{state:PrinterState;remembered?:string;waiting?:string}){
@@ -25,10 +23,6 @@ function PrinterStatus({state,remembered,waiting}:{state:PrinterState;remembered
 function DevicePicker({printer,state}:{printer:PrinterController;state:PrinterState}){
  if(state.phase!=='scanning'||!state.devices.length)return null;
  return <ul className="native-physical-devices" aria-label="Printers found">{state.devices.map(device=><li key={device.deviceId}><button disabled={state.busy} onClick={()=>printer.choose(device.deviceId)}><span>{device.name||'Thermal printer'}<small>Tap to connect</small></span><span aria-hidden="true">→</span></button></li>)}</ul>;
-}
-function Darkness({printer}:{printer:PrinterController}){
- const [energy,setEnergy]=useState(printer.energy);
- return <fieldset className="native-physical-volume native-printer-darkness"><legend>Darkness</legend><div>{darkness.map(([label,value])=><button key={label} aria-pressed={energy===value} onClick={()=>{setEnergy(value);printer.setEnergy(value);}}>{label}</button>)}</div></fieldset>;
 }
 function Progress({state}:{state:PrinterState}){
  if(state.phase!=='printing'||!state.progress)return null;
@@ -59,7 +53,6 @@ export function PrinterSheet({printer,title,render,onClose}:{printer:PrinterCont
    <PrinterStatus state={state} remembered={printer.remembered()?.name} waiting={printer.autoTarget()?(printer.autoTarget()!.name||'Your printer'):undefined}/>
    <DevicePicker printer={printer} state={state}/>
    <Progress state={state}/>
-   <Darkness printer={printer}/>
    <div className="native-printer-actions">{busy?<button className="native-physical-disconnect" onClick={printer.cancel}>{state.phase==='printing'?'Cancel printing':'Cancel'}</button>:<button className="button teal" disabled={!card||state.busy} onClick={()=>card&&printer.print(card.rows)}>{label} <span aria-hidden="true">→</span></button>}</div>
   </div>
  </NativeSheet>;
@@ -77,7 +70,6 @@ export function PrinterSettings({printer,onClose,onWordOfTheDay,onTestPage}:{pri
    <DevicePicker printer={printer} state={state}/>
    <Progress state={state}/>
    <div className="native-physical-actions">{inSession?<button className="native-physical-disconnect" onClick={state.phase==='connected'?printer.disconnect:printer.cancel}>{state.phase==='scanning'?'Stop looking':state.phase==='connecting'?'Cancel':state.phase==='printing'?'Cancel printing':'Disconnect'}</button>:<button className="button teal" onClick={printer.connect} disabled={state.busy}>Connect <span aria-hidden="true">→</span></button>}</div>
-   <Darkness printer={printer}/>
   </section>
   {(state.phase==='connected'||state.phase==='printing')&&<section className="native-physical-card native-printer-prints" aria-label="Print">
    <button className="button teal" onClick={onWordOfTheDay}>Print word of the day <span aria-hidden="true">→</span></button>

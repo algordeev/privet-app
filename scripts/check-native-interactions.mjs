@@ -356,6 +356,11 @@ try{
   await click('[aria-label="Return to app home"]');
   // Settings: a later time pauses the last call; switching off clears everything.
   await click('#native-settings-open');assert.ok(await evaluate(()=>document.querySelector('[aria-label="Daily reminder"]').checked));
+  // Settings also opens from Profile's gear; Back returns to Profile and focus goes back to the gear.
+  await click('[aria-label="Back to home"]');await click('[aria-label="Open your profile and statistics"]');await click('#native-profile-settings');
+  await until(()=>!!document.querySelector('#native-settings-title'));await click('[aria-label="Back to profile"]');
+  await until(()=>!!document.querySelector('#native-profile-title')&&document.activeElement?.id==='native-profile-settings');
+  await click('[aria-label="Back to home"]');await click('#native-settings-open');
   // Help & privacy: Support, email, Privacy Policy and Terms leave the app (Safari / Mail).
   assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.native-settings-help a')].map(a=>[a.textContent.replace('›','').trim(),a.getAttribute('href').split('?')[0],a.target])),[['Support','https://algordeev.github.io/privet-app/support.html','_blank'],['Email privetapp.help@gmail.com','mailto:privetapp.help@gmail.com','_blank'],['Privacy Policy','https://algordeev.github.io/privet-app/privacy.html','_blank'],['Terms of Use','https://www.apple.com/legal/internet-services/itunes/dev/stdeula/','_blank']]);
   await evaluate(()=>{const input=document.querySelector('.reminder-time');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'20:30');input.dispatchEvent(new Event('input',{bubbles:true}));});
@@ -1136,9 +1141,33 @@ try{
    await until(()=>!!document.querySelector('.completion'));
    assert.equal(await evaluate(()=>document.querySelector('.score strong').textContent.replace(/\s/g,'')),`${lesson.exercises.length}/${lesson.exercises.length}`,`${lesson.id}: every step correct on the first try`);
    await assertNativeLayout();
+   // The move is animated only without Reduce Motion (an earlier check leaves it on).
+   if(lesson===nativeLessons[2])await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
    await click('[aria-label="Return to app home"]');
+   if(lesson===nativeLessons[3]){
+    // With Reduce Motion the new order shows at once, without movement.
+    const order=await evaluate(()=>[...document.querySelectorAll('.native-lesson-list [data-flip]')].map(el=>el.dataset.flip));
+    assert.ok(order.indexOf(lesson.id)>order.indexOf('completed-title'),'Reduce Motion: the passed lesson is already under Completed');
+    assert.equal(await evaluate(id=>document.querySelector(`[data-flip="${id}"]`).getAnimations().filter(a=>a.effect?.getKeyframes().some(k=>k.transform)).length,lesson.id),0);
+   }
+   if(lesson===nativeLessons[2]){
+    // Home first shows the order as last seen, then the just-passed lesson glides down under "Completed".
+    const flips=()=>evaluate(()=>[...document.querySelectorAll('.native-lesson-list [data-flip]')].map(el=>el.dataset.flip));
+    const before=await flips();
+    assert.deepEqual(before.slice(0,3),[nativeLessons[0].id,nativeLessons[1].id,lesson.id],'Coming home, the passed lesson is still where it was');
+    assert.ok(!before.includes('completed-title'));
+    await scrollToCentre(`[data-flip="${lesson.id}"]`);await pause(800);await capture('reorder-before');await pause(350);await capture('reorder-moving');
+    // It glides (a transform animation) without replaying the card's CSS fade-in.
+    await until(id=>{const anims=document.querySelector(`[data-flip="${id}"]`)?.getAnimations()??[];return anims.some(a=>a.playState==='running'&&a.effect?.getKeyframes().some(k=>k.transform))&&!anims.some(a=>a.animationName==='app-rise-in');},lesson.id);
+    await until(id=>{const order=[...document.querySelectorAll('.native-lesson-list [data-flip]')].map(el=>el.dataset.flip);return order.indexOf(id)>order.indexOf('completed-title')&&order.indexOf('completed-title')>0;},lesson.id);
+    assert.equal(await evaluate(()=>document.querySelector('.native-completed-title').textContent),'Completed · 1');
+    await pause(400);await scrollToCentre('.native-completed-title');await capture('reorder-after');
+    assert.equal((await flips())[0],nativeLessons[0].id,'Lesson 1 stays up next');
+    await assertNativeLayout();
+    await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+   }
   }
-  console.log('PASS 320×568: lessons 3–8 play start to finish (vocabulary, choice, listening, matching, building, typing), all first-try correct, with no horizontal overflow at any step.');
+  console.log('PASS 320×568: lessons 3–8 play start to finish (vocabulary, choice, listening, matching, building, typing), all first-try correct, with no horizontal overflow at any step; a passed lesson glides down under Completed.');
  }
 
  // Without Plus: lesson 4 is readable and locked, 5–8 are blurred behind one button; locked taps open the paywall,

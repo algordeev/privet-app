@@ -712,9 +712,6 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-printer-progress progress { width: 100%; height: 8px; accent-color: #246653; }
 .native-printer-actions { display: grid; }
 .native-app .native-printer-actions .button { white-space: normal; font-size: 15px; }
-.native-app .native-printer-darkness { margin-top: 4px; }
-.native-app .native-physical-card .native-printer-darkness { margin-top: 22px; }
-.native-app .native-printer-darkness div { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .native-printer-prints { display: grid; gap: 10px; margin-top: 16px; }
 .native-app .native-printer-prints .button { white-space: normal; font-size: 15px; }
 .native-app .vocab-card.has-print .vocab-reveal { padding-right: 104px; }
@@ -745,3 +742,7 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-settings-help a { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:48px; color:#285b48; font-size:15px; font-weight:600; text-decoration:none; overflow-wrap:anywhere; }
 .native-app .native-settings-help a > span { color:#8aa080; font-size:20px; font-weight:400; }
 .native-app .native-settings-version { margin:12px 0 0; font-size:12px; color:#7a8a72; }
+
+/* Home: passed lessons gather under a small "Completed · N" label at the end of the list. */
+.native-app .native-completed-title { margin:10px 4px -6px; font-family:inherit; font-size:12px; font-weight:600; letter-spacing:1.6px; text-transform:uppercase; color:#627458; }
+.native-app .native-lesson-list[data-settled] > .native-lesson-card { animation:none; }
