@@ -240,6 +240,8 @@ try {
  }
  for(const text of ['−20','Refill your hearts','−30','A streak freeze for a missed day','$4.99','$39.99','$59.99','Concept pricing · no checkout','Lifetime Privet Plus included','Planned'])assert.ok(website.includes(text),text);
  assert.ok(website.includes('The robots on this page are simulated'));assert.ok(website.includes('class="companion-gallery"'));assert.ok(!website.includes('id="companion"'));assert.ok(website.includes('Working prototype'));assert.ok(website.includes('Privet body is a concept'));assert.ok(!/iprint/i.test(website));
+ // The website footer links the Support and Privacy pages published from public/.
+ assert.ok(website.includes('href="support.html">Support</a>'));assert.ok(website.includes('href="privacy.html">Privacy Policy</a>'));assert.ok(website.includes('Independent app'));
  function Plus(){const subscription=useSubscription();return createElement(PlusScreen,{subscription,onClose:()=>{}});}
  storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));const offer=renderToStaticMarkup(createElement(Plus));for(const text of ['All 8 lessons, and every new one','Unlimited hearts','$39.99 / year','$3.33 / month','$4.99 / month','Best value','Continue · $39.99/year','Renews automatically until cancelled','Restore','Terms of Use','Privacy Policy','Browser preview · No payment'])assert.ok(offer.includes(text),text);assert.ok(offer.indexOf('Yearly')<offer.indexOf('Monthly'),'Yearly is listed (and chosen) first');assert.ok(/role="radio" aria-checked="true"[^>]*><span class="plus-plan-name">Yearly/.test(offer),'Yearly starts selected');assert.ok(!offer.includes('Concept pricing'));
  storage.set(SUBSCRIPTION_KEY,JSON.stringify({version:1,plan:'monthly',since:'2026-10-18'}));

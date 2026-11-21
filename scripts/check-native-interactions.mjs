@@ -356,6 +356,8 @@ try{
   await click('[aria-label="Return to app home"]');
   // Settings: a later time pauses the last call; switching off clears everything.
   await click('#native-settings-open');assert.ok(await evaluate(()=>document.querySelector('[aria-label="Daily reminder"]').checked));
+  // Help & privacy: Support, email, Privacy Policy and Terms leave the app (Safari / Mail).
+  assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.native-settings-help a')].map(a=>[a.textContent.replace('›','').trim(),a.getAttribute('href').split('?')[0],a.target])),[['Support','https://algordeev.github.io/privet-app/support.html','_blank'],['Email privetapp.help@gmail.com','mailto:privetapp.help@gmail.com','_blank'],['Privacy Policy','https://algordeev.github.io/privet-app/privacy.html','_blank'],['Terms of Use','https://www.apple.com/legal/internet-services/itunes/dev/stdeula/','_blank']]);
   await evaluate(()=>{const input=document.querySelector('.reminder-time');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'20:30');input.dispatchEvent(new Event('input',{bubbles:true}));});
   await until(()=>(window.__notifications??[]).every(n=>n.extra.kind==='daily'&&new Date(n.at).getHours()===20));
   assert.equal(await evaluate(()=>document.querySelector('[aria-label="Streak last call"]').disabled),true);assert.equal((await stored(REMINDERS_KEY)).time,'20:30');
