@@ -3,7 +3,7 @@ import {PRODUCT} from './config';
 import {LEVELS,REASONS} from './firstRun';
 import type {NativeCompanionController} from './useNativeCompanion';
 import type {SubscriptionController} from './useSubscription';
-import {PlusActive,PlusLegal,PlusMessage} from './PlusScreen';
+import {LESSONS_PERK,PlusActive,PlusLegal,PlusMessage} from './PlusScreen';
 import {introText,perPeriod,PLUS_PRODUCTS,yearlySaving,type PlusPlan} from './store';
 import {NativeRobot} from './NativeRobot';
 import {NativeCompanionImages} from './NativeCompanionImages';
@@ -102,7 +102,7 @@ export function Offers({companion,subscription,lessonDone,onFree,onPurchased,onR
     <section className="first-offer first-offer-plus">
      <p className="native-kicker">PRIVET PLUS</p>
      <h2>More room to grow.</h2>
-     <ul><li>All 8 lessons, and every new one</li><li>Unlimited hearts</li></ul>
+     <ul><li>{LESSONS_PERK}</li><li>Unlimited hearts</li></ul>
      {subscription.plus?<PlusActive subscription={subscription}/>:<>
       <div className="first-plan-options" role="group" aria-label="Plus plan">
        <span className={`first-plan-indicator is-${plan}`}/>
