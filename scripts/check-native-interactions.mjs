@@ -398,7 +398,7 @@ try{
   await click('.choice','1Спасибо!');const before=await stored(NATIVE_SESSION_KEY);
   await click('[aria-label="Lesson display settings"]');await click('[aria-label="Pronunciation help"]');await click('[aria-label="Lesson display settings"]');
   assert.equal(await evaluate(()=>document.querySelectorAll('.native-russian-reading').length),0);
-  await click('[aria-label="Open Cyrillic guide"]');await assertLetterExamples();await click('[aria-label="Close Cyrillic guide"]');
+  await click('[aria-label="Open Cyrillic guide"]');await assertLetterExamples();assert.ok(await evaluate(()=>!document.querySelector('.native-letter-print')),'No letter print icons without a connected printer');await click('[aria-label="Close Cyrillic guide"]');
   assert.deepEqual(await stored(NATIVE_SESSION_KEY),before,'Guide and pronunciation toggles preserve selection, progress and rewards');
   await open({},initialTime,true);await startCafe();assert.equal(await evaluate(()=>document.querySelectorAll('.native-russian-reading').length),0,'Reading preference survives reload');
   await click('[aria-label="Lesson display settings"]');await click('[aria-label="Pronunciation help"]');await click('[aria-label="Lesson display settings"]');
@@ -549,6 +549,7 @@ try{
 
   await open();await startCafe();await click('#native-cyrillic-recommendation button','Try the quick start');
   assert.ok(await evaluate(()=>!!document.querySelector('.native-quick-screen')));
+  assert.ok(await evaluate(()=>!document.querySelector('#native-quick-print,.native-letter-print')),'No alphabet strip button or letter print icons without a connected printer');
   await click('[aria-label="Back to home"]');
   assert.ok(await evaluate(()=>!!document.querySelector('.home-row.home-cyrillic')),'Opening quick start keeps the home card compact afterwards');
   const before=await rewardSnapshot();await click('#native-quick-open');

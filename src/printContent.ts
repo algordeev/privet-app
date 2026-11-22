@@ -8,6 +8,8 @@ import {localDay,shiftDay} from './days.ts';
 import {statsSummary} from './statsSummary.ts';
 import {type NativeStats} from './nativeStats.ts';
 import {stressText} from './stress.ts';
+import {CYRILLIC as ALPHABET,QUICK_LETTERS,QUICK_TITLES,READING_WORDS,type CyrillicLetter} from './cyrillic.ts';
+import {russianReading} from './pronunciation.ts';
 
 export function hash(text:string){let h=0x811c9dc5;for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0;}return h;}
 const words=(text:string)=>normalizedDisplay(text).split(' ').filter(Boolean);
@@ -187,4 +189,60 @@ export function progressReceipt(stats:NativeStats,review:ReviewState,completions
   xp:summary.week.map(d=>({label:new Date(`${d.day}T12:00:00`).toLocaleDateString('en-GB',{weekday:'narrow'}),xp:d.xp,today:d.today})),
   todayXp:summary.todayXp,totalXp:summary.totalXp,
  };
+}
+
+// Alphabet strip for one Cyrillic quick start page: that page's letters to trace and copy (pages 1-3),
+// or its reading words (page 4). Everything comes from the quick start itself; the look-alike notes
+// are kept only on the look-alikes page, where they are the point.
+export type AlphabetLetter={upper:string;lower:string;sound:string;note?:string};
+export type AlphabetWord={russian:string;reading?:string;english:string};
+export type AlphabetStrip={page:number;pages:number;title:string;letters:AlphabetLetter[];words:AlphabetWord[]};
+export function alphabetStrip(page:number):AlphabetStrip{
+ const pages=QUICK_TITLES.length,at=Math.min(Math.max(0,Math.trunc(page)||0),pages-1);
+ const group=QUICK_LETTERS[at] as readonly string[]|undefined;
+ const letters=(group??[]).map(upper=>{
+  const item=ALPHABET.find(letter=>letter.upper===upper);
+  if(!item)throw new Error(`Unknown quick start letter ${upper}`);
+  return {upper:item.upper,lower:item.lower,sound:item.sound,...(item.group==='tricky'&&item.note?{note:item.note}:{})};
+ });
+ const words=group?[]:READING_WORDS.map(word=>({russian:word.text,reading:russianReading(word.text),english:word.meaning}));
+ return {page:at,pages,title:QUICK_TITLES[at].replace(/\.$/u,''),letters,words};
+}
+
+// Letter strip: one letter of the Cyrillic guide, printed from its card. The example is the one the card
+// shows: during an exercise the guide swaps out any example that would give the answer away
+// (referenceExample), and may leave it empty, in which case the strip has no word.
+export type LetterStrip={position:number;letters:number;upper:string;lower:string;sound:string;note?:string;example?:AlphabetWord};
+export function letterStrip(letter:CyrillicLetter,words:readonly Word[]=[]):LetterStrip{
+ const position=ALPHABET.findIndex(item=>item.upper===letter.upper)+1;
+ if(!position)throw new Error(`Unknown letter ${letter.upper}`);
+ return {position,letters:ALPHABET.length,upper:letter.upper,lower:letter.lower,sound:letter.sound,
+  ...(letter.note?{note:letter.note}:{}),
+  ...(letter.example?{example:{russian:letter.example,reading:russianReading(letter.example,words),english:letter.meaning}}:{})};
+}
+
+// Write-from-memory strip, for the end of the Cyrillic quick start: each quick start page becomes a
+// section of prompts (the letters' sounds, then the reading words' guides) to answer in Russian. The order
+// is shuffled within each section on every print, so it doesn't give the answers away; the answers follow
+// the printed order. Nothing new: the prompts are the sounds and reading guides the quick start shows.
+export type RecallItem={prompt:string;answer:string};
+export type RecallSection={title:string;kind:'letter'|'word';items:RecallItem[]};
+export type RecallStrip={sections:RecallSection[]};
+function shuffled<T>(items:readonly T[],random:()=>number){
+ const out=[...items];
+ for(let i=out.length-1;i>0;i--){const j=Math.min(i,Math.floor(random()*(i+1)));[out[i],out[j]]=[out[j],out[i]];}
+ return out;
+}
+export function recallStrip(random:()=>number=Math.random):RecallStrip{
+ const title=(page:number)=>QUICK_TITLES[page].replace(/\.$/u,'');
+ const letters=QUICK_LETTERS.map((group,page)=>({title:title(page),kind:'letter' as const,items:shuffled(group.map(upper=>{
+  const item=ALPHABET.find(letter=>letter.upper===upper);
+  if(!item)throw new Error(`Unknown quick start letter ${upper}`);
+  return {prompt:item.sound,answer:item.lower};
+ }),random)}));
+ const words={title:title(QUICK_LETTERS.length),kind:'word' as const,items:shuffled(READING_WORDS.map(word=>{
+  const reading=russianReading(word.text);
+  return {prompt:reading?`${reading}  ·  ${word.meaning}`:word.meaning,answer:word.text};
+ }),random)};
+ return {sections:[...letters,words]};
 }

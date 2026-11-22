@@ -674,6 +674,23 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .vocab-print svg { width: 24px; height: 24px; }
 .native-app .native-profile-print { width: 100%; margin-top: 16px; }
 .native-app .native-print-practice svg, .native-app .native-profile-print svg { width: 20px; height: 20px; vertical-align: -4px; margin-right: 6px; }
+/* Quick start: the page's alphabet strip. It springs in after the letter cards, and the paper in its icon feeds out. */
+.native-app .native-quick-scroll > .native-quick-print { width: 100%; margin-top: 18px; animation: app-chip-in 320ms var(--spring) backwards; animation-delay: 420ms; }
+/* On the finish screen it pops in under Start Lesson 1. */
+.native-app .native-quick-actions .native-quick-print { animation: app-chip-in 320ms var(--spring) backwards; animation-delay: 260ms; }
+.native-app .native-quick-print svg { width: 20px; height: 20px; vertical-align: -4px; margin-right: 6px; overflow: visible; }
+.native-app .native-quick-print svg path:last-child { animation: native-paper-out 420ms var(--ease) backwards; animation-delay: 640ms; }
+@keyframes native-paper-out { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }
+/* Cyrillic guide: the print icon under a letter card's speaker, popping in like the cards. */
+.native-app .native-letter-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+.native-app .native-letter-print { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px; background: transparent; color: #487457; animation: app-chip-in 300ms var(--spring) backwards; animation-delay: 120ms; }
+.native-app .native-letter-print svg { width: 22px; height: 22px; }
+.native-app .native-letter-print:active { background: #e9efdf; }
+/* In the quick start the cards spring in one by one: each icon pops in just after its own card. */
+.native-app .native-quick-scroll .native-letter-print { animation-delay: calc(var(--c,0) * 55ms + 380ms); }
+@media (prefers-reduced-motion: reduce) {
+ .native-app .native-letter-print, .native-app .native-quick-scroll > .native-quick-print, .native-app .native-quick-actions .native-quick-print, .native-app .native-quick-print svg path:last-child { animation: none; }
+}
 .robot-3d-fallback-printer { display: grid; place-items: center; height: 100%; color: #3f7fd0; }
 .robot-3d-fallback-printer svg { width: 96px; height: 96px; }
 
