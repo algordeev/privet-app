@@ -729,7 +729,9 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .home-row.is-locked .home-row-icon { filter:grayscale(.8); opacity:.6; }
 .native-app .home-row.is-locked h2 b { color:#5f6a5c; }
 .native-app .home-row-score { font-size:12px; font-weight:700; color:#397756; white-space:nowrap; }
-.native-app .home-row-lock { font-size:13px; }
+.native-app .home-row-lock { display:grid; color:#8a917f; }
+.native-app .home-lock { display:block; width:14px; height:16px; overflow:visible; }
+.native-app .home-chapter-state .home-lock { display:inline-block; width:10px; height:12px; margin-right:2px; vertical-align:-1px; color:#a5852f; }
 .native-app .home-row-chev { font-size:20px; color:#9aab90; }
 /* The whole row is the button (a stretched, transparent button over it). */
 .native-app .home-row-open { position:absolute; inset:0; width:100%; min-height:0; padding:0; border-radius:0; background:transparent; }
@@ -758,3 +760,34 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .home-scene > span { display:block; }
 .native-app .home-scene:focus-visible { outline:3px solid #246653; outline-offset:-3px; }
 .native-app .native-companion-greeting { margin-top:18px; }
+
+/* Plus just bought (HomeLessons' useUnlockShow): in turn (--i), top to bottom, each padlock shakes, its shackle springs
+   open and it floats away while the lesson's colour comes back; the unlock button folds away after the last one.
+   Then home is redrawn with Plus, the dots and arrows fade in, and the tapped lesson glows once in its own colour. */
+.native-app .home-lessons[data-unlock="opening"] .is-locked .home-lock { animation:home-lock-off 900ms calc(var(--i,0) * 80ms) cubic-bezier(.3,.7,.4,1) forwards; }
+.native-app .home-lessons[data-unlock="opening"] .is-locked .home-lock-shackle { transform-box:view-box; transform-origin:11.4px 8.2px; animation:home-shackle 900ms calc(var(--i,0) * 80ms) ease-out forwards; }
+.native-app .home-lessons[data-unlock="opening"] .home-row.is-locked .home-row-icon { filter:none; opacity:1; transition:filter 420ms, opacity 420ms; transition-delay:calc(var(--i,0) * 80ms + 420ms); }
+.native-app .home-lessons[data-unlock="opening"] .home-row.is-locked h2 b { color:#232b29; transition:color 420ms calc(var(--i,0) * 80ms + 420ms); }
+.native-app .home-lessons[data-unlock="opening"] .home-chapter.is-locked .home-chapter-no { background:#2f7a52; transition:background-color 420ms calc(var(--i,0) * 80ms + 420ms); }
+.native-app .home-lessons[data-unlock="opening"] .home-chapter.is-locked h2 small { color:#2f7a52; transition:color 420ms calc(var(--i,0) * 80ms + 420ms); }
+.native-app .home-lessons[data-unlock="opening"] .home-chapter.is-locked .home-chapter-state { animation:home-word-off 300ms calc(var(--i,0) * 80ms + 560ms) ease-in forwards; }
+.native-app .home-lessons[data-unlock="opening"] .home-plus { transform-origin:top center; animation:home-plus-off 360ms calc(var(--i,0) * 80ms + 300ms) ease-in forwards; }
+.native-app .home-lessons[data-unlock="done"] .home-chapter-dots,
+.native-app .home-lessons[data-unlock="done"] .home-row-chev { animation:app-fade-in 360ms ease-out; }
+.native-app .home-lessons[data-unlock="done"] .is-ready { position:relative; }
+.native-app .home-lessons[data-unlock="done"] .is-ready::after { content:""; position:absolute; inset:2px; border-radius:inherit; pointer-events:none; box-shadow:inset 0 0 0 2px var(--d,#246653); animation:home-ready 1400ms ease-out forwards; }
+.native-app .home-lessons[data-unlock="done"] .home-row.is-ready::after { border-radius:15px; }
+@keyframes home-lock-off {
+ 0% { transform:none; opacity:1; }
+ 8% { transform:rotate(-14deg); } 16% { transform:rotate(11deg); } 24% { transform:rotate(-7deg); } 32% { transform:rotate(0); }
+ 55% { transform:translateY(-1px) scale(1.12); opacity:1; }
+ 100% { transform:translateY(-16px) scale(.7); opacity:0; }
+}
+@keyframes home-shackle { 0%,32% { transform:none; } 50% { transform:translateY(-3px) rotate(-32deg); } 100% { transform:translateY(-2.5px) rotate(-28deg); } }
+@keyframes home-word-off { to { opacity:0; } }
+@keyframes home-plus-off { to { opacity:0; transform:scaleY(.6); } }
+@keyframes home-ready { 0% { opacity:0; } 20% { opacity:1; } 100% { opacity:0; } }
+@media (prefers-reduced-motion: reduce) {
+ .native-app .home-lessons[data-unlock] *, .native-app .home-lessons[data-unlock] *::after { animation:none !important; transition:none !important; }
+ .native-app .home-lessons[data-unlock="done"] { animation:app-fade-in 400ms ease-out; }
+}

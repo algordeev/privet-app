@@ -10,7 +10,7 @@ let seen:HomeSnapshot|null=null;
 export const REORDER_DELAY=900;
 const MOVE={duration:520,easing:'cubic-bezier(.22,.8,.24,1)'};
 
-const reducedMotion=()=>typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+export const reducedMotion=()=>typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 const sameSet=(a:ReadonlySet<string>,b:ReadonlySet<string>)=>a.size===b.size&&[...a].every(id=>b.has(id));
 const same=(a:HomeSnapshot,b:HomeSnapshot)=>sameSet(a.passed,b.passed)&&sameSet(a.started,b.started);
 const newlyPassed=(shown:HomeSnapshot,now:HomeSnapshot)=>[...now.passed].some(id=>!shown.passed.has(id));
