@@ -2,7 +2,7 @@
 // packs them into printer rows. Text stays at 16 px or more: thermal paper blurs thin strokes. Stress
 // marks are ordinary U+0301 combining accents in the text.
 import {PRINTER_WIDTH,packRows,type Region} from './printerProtocol.ts';
-import type {PracticeStrip,Receipt,WordCard} from './printContent.ts';
+import type {AlphabetStrip,AlphabetWord,LetterStrip,PracticeStrip,RecallStrip,Receipt,WordCard} from './printContent.ts';
 
 export type Rendered={canvas:HTMLCanvasElement;rows:Uint8Array[];height:number};
 const W=PRINTER_WIDTH,PAD=16,INNER=W-PAD*2,MAX_HEIGHT=4000;
@@ -225,12 +225,16 @@ export function renderPracticeStrip(strip:PracticeStrip):Rendered{
  // The answers, upside down: turn the strip round to check.
  c.gap(10);
  // Each answer stays on one line: its number and word are joined by a no-break space.
- const key=`ANSWERS  ${strip.answers.map(a=>a.replace(/ /g,'\u00a0')).join('  ·  ')}`;
+ answersUpsideDown(c,`ANSWERS  ${strip.answers.map(a=>a.replace(/ /g,'\u00a0')).join('  ·  ')}`);
+ return c.finish();
+}
+// The answers, upside down: turn the strip round to check.
+function answersUpsideDown(c:Card,key:string){
+ const ctx=c.ctx;
  font(ctx,18,600);const lines=wrap(ctx,key,INNER),lineHeight=24,top=c.y,height=lines.length*lineHeight+6;
  ctx.save();ctx.translate(W/2,top+height);ctx.rotate(Math.PI);ctx.textAlign='center';
  lines.forEach((line,i)=>fillStressed(ctx,line,0,(i+1)*lineHeight-4));
  ctx.restore();ctx.textAlign='left';c.y=top+height;
- return c.finish();
 }
 
 export function renderReceipt(receipt:Receipt):Rendered{
@@ -288,6 +292,113 @@ export function renderReceipt(receipt:Receipt):Rendered{
  c.gap(6);c.text('* * *',{size:18,align:'center'});
  c.cut();
  return c.finish();
+}
+// Trace letters: one burnt dot in every 2×2, about as light as the trace word's dithered grey. A fixed
+// pattern rather than dithering, so the writing lines the letters cross stay solid.
+function tracePattern(ctx:Ctx):CanvasPattern|string{
+ const tile=document.createElement('canvas');tile.width=tile.height=2;
+ const t=tile.getContext('2d');if(!t)return '#000';
+ t.fillStyle='#fff';t.fillRect(0,0,2,2);t.fillStyle='#000';t.fillRect(0,0,1,1);
+ return ctx.createPattern(tile,'repeat')??'#000';
+}
+// Handwriting lines for one row: a dotted cap line, a dashed midline (the top of small letters) and a
+// solid baseline, in whole pixels so they print crisply.
+function writingLines(ctx:Ctx,base:number,size:number){
+ const cap=base-Math.round(size*0.71),mid=base-Math.round(size*0.52);
+ for(let x=PAD;x<W-PAD;x+=8)ctx.fillRect(x,cap,2,2);
+ for(let x=PAD;x<W-PAD;x+=12)ctx.fillRect(x,mid,6,2);
+ ctx.fillRect(PAD,base,INNER,2);
+}
+const WRITING_SIZE=46;
+type Cell=[value:string,kind:'model'|'trace'|'empty'];
+// One row on writing lines, the cells spread evenly across it: models in black, the rest to trace.
+function writingRow(c:Card,trace:CanvasPattern|string,cells:readonly Cell[]){
+ const ctx=c.ctx,base=c.y+Math.round(WRITING_SIZE*0.92),cell=INNER/Math.max(1,cells.length);
+ writingLines(ctx,base,WRITING_SIZE);font(ctx,WRITING_SIZE,500);ctx.textAlign='center';
+ cells.forEach(([value,kind],i)=>{if(kind==='empty')return;ctx.fillStyle=kind==='model'?'#000':trace;ctx.fillText(value,PAD+cell*(i+0.5),base);});
+ ctx.fillStyle='#000';ctx.textAlign='left';c.y=base+12;
+}
+// A word: its reading guide and meaning, the word to trace, then an empty line to write it again.
+function traceWord(c:Card,trace:CanvasPattern|string,word:AlphabetWord){
+ const ctx=c.ctx;
+ c.text(word.reading?`${word.reading}  ·  ${word.english}`:word.english,{size:16,style:'italic'});
+ c.gap(2);
+ const base=c.y+Math.round(WRITING_SIZE*0.92);
+ writingLines(ctx,base,WRITING_SIZE);font(ctx,WRITING_SIZE,500);ctx.fillStyle=trace;ctx.fillText(word.russian,PAD+6,base);ctx.fillStyle='#000';c.y=base+12;
+ writingRow(c,trace,[]);
+}
+export function renderAlphabetStrip(strip:AlphabetStrip):Rendered{
+ const c=new Card(),trace=tracePattern(c.ctx);
+ c.header(`Cyrillic · page ${strip.page+1} of ${strip.pages}`);c.gap(10);
+ const title=strip.title.toUpperCase();
+ c.banner(title,c.fit(title,18,16,800));
+ for(const letter of strip.letters){
+  c.gap(14);
+  c.text(`${letter.upper} ${letter.lower}  ·  ${letter.sound}`,{size:18,weight:700});
+  if(letter.note)c.text(letter.note,{size:16,style:'italic'});
+  c.gap(2);
+  // A model, then two to trace: the capital first, then the small letter.
+  writingRow(c,trace,[[letter.upper,'model'],[letter.upper,'trace'],[letter.upper,'trace'],[letter.lower,'model'],[letter.lower,'trace'],[letter.lower,'trace']]);
+ }
+ for(const word of strip.words){c.gap(14);traceWord(c,trace,word);}
+ c.cut();
+ return c.finish();
+}
+// One letter: the letter large with its sound and note, rows to trace and write, then its example word.
+export function renderLetterStrip(strip:LetterStrip):Rendered{
+ const c=new Card(),ctx=c.ctx,trace=tracePattern(ctx);
+ c.header(`Cyrillic · letter ${strip.position} of ${strip.letters}`);c.gap(10);c.rule();c.gap(14);
+ const pair=`${strip.upper} ${strip.lower}`,size=c.fit(pair,120,60,500);
+ font(ctx,size,500);ctx.textAlign='center';
+ const base=c.y+Math.round(size*0.78);ctx.fillText(pair,W/2,base);ctx.textAlign='left';c.y=base+Math.round(size*0.22);
+ c.text(strip.sound,{size:26,weight:800,align:'center'});
+ if(strip.note)c.text(strip.note,{size:16,style:'italic',align:'center'});
+ c.gap(14);c.text('TRACE, THEN WRITE',{size:16,weight:800});c.gap(2);
+ // A model, three to trace and one empty (five wide, so Ж and Щ have room); then a whole row of your own.
+ for(const value of [strip.upper,strip.lower])writingRow(c,trace,[[value,'model'],[value,'trace'],[value,'trace'],[value,'trace'],['','empty']]);
+ writingRow(c,trace,[]);
+ if(strip.example){c.gap(16);traceWord(c,trace,strip.example);}
+ c.cut();
+ return c.finish();
+}
+// Write from memory: a section per quick start page. Letters: each sound above an empty box (rows of
+// six, or of four when a section is longer, so labels like "soft sign" fit). Words: each reading guide
+// above an empty writing line. The answers, in the printed order, upside down below the cut.
+export function renderRecallStrip(strip:RecallStrip):Rendered{
+ const c=new Card(),ctx=c.ctx;
+ c.header('Cyrillic · write from memory');c.gap(10);
+ c.banner('WRITE IT IN RUSSIAN');
+ strip.sections.forEach((section,index)=>{
+  c.gap(16);
+  // A number badge, as on the practice strip, then the section's title and what to do.
+  const base=c.y+22;numberBadge(ctx,index+1,PAD+12,base-6);
+  font(ctx,18,800);fillStressed(ctx,section.title,PAD+36,base);c.y=base+6;
+  c.text(section.kind==='letter'?'Write the letter for each sound.':'Write each word in Russian.',{size:16,style:'italic',x:PAD+36,width:INNER-36});
+  if(section.kind==='word'){for(const item of section.items){c.gap(6);c.text(item.prompt,{size:16,style:'italic'});writingRow(c,'#000',[]);}return;}
+  const perRow=section.items.length<=6?section.items.length:4,cell=INNER/perRow,box=52;
+  for(let start=0;start<section.items.length;start+=perRow){
+   c.gap(8);const top=c.y;
+   section.items.slice(start,start+perRow).forEach((item,i)=>{
+    const x=PAD+cell*i;
+    const size=c.fit(item.prompt,18,16,700,cell-6);font(ctx,size,700);ctx.textAlign='center';
+    fillStressed(ctx,item.prompt,x+cell/2,top+18);ctx.textAlign='left';
+    ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(x+4,top+26,cell-8,box,6);ctx.stroke();
+    // A dashed baseline inside the box to write on.
+    for(let dx=x+12;dx<x+cell-14;dx+=8)ctx.fillRect(dx,top+26+box-12,4,2);
+   });
+   c.y=top+26+box;
+  }
+ });
+ c.cut();c.gap(10);
+ // The answers upside down, as on the practice strip. Each section's answers stay together (no-break
+ // spaces), so a line only wraps between sections.
+ answersUpsideDown(c,`ANSWERS  ${strip.sections.map((section,i)=>`${i+1}.\u00a0${section.items.map(item=>item.answer).join('\u00a0')}`).join('  ·  ')}`);
+ return c.finish();
+}
+// A black disc with a white number, as on the practice strip.
+function numberBadge(ctx:Ctx,value:number,cx:number,cy:number){
+ ctx.beginPath();ctx.arc(cx,cy,12,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#fff';font(ctx,16,800);ctx.textAlign='center';fillStressed(ctx,String(value),cx,cy+6);ctx.textAlign='left';ctx.fillStyle='#000';
 }
 // The 1-bit rows as an image, to preview exactly what will print.
 export function rowsToDataUrl(rows:readonly Uint8Array[]){

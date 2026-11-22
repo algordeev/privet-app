@@ -42,6 +42,8 @@ export const CYRILLIC:readonly CyrillicLetter[]=[
  letter('Ю','yu','юг','south','new','After a consonant, can also indicate softness.'),
  letter('Я','ya','я','I','new','After a consonant, can also indicate softness.'),
 ];
+// One title per quick start page; the last page is reading words.
+export const QUICK_TITLES=['A few familiar faces.','Same shape. New sound.','A few new friends.','You can already read a little.'] as const;
 export const QUICK_LETTERS=[['А','К','М','О','Т'],['В','Н','Р','С','У','Х'],['П','И','Е','Ф','Ч','Ш','Б','З','Й','Я','Ь']] as const;
 export const READING_WORDS=[{text:'кофе',meaning:'coffee'},{text:'чай',meaning:'tea'},{text:'привет',meaning:'Hi!'},{text:'пока',meaning:'Bye!'}] as const;
 const canonical=(text:string)=>text.toLowerCase().normalize('NFD').replace(/\u0301/g,'').normalize('NFC').replace(/[^а-яё]/g,'');

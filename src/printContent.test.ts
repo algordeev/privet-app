@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {nativeLessons} from './curriculum/catalog.ts';
-import {exampleFor,practiceStrip,progressReceipt,reviewStrip,wordOfTheDay} from './printContent.ts';
+import {alphabetStrip,exampleFor,letterStrip,recallStrip,practiceStrip,progressReceipt,reviewStrip,wordOfTheDay} from './printContent.ts';
 import {emptyReview,type ReviewState} from './review.ts';
 import {emptyStats} from './nativeStats.ts';
 import {localDay} from './days.ts';
+import {CYRILLIC,QUICK_LETTERS,QUICK_TITLES,READING_WORDS} from './cyrillic.ts';
 import {normalizedDisplay} from './companionDisplay.ts';
 const cafe=nativeLessons[0];
 const plain=(text:string)=>normalizedDisplay(text);
@@ -86,4 +87,67 @@ test('a review strip puts the missed words first, traces the first one missed an
  const allRight=reviewStrip([{key:'shopping/w/bread',correct:true},{key:'daily-life/w/morning',correct:true}],'2026-11-19');
  assert.equal(allRight.trace?.russian,'хлеб');assert.ok(allRight.items.length>=2);
  assert.equal(reviewStrip([],'2026-11-19').items.length,0);
+});
+
+test('alphabet strips: one per quick start page, built only from the quick start\'s own letters and words',()=>{
+ const strips=[0,1,2,3].map(alphabetStrip);
+ assert.deepEqual(strips.map(s=>s.title),QUICK_TITLES.map(t=>t.replace(/\.$/,'')));
+ strips.forEach((strip,page)=>{assert.equal(strip.page,page);assert.equal(strip.pages,4);});
+ // Pages 1-3: that page's letters in its order, each with its small letter and sound.
+ QUICK_LETTERS.forEach((group,page)=>{
+  assert.deepEqual(strips[page].letters.map(l=>l.upper),[...group]);
+  assert.equal(strips[page].words.length,0);
+  for(const letter of strips[page].letters){
+   const source=CYRILLIC.find(item=>item.upper===letter.upper)!;
+   assert.equal(letter.lower,source.lower);assert.equal(letter.sound,source.sound);
+  }
+ });
+ // The look-alike notes appear on the look-alikes page only, and all of its letters have one.
+ assert.ok(strips[1].letters.every(l=>l.note===CYRILLIC.find(item=>item.upper===l.upper)!.note&&l.note));
+ assert.ok([strips[0],strips[2]].every(s=>s.letters.every(l=>l.note===undefined)));
+ // Page 4: the reading words with their reading guides.
+ assert.deepEqual(strips[3].letters,[]);
+ assert.deepEqual(strips[3].words.map(w=>w.russian),READING_WORDS.map(w=>w.text));
+ assert.deepEqual(strips[3].words.map(w=>[w.reading,w.english]),[['KO-fe','coffee'],['chai','tea'],['pri-VET','Hi!'],['pa-KA','Bye!']]);
+ // Out of range pages fall back to the nearest real page.
+ assert.equal(alphabetStrip(-1).page,0);assert.equal(alphabetStrip(9).page,3);assert.equal(alphabetStrip(Number.NaN).page,0);
+});
+
+test('letter strips: any of the 33 letters, in alphabet position, with the example its guide card shows',()=>{
+ CYRILLIC.forEach((letter,i)=>{
+  const strip=letterStrip(letter);
+  assert.equal(strip.position,i+1);assert.equal(strip.letters,33);
+  assert.deepEqual([strip.upper,strip.lower,strip.sound,strip.note],[letter.upper,letter.lower,letter.sound,letter.note]);
+  assert.equal(strip.example?.russian,letter.example);assert.equal(strip.example?.english,letter.meaning);
+  assert.ok(strip.example?.reading,`${letter.example} has a reading guide`);
+ });
+ const zhe=letterStrip(CYRILLIC.find(l=>l.upper==='Ж')!);
+ assert.equal(zhe.position,8);assert.equal(zhe.example?.russian,'журнал');
+ // During an exercise the guide may swap the example (or leave it out); the strip prints what the card shows.
+ const tea=CYRILLIC.find(l=>l.upper==='Ч')!;
+ assert.equal(letterStrip({...tea,example:'часы',meaning:'clock'}).example?.russian,'часы');
+ assert.equal(letterStrip({...tea,example:'',meaning:'Example omitted for this question.'}).example,undefined);
+ assert.throws(()=>letterStrip({...tea,upper:'Q'}));
+});
+
+test('write from memory: a section per quick start page, shuffled per print, answers matching the prompts',()=>{
+ const sounds=(upper:string)=>CYRILLIC.find(l=>l.upper===upper)!;
+ // A seeded random, so each run is repeatable.
+ const seeded=(seed:number)=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/2**32;};
+ const strip=recallStrip(seeded(7));
+ assert.deepEqual(strip.sections.map(s=>[s.title,s.kind]),[...QUICK_TITLES.slice(0,3).map(t=>[t.replace(/\.$/,''),'letter']),[QUICK_TITLES[3].replace(/\.$/,''),'word']]);
+ // Every letter of each page, once, prompted by its sound and answered by its small letter.
+ QUICK_LETTERS.forEach((group,i)=>{
+  const items=strip.sections[i].items;
+  assert.deepEqual(items.map(item=>item.answer).sort(),group.map(u=>u.toLowerCase()).sort());
+  for(const item of items)assert.equal(item.prompt,sounds(item.answer.toUpperCase()).sound);
+ });
+ assert.deepEqual(strip.sections[3].items.map(item=>item.answer).sort(),READING_WORDS.map(w=>w.text).sort());
+ assert.ok(strip.sections[3].items.some(item=>item.answer==='кофе'&&item.prompt==='KO-fe  ·  coffee'));
+ // Shuffled: different random numbers give different orders, the same ones the same order.
+ const order=(s:typeof strip)=>s.sections.map(x=>x.items.map(i=>i.answer).join('')).join('|');
+ assert.equal(order(recallStrip(seeded(7))),order(strip));
+ assert.notEqual(order(recallStrip(seeded(8))),order(strip));
+ // Even an edge-case random (always 0, or just under 1) keeps every item exactly once.
+ for(const edge of [()=>0,()=>0.9999999])assert.equal(recallStrip(edge).sections.flatMap(x=>x.items).length,5+6+11+4);
 });
