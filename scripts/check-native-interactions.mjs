@@ -1179,7 +1179,7 @@ try{
  }
 
  // Without Plus: chapter 1 is free, chapters 2 and 3 are locked rows behind one unlock button; locked taps open the
- // paywall, Back returns where you were, and buying goes straight into the lesson that was tapped.
+ // paywall, Back returns where you were, and buying returns home, where the locks come off and the tapped lesson glows.
  {
   await call('Emulation.setDeviceMetricsOverride',{width:375,height:667,deviceScaleFactor:1,mobile:true});
   learningCards=false;russianAudio=false;await open();
@@ -1210,13 +1210,35 @@ try{
   await capture('out-of-hearts');
   assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.failure-screen .button')].map(b=>b.textContent.replace(/\s*[↻∞]\s*$/,'').trim())),['Try again from the start','Refill needs 20 gems · you have 0','Unlimited hearts with Plus']);
   await click('[aria-label="Return to app home"]');
-  // Buying from the locked lesson 4 card opens lesson 4 right away; nothing is locked or blurred afterwards.
+  // Buying from the locked lesson 4 row goes back to home, still locked at first; the locks open in turn, top to
+  // bottom, then home is redrawn with Plus and lesson 4 glows. Tapping it then opens it as usual.
+  await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
   await openCard(nativeLessons[3].id,'Unlock with Plus');await until(()=>!!document.querySelector('#native-plus-title'));
   await click('.plus-buy',`Continue · ${PLUS_YEARLY_PRICE}/year`);
-  await until(title=>document.querySelector('.app-navigation strong')?.textContent===title,nativeLessons[3].title);
-  await click('[aria-label="Return to app home"]');
+  await until(()=>!!document.querySelector('.home-lessons'));
+  assert.equal(await evaluate(()=>document.querySelectorAll('.home-row.is-locked').length),5,'Home first shows the locks');
+  assert.ok(await evaluate(()=>!document.querySelector('.lesson-bottom')),'Buying does not open the lesson');
+  await until(()=>document.querySelector('.home-lessons')?.dataset.unlock==='opening');
+  assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('.home-lessons .is-locked')].map(el=>el.style.getPropertyValue('--i'))),['0','1','2','3','4','5','6'],'Locks open in turn, top to bottom');
+  await capture('unlocking');
+  await until(()=>document.querySelector('.home-lessons')?.dataset.unlock==='done');
   assert.equal(await evaluate(()=>document.querySelectorAll('.home-row.is-locked,.home-chapter.is-locked,.home-hero.is-locked,.home-plus').length),0);
-  console.log('PASS: without Plus chapters 2–3 are locked rows behind one unlock button; locked taps and the lesson 3 results open the paywall, Back returns, buying opens the tapped lesson; a finished chapter folds and opens on tap; out of hearts offers Try again first.');
+  assert.ok(await evaluate(id=>!!document.querySelector(`#native-card-${id}`).closest('.is-ready'),nativeLessons[3].id),'The tapped lesson glows');
+  assert.ok(await evaluate(id=>document.activeElement===document.querySelector(`#native-card-${id} ~ .button`),nativeLessons[3].id),'Focus rests on the tapped lesson');
+  await capture('unlocked');
+  await until(()=>!document.querySelector('.home-lessons')?.dataset.unlock);await assertNativeLayout();
+  await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+  await openCard(nativeLessons[3].id);await until(title=>document.querySelector('.app-navigation strong')?.textContent===title,nativeLessons[3].title);
+  await click('[aria-label="Return to app home"]');
+  // Buying from the lesson 3 results also returns home with lesson 4 glowing; with Reduce Motion it is unlocked at once.
+  await open({[sessionKey(nativeLessons[2])]:done});await openCard(nativeLessons[2].id);
+  await click('.native-next-lesson',`Unlock Lesson ${Number(nativeLessons[3].number)} with Plus`);await until(()=>!!document.querySelector('#native-plus-title'));
+  await click('.plus-buy',`Continue · ${PLUS_YEARLY_PRICE}/year`);
+  await until(()=>!!document.querySelector('.home-lessons'));
+  assert.equal(await evaluate(()=>document.querySelector('.home-lessons').dataset.unlock),'done');
+  assert.equal(await evaluate(()=>document.querySelectorAll('.home-row.is-locked,.home-chapter.is-locked,.home-plus').length),0);
+  assert.ok(await evaluate(id=>!!document.querySelector(`#native-card-${id}`).closest('.is-ready'),nativeLessons[3].id));
+  console.log('PASS: without Plus chapters 2–3 are locked rows behind one unlock button; locked taps and the lesson 3 results open the paywall, Back returns; buying returns home, the locks open in turn and the tapped lesson glows; a finished chapter folds and opens on tap; out of hearts offers Try again first.');
  }
  // One big card at a time: tapping a row grows it into the big card and the previous big card becomes a row.
  {
