@@ -2,7 +2,7 @@ import {appStorage} from './previewStorage';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {Capacitor} from '@capacitor/core';
 import {App} from '@capacitor/app';
-import {companionEnabled,COMPANION_PREFERENCE_KEY,createNativeCompanion,initialCompanion} from './nativeCompanion';
+import {companionEnabled,COMPANION_PREFERENCE_KEY,createNativeCompanion,initialCompanion,type NativeExpression} from './nativeCompanion';
 import type {Action,Progress} from './engine';
 
 function readPreference(){try{return companionEnabled(appStorage.getItem(COMPANION_PREFERENCE_KEY));}catch{return true;}}
@@ -10,6 +10,8 @@ export function useNativeCompanion(){
  const [view,setView]=useState(()=>initialCompanion(readPreference()));
  const initialEnabled=useRef(view.enabled);
  const actor=useRef<ReturnType<typeof createNativeCompanion>|null>(null);
+ // On a cold start home asks for its face before the companion exists: it plays as soon as it does.
+ const pendingFace=useRef<NativeExpression|null>(null);
  useEffect(()=>{
   const companion=createNativeCompanion(initialEnabled.current,setView,{set:(fn,ms)=>setTimeout(fn,ms),clear:id=>clearTimeout(id)});
   actor.current=companion;
@@ -17,6 +19,7 @@ export function useNativeCompanion(){
   const visibility=()=>companion.setActive(nativeActive&&!document.hidden);
   const pagehide=()=>companion.setActive(false);
   visibility();
+  if(pendingFace.current){companion.express(pendingFace.current);pendingFace.current=null;}
   document.addEventListener('visibilitychange',visibility);
   window.addEventListener('pagehide',pagehide);
   window.addEventListener('pageshow',visibility);
@@ -48,6 +51,7 @@ export function useNativeCompanion(){
  const navigate=useCallback((scope:'home'|'lesson')=>actor.current?.navigate(scope),[]);
  const onTransition=useCallback((previous:Progress,next:Progress,action:Action)=>actor.current?.transition(previous,next,action),[]);
  const tap=useCallback(()=>actor.current?.tap(),[]);
- return {view,setEnabled,resetPreference,navigate,onTransition,tap};
+ const express=useCallback((expression:NativeExpression)=>{if(actor.current)actor.current.express(expression);else pendingFace.current=expression;},[]);
+ return {view,setEnabled,resetPreference,navigate,onTransition,tap,express};
 }
 export type NativeCompanionController=ReturnType<typeof useNativeCompanion>;

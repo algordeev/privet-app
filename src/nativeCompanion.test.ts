@@ -90,3 +90,10 @@ test('the virtual companion is "on fire" exactly when the physical one is',()=>{
  assert.deepEqual(nativeLessonReaction({...p,combo:3,bestCombo:3}),{expression:'celebrating',message:'Three in a row! You’re on fire.'});
  for(const other of [{...p,combo:1,bestCombo:1},{...p,attempts:2},{...p,feedback:'incorrect' as const}])assert.doesNotMatch(nativeLessonReaction(other)!.message,/in a row/);
 });
+test('express: home sets the face without words, keeps any message, then settles to the calm face',()=>{
+ const h=harness();h.actor.navigate('home');
+ h.actor.express('celebrating');assert.equal(h.view.expression,'celebrating');assert.equal(h.view.message,'');
+ h.settle();assert.equal(h.view.expression,'idle');
+ h.actor.tap();const reply=h.view.message;h.actor.express('happy');assert.equal(h.view.message,reply,'A tap reply stays in the bubble');
+ const off=harness(false);off.actor.express('happy');assert.equal(off.view.expression,'idle','No face when reactions are turned off');
+});

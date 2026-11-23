@@ -56,6 +56,8 @@ export function createNativeCompanion(
   setEnabled(value:boolean){if(disposed)return;clear();update({enabled:value});},
   setActive(value:boolean){if(disposed)return;if(!value)clear();update({active:value});},
   tap(){react({expression:'greeting',message:friendly[taps++%friendly.length]});},
+  // A reaction without words: home's message picks the face; the bubble keeps its own text.
+  express(expression:NativeExpression){react({expression,message:view.message});},
   transition(previous:Progress,next:Progress,action:Action){
    if(disposed)return;
    if(action.type==='reset'){lastTransition='';clear();return;}

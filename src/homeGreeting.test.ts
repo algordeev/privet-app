@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CONNECT_PROMPT,homeGreeting,learnedWord,type GreetingFacts} from './homeGreeting.ts';
+import {CONNECT_PROMPT,GREETING_FACE,homeGreeting,learnedWord,type GreetingFacts} from './homeGreeting.ts';
 import {emptyReview} from './review.ts';
 
 // A quiet afternoon with nothing to report.
-const base:GreetingFacts={hour:14,today:'2026-11-23',streak:0,practisedToday:false,due:0,midLesson:false,connect:false,quickStartUnseen:false,anyPassed:true,freezes:0};
+const base:GreetingFacts={hour:14,today:'2026-11-23',away:false,streak:0,practisedToday:false,due:0,midLesson:false,connect:false,quickStartUnseen:false,anyPassed:true,freezes:0};
 const say=(facts:Partial<GreetingFacts>)=>homeGreeting({...base,...facts});
 
 test('home greeting: the most important message wins, in the approved order',()=>{
@@ -56,4 +56,17 @@ test('learned word: single plain words only, weak ones first; none before anythi
  // Phrases with punctuation or spaces are never picked.
  const phrases={...emptyReview(),items:{'shopping/w/price':{box:0,due:'2026-11-20',lapses:0,reviews:1}}};
  assert.equal(learnedWord(phrases,'2026-11-23'),undefined);
+});
+
+test('home greeting: welcome back after a break, before the reviews line; the connect prompt still comes first',()=>{
+ assert.deepEqual(say({away:true,due:4}),{kind:'welcome',text:'Welcome back! A little Russian today?'});
+ assert.equal(say({away:true,connect:true}).kind,'connect');
+ assert.equal(say({away:true,tap:'One small step is a good start.'}).kind,'tap');
+});
+test('home greeting: a 1-day streak gets its own words',()=>{
+ assert.equal(say({hour:19,streak:1}).text,'Keep your streak going: one lesson today.');
+ assert.equal(say({hour:19,streak:2}).text,'Your 2-day streak needs a lesson today.');
+});
+test('home greeting: every message has its face (approved), and a tap reply keeps the face it already made',()=>{
+ assert.deepEqual(GREETING_FACE,{tap:null,note:'happy',connect:'greeting',welcome:'happy',streak:'encouraging',review:'greeting',resume:'encouraging',chapter:'celebrating',finished:'happy','quick-start':'greeting',freeze:'happy',word:'greeting',hello:'greeting'});
 });
