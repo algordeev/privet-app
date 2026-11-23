@@ -17,8 +17,8 @@ export type GreetingFacts={
  connect:boolean;
  streak:number;practisedToday:boolean;
  due:number;midLesson:boolean;
- // The lesson home is showing, when it is complete: the next open lesson, or the chapter it completed.
- finished?:{title:string;next?:string;chapter?:number};
+ // The lesson home is showing, when it is complete, and the chapter it completed (if it did).
+ finished?:{title:string;chapter?:number};
  quickStartUnseen:boolean;anyPassed:boolean;
  freezes:number;word?:{text:string;meaning:string};
 };
@@ -41,7 +41,8 @@ export function homeGreeting(f:GreetingFacts):Greeting{
   const done=f.finished;
   // A lesson that finished its chapter says so instead.
   if(done.chapter)return say('chapter',`Chapter ${done.chapter} done. Nice!`);
-  return say('finished',`Молодец! You finished ${done.title}.${done.next?` Next up: ${done.next}.`:''}`);
+  // The card below already says what's up next, so the bubble only celebrates.
+  return say('finished',`Молодец! You finished ${done.title}.`);
  }
  if(f.quickStartUnseen&&!f.anyPassed)return say('quick-start','New to Cyrillic? Try the quick start.');
  // Now and then: one day in three each for a saved freeze and a learned word, when there is one.

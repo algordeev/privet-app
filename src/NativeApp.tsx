@@ -59,16 +59,14 @@ export function NativeHome({unlocked,controller,controllers,companion,activity,p
  const midLesson=lessonStarted(controller)&&!controller.progress.complete;
  const now=new Date(),today=localDay(now);
  const ble=useBleState(physical),robotConnected=ble.phase==='connected'&&ble.ready;
- // The lesson home is showing, when finished: what's next (if open) or the chapter it completed.
+ // The lesson home is showing, when finished, and the chapter it completed (if it did).
  const finished=(()=>{
   if(!controller.progress.complete)return undefined;
   const id=controller.definition.id,day=(item:LessonController)=>item.saved.completion?.date??'';
   const chapter=chapterOf(id),inChapter=chapter?controllers.filter(item=>chapter.lessonIds.includes(item.definition.id)):[];
   // The chapter is done and this lesson was the last of it to be finished.
   const closed=!!chapter&&inChapter.every(item=>item.passed)&&inChapter.every(item=>day(item)<=day(controller));
-  const following=nextLesson(id),index=following?controllers.findIndex(item=>item.definition.id===following.id):-1,next=index>=0?controllers[index]:undefined;
-  const nextOpen=!!next&&!next.passed&&lessonOpen({index,plus,started:lessonStarted(next),passed:next.passed});
-  return {title:controller.definition.title,...(closed?{chapter:chapter!.number}:{}),...(nextOpen?{next:next!.definition.title}:{})};
+  return {title:controller.definition.title,...(closed?{chapter:chapter!.number}:{})};
  })();
  const facts:GreetingFacts={hour:now.getHours(),today,tap:companion.view.scope==='home'&&companion.view.message?companion.view.message:undefined,note:note||undefined,
   streak:activity.summary.current,practisedToday:activity.summary.week.some(day=>day.today&&day.finishes>0),due:review?.due??0,midLesson,finished,connect:false,

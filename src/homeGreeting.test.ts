@@ -15,7 +15,7 @@ test('home greeting: the most important message wins, in the approved order',()=
  assert.deepEqual(say({...all,tap:undefined,note:undefined,hour:17}),{kind:'review',text:'Привет! 3 to review today. Shall we?'});
  // Mid-lesson beats reviews.
  assert.equal(say({due:3,midLesson:true}).text,'Shall we pick up where we left off?');
- assert.equal(say({finished:{title:'At the shop',next:'Your day'}}).text,'Молодец! You finished At the shop. Next up: Your day.');
+ assert.equal(say({finished:{title:'At the shop'}}).text,'Молодец! You finished At the shop.');
  assert.equal(say({finished:{title:'Around town',chapter:1}}).text,'Chapter 1 done. Nice!');
 });
 test('home greeting: the streak line only from 18:00, only for a live streak not yet practised today',()=>{
