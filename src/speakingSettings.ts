@@ -1,8 +1,9 @@
 import {PRODUCT} from './config.ts';
 import type {SpeechSupport} from './speechRecognition.ts';
 
-// Whether lesson speaking steps are spoken or quiet. Saved on the device: the Settings switch and the
-// 10-minute pause from "Can't speak now". Absent means on and not paused.
+// Whether lesson speaking steps are spoken or quiet. Only the Settings switch is saved on the device
+// (absent means on). The 10-minute pause from "Can't speak now" lasts for this run of the app only:
+// it is never saved, so reopening the app after closing it makes speaking available again.
 export const SPEAKING_KEY=`${PRODUCT.storageKey}-speaking`;
 export const PAUSE_MS=10*60*1000;
 export type SpeakingSettings={version:1;enabled:boolean;pausedUntil:number|null};
@@ -12,10 +13,11 @@ export function restoreSpeaking(raw:string|null):SpeakingSettings{
  try{
   const s=raw?JSON.parse(raw):null;
   if(s?.version!==1||typeof s.enabled!=='boolean')return defaultSpeaking();
-  return {version:1,enabled:s.enabled,pausedUntil:Number.isSafeInteger(s.pausedUntil)&&s.pausedUntil>0?s.pausedUntil:null};
+  return {version:1,enabled:s.enabled,pausedUntil:null};
  }catch{return defaultSpeaking();}
 }
 export const paused=(settings:SpeakingSettings,now:number)=>settings.pausedUntil!==null&&now<settings.pausedUntil;
+export const savedSpeaking=(settings:SpeakingSettings)=>JSON.stringify({version:1,enabled:settings.enabled});
 export const pauseSpeaking=(settings:SpeakingSettings,now:number):SpeakingSettings=>({...settings,pausedUntil:now+PAUSE_MS});
 
 // Why a speaking step is quiet, if it is. Unsupported: no recogniser in this app (the browser) or no

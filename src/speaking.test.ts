@@ -5,7 +5,7 @@ import {checkAnswer,initialProgress,progressReducer} from './engine.ts';
 import {LESSON_DATA_VERSION,parseSaved,restoreSession,speakingUpgrade} from './session.ts';
 import {gradeSpeech,speakOutcome} from './speechMatch.ts';
 import {hearsReply,modelLine,presentExercise} from './speakSteps.ts';
-import {PAUSE_MS,defaultSpeaking,pauseSpeaking,restoreSpeaking,speakingAvailability} from './speakingSettings.ts';
+import {PAUSE_MS,defaultSpeaking,pauseSpeaking,restoreSpeaking,savedSpeaking,speakingAvailability} from './speakingSettings.ts';
 import {buildReviewSession,emptyReview,restoreReview,reviewFormat,reviewSources} from './review.ts';
 import {companionDisplay} from './companionDisplay.ts';
 import type {SpeechSupport} from './speechRecognition.ts';
@@ -95,7 +95,10 @@ test('speaking is spoken only where this iPhone can listen on-device, and not wh
  const paused=pauseSpeaking(on,now);
  assert.equal(speakingAvailability(paused,support(),now+PAUSE_MS-1).reason,'paused');
  assert.equal(speakingAvailability(paused,support(),now+PAUSE_MS).spoken,true);
- assert.deepEqual(restoreSpeaking(JSON.stringify(paused)),paused);
+ // The pause belongs to this run of the app: it is never saved, and an old saved one is ignored.
+ assert.deepEqual(JSON.parse(savedSpeaking(paused)),{version:1,enabled:true});
+ assert.deepEqual(restoreSpeaking(JSON.stringify(paused)),on);
+ assert.deepEqual(restoreSpeaking(savedSpeaking({...on,enabled:false})),{...on,enabled:false});
  for(const raw of [null,'nope','{}',JSON.stringify({version:2,enabled:false})])assert.deepEqual(restoreSpeaking(raw),defaultSpeaking());
 });
 

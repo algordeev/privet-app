@@ -2,16 +2,17 @@ import {useCallback,useEffect,useState} from 'react';
 import {appStorage} from './previewStorage';
 import {useForeground} from './useForeground';
 import {speechPlugin,speechRecognitionSupported,type SpeechSupport} from './speechRecognition';
-import {SPEAKING_KEY,pauseSpeaking,restoreSpeaking,speakingAvailability,type SpeakingSettings} from './speakingSettings';
+import {SPEAKING_KEY,pauseSpeaking,restoreSpeaking,savedSpeaking,speakingAvailability,type SpeakingSettings} from './speakingSettings';
 
-// One app-wide owner of the speaking state: the saved switch and pause, and what this iPhone allows.
+// One app-wide owner of the speaking state: the saved switch, this run's pause, and what this iPhone allows.
 // Support is asked again whenever the app returns to the foreground (permissions change in iOS Settings).
 export function useSpeaking(){
  const [settings,setSettings]=useState<SpeakingSettings>(()=>{try{return restoreSpeaking(appStorage.getItem(SPEAKING_KEY));}catch{return restoreSpeaking(null);}});
  const [support,setSupport]=useState<SpeechSupport|null>(null);
  const [now,setNow]=useState(()=>Date.now());
  const foreground=useForeground();
- const save=useCallback((next:SpeakingSettings)=>{setSettings(next);try{appStorage.setItem(SPEAKING_KEY,JSON.stringify(next));}catch{/* Storage is optional. */}},[]);
+ // Only the switch is written; the pause stays in memory for this run of the app.
+ const save=useCallback((next:SpeakingSettings)=>{setSettings(next);try{appStorage.setItem(SPEAKING_KEY,savedSpeaking(next));}catch{/* Storage is optional. */}},[]);
  const refresh=useCallback(async()=>{
   if(!speechRecognitionSupported()){setSupport(null);return null;}
   try{const next=await speechPlugin.status();setSupport(next);return next;}catch{setSupport(null);return null;}
