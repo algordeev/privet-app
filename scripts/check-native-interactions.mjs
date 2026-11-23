@@ -60,7 +60,7 @@ server.middlewares.use('/__privet_native_checks',(req,res)=>{
  ${reset?`localStorage.clear();for(const [key,value] of Object.entries(${JSON.stringify(seed)}))localStorage.setItem(key,JSON.stringify(value));`:''}
  window.SpeechSynthesisUtterance=class{constructor(text){this.text=text;}};
  Object.defineProperty(window,'speechSynthesis',{value:{getVoices:()=>[{lang:window.__russianAudio?'ru-RU':'en-US',name:'Test voice'}],addEventListener:(_event,fn)=>window.__voiceListeners.add(fn),removeEventListener:(_event,fn)=>window.__voiceListeners.delete(fn),cancel:()=>{},speak:utterance=>{window.__speechTaps.push(utterance.text.replace(/\u0301/g,''));window.__utterances.push(utterance);if(!window.__holdSpeech)queueMicrotask(()=>{utterance.onstart?.();utterance.onend?.();});}}});
- ${repeatedSentence?`const {cafeLesson}=await import('/src/lessons.ts');cafeLesson.exercises=cafeLesson.exercises.map((exercise,index)=>index===2?{...exercise,tokens:['я','знаю','что','я'],answer:'я знаю что я'}:exercise);`:''}
+ ${repeatedSentence?`const {cafeLesson}=await import('/src/lessons.ts');cafeLesson.exercises=cafeLesson.exercises.map(exercise=>exercise.id==='sentence'?{...exercise,tokens:['я','знаю','что','я'],answer:'я знаю что я'}:exercise);`:''}
  await import('/src/main.tsx');
  </script></body></html>`);
 });
@@ -224,7 +224,8 @@ try{
   await click('[aria-label="Open your profile and statistics"]');await click('#native-profile-plus-open','Get Plus');await click('.plus-buy',`Continue · ${PLUS_YEARLY_PRICE}/year`);
   await until(key=>JSON.parse(localStorage.getItem(key)).progress.failed===false,NATIVE_SESSION_KEY);
   let recovered=await stored(NATIVE_SESSION_KEY);
-  assert.equal(recovered.progress.hearts,3);assert.equal(recovered.progress.index,1);assert.equal(recovered.progress.attempts,3);assert.deepEqual(recovered.progress.results,[true]);assert.equal(recovered.selected,'tea');
+  // Seeded as version 1 data: step 2 (meaning) is step 3 now, after the new Repeat, which counts as done.
+  assert.equal(recovered.progress.hearts,3);assert.equal(recovered.progress.index,2);assert.equal(recovered.progress.attempts,3);assert.deepEqual(recovered.progress.results,[true,true]);assert.equal(recovered.selected,'tea');
   assert.ok(await evaluate(()=>!!document.querySelector('#native-plus-title')),'Profile activation must not unexpectedly navigate into a lesson');
   await click('[aria-label="Back"]');await click('[aria-label="Back to home"]');await startCafe();
   assert.equal(await evaluate(()=>!!document.querySelector('.failure-screen')),false);
@@ -260,7 +261,8 @@ try{
 
   const resumed=freshSession();resumed.progress.index=2;resumed.progress.results=[true,true];resumed.tokens=['Меня'];
   await open({[NATIVE_SESSION_KEY]:finalStep(),[sessionKey(nativeLessons[1])]:resumed});await startCafe();await click('.lesson-bottom .button','Continue');await click('.native-next-lesson','Continue to Lesson 2');
-  assert.equal((await stored(sessionKey(nativeLessons[1]))).progress.index,2,JSON.stringify(await stored(sessionKey(nativeLessons[1]))));
+  // Version 1 step 3 (the sentence) is step 4 now, after the new Repeat.
+  assert.equal((await stored(sessionKey(nativeLessons[1]))).progress.index,3,JSON.stringify(await stored(sessionKey(nativeLessons[1]))));
   await until(()=>!!document.querySelector('.sentence-answer'));
   assert.ok(await evaluate(()=>document.querySelector('.sentence-answer').textContent.includes('Меня')),'Existing Lesson 2 work must be preserved');
 
@@ -431,6 +433,8 @@ try{
  for(let n=0;n<5;n++)await evaluate(n=>document.querySelectorAll('.vocab-reveal')[n].click(),n);
  await click('.lesson-bottom .button','Check answer');await click('.lesson-bottom .button','Continue');
  assert.deepEqual((await codes()).slice(-2),[1,6]);
+ // Step 2 is the new Repeat; with no recogniser here it is its quiet listening choice.
+ await click('.choice','1Приве́т!');await click('.lesson-bottom .button','Check answer');await click('.lesson-bottom .button','Continue');
  await evaluate(()=>{window.__bleCommands=[];});await click('.round-audio');await click('.lesson-hint-button');
  assert.deepEqual(await codes(),[5,6,7]);assert.equal(await evaluate(()=>document.querySelector('.lesson-hint-button').disabled),true);
  await evaluate(()=>document.querySelector('.lesson-hint-button').click());assert.deepEqual(await codes(),[5,6,7]);
@@ -483,7 +487,7 @@ try{
   if(scenario.name.startsWith('completed')){
    await click('.completion button','Replay the lesson');expected.push(6);
    assert.deepEqual(await codes(),expected,'Replay replaces the reset with THINKING, with no intermediate IDLE write');
-   assert.ok(await evaluate(()=>document.querySelector('.lesson-step-count').textContent.includes('STEP 1 OF 5')));
+   assert.ok(await evaluate(()=>document.querySelector('.lesson-step-count').textContent.includes('STEP 1 OF 7')));
   }
   await click('[aria-label="Return to app home"]');assert.deepEqual(await codes(),[...expected,4],`${scenario.name}: close sends IDLE`);
  }
@@ -494,11 +498,11 @@ try{
  // Latest finished practice can be lower without reducing the Home high score.
  const lowerResult={...complete,progress:{...complete.progress,results:[true,true,false,false,false]}};
  await open({[NATIVE_SESSION_KEY]:lowerResult,[savedKey(nativeLessons[0])]:{preferences:{stress:false,pronunciation:true},bestFirstTry:5,completion:{results:Array(5).fill(true),date:'2026-10-23',hearts:3,bestCombo:5}}});
- await startCafe();assert.ok(await evaluate(()=>document.querySelector('.completion .score').textContent.includes('2/ 5')));
+ await startCafe();assert.ok(await evaluate(()=>document.querySelector('.completion .score').textContent.includes('4/ 7')),'2 of 5 saved before speaking, plus its two speaking steps');
  assert.ok(await evaluate(()=>document.querySelector('.completion .score').textContent.includes('Correct on firstsubmission')));
  await click('[aria-label="Return to app home"]');
- assert.ok(await evaluate(()=>{const el=document.querySelector('#native-card-cafe').closest('.home-row,.home-hero');return (el.querySelector('.home-row-score')?.textContent??el.querySelector('.home-hero-meta').textContent).includes('5/5');}),'Home keeps the best first-try score (café is still the big card you opened)');
- const latestPractice=await stored(savedKey(nativeLessons[0]));assert.equal(latestPractice.bestFirstTry,5);assert.equal(latestPractice.completion.results.filter(Boolean).length,2);
+ assert.ok(await evaluate(()=>{const el=document.querySelector('#native-card-cafe').closest('.home-row,.home-hero');return (el.querySelector('.home-row-score')?.textContent??el.querySelector('.home-hero-meta').textContent).includes('7/7');}),'Home keeps the best first-try score (a 1.0 perfect 5/5 counts its new speaking steps as done) (café is still the big card you opened)');
+ const latestPractice=await stored(savedKey(nativeLessons[0]));assert.equal(latestPractice.bestFirstTry,7);assert.equal(latestPractice.completion.results.filter(Boolean).length,4);
  // A replay is a new attempt, not a revocation of previously earned completion.
  for(const definition of [nativeLessons[0],nativeLessons[2]]){
   const steps=definition.exercises.length,finished={...complete,progress:{...complete.progress,index:steps,results:Array(steps).fill(true)}};
@@ -593,7 +597,8 @@ try{
    assert.ok(visibleSheet.top>=0&&visibleSheet.bottom<=viewport.height+1&&visibleSheet.height>viewport.height*.75&&visibleSheet.body>200,`Guide body must fit and be readable: ${JSON.stringify(visibleSheet)}`);
 
    if(index===1)await capture(`guide-${viewport.width}`);
-   const expected=contextualLetters(nativeLessons[0],nativeLessons[0].exercises[index]).map(item=>`${item.upper} ${item.lower}`);
+   // Seeded as version 1 data, so the step is found where the app moved it.
+   const expected=contextualLetters(nativeLessons[0],nativeLessons[0].exercises[saved.progress.index]).map(item=>`${item.upper} ${item.lower}`);
    assert.deepEqual(await evaluate(()=>[...document.querySelectorAll('#native-alphabet-guide .native-letter-heading strong')].map(el=>el.textContent)),expected);
    await click('.native-guide-tabs button','See full alphabet');assert.equal(await evaluate(()=>document.querySelectorAll('#native-alphabet-guide .native-letter-card').length),33);
    assert.ok(await evaluate(()=>document.querySelector('#native-alphabet-guide').textContent.includes('Ё')));
@@ -678,8 +683,9 @@ try{
  }
  await call('Emulation.setTouchEmulationEnabled',{enabled:false});
  // Safe examples are used in both reference views, not just by the data helper.
- for(const [definition,index] of [[nativeLessons[0],2],[nativeLessons[0],3],[nativeLessons[0],4],[nativeLessons[1],3],[nativeLessons[1],4]]){
-  const session=freshSession();session.progress.index=index;session.progress.results=Array(index).fill(true);
+ for(const [definition,id] of [[nativeLessons[0],'sentence'],[nativeLessons[0],'exchange'],[nativeLessons[0],'type'],[nativeLessons[1],'exchange'],[nativeLessons[1],'type']]){
+  const index=definition.exercises.findIndex(e=>e.id===id);
+  const session={version:2,...freshSession()};session.progress.index=index;session.progress.results=Array(index).fill(true);
   await open({[sessionKey(definition)]:session});await openCard(definition.id);
   await click('[aria-label="Open Cyrillic guide"]');
   for(const full of [false,true]){
@@ -689,7 +695,7 @@ try{
    const normalize=text=>text.normalize('NFD').replace(/\u0301/g,'').normalize('NFC').toLowerCase().replace(/[^а-яё]/g,'');
    for(const item of examples)assert.ok(!normalize(item.example).includes(normalize(definition.exercises[index].answer)),`${definition.id}/${index}/${item.letter} leaked answer`);
    if(full)assert.equal(examples.length,33);
-   if(definition.id==='cafe'&&index===4)assert.equal(examples.find(item=>item.letter==='Б').example,'банк');
+   if(definition.id==='cafe'&&id==='type')assert.equal(examples.find(item=>item.letter==='Б').example,'банк');
   }
   await click('[aria-label="Close Cyrillic guide"]');
  }
@@ -978,6 +984,11 @@ try{
  await until(()=>window.__cards.length>0);assert.equal(await evaluate(()=>window.__cards.at(-1).primary),'Tap a word');
  await click('.vocab-reveal');assert.equal(await evaluate(()=>window.__cards.at(-1).primary),'Привет!');assert.equal(await evaluate(()=>window.__cards.at(-1).secondary),'Hi!');
  await evaluate(()=>document.querySelectorAll('.vocab-reveal').forEach(el=>el.click()));await click('.lesson-bottom .button','Check answer');await click('.lesson-bottom .button','Continue');
+ // The new Repeat step (here its quiet listening choice): the robot never shows the word before it is graded.
+ await until(()=>window.__cards.at(-1)?.primary==='Your turn');
+ await click('.choice','1Привет!');await click('.lesson-bottom .button','Check answer');
+ await until(()=>window.__cards.at(-1)?.primary==='Привет!');assert.equal(await evaluate(()=>window.__cards.at(-1).secondary),'Hi!');
+ await click('.lesson-bottom .button','Continue');
  await until(()=>window.__cards.at(-1)?.primary==='кофе');assert.equal(await evaluate(()=>window.__cards.at(-1).secondary),'Choose on phone');
  await click('.choice','1tea');await click('.lesson-bottom .button','Check answer');assert.equal(await evaluate(()=>window.__cards.at(-1).secondary),'Choose on phone');
  await click('.lesson-bottom .button','Try again');await click('.lesson-hint-button');assert.equal(await evaluate(()=>window.__cards.at(-1).primary),'See phone hint');
@@ -1079,7 +1090,8 @@ try{
  // matching grades each pair at once, shows progress only, and a slip costs no heart but the first try.
  {
   const town=nativeLessons.find(l=>l.id==='around-town'),plans=nativeLessons.find(l=>l.id==='making-plans');
-  const at=(l,kind)=>{const index=l.exercises.findIndex(e=>e.kind===kind),s=freshSession();s.progress={...s.progress,index,results:Array(index).fill(true)};return s;};
+  // Saved as current (version 2) data: the index is a position in the lesson with speaking steps.
+  const at=(l,kind)=>{const index=l.exercises.findIndex(e=>e.kind===kind),s={version:2,...freshSession()};s.progress={...s.progress,index,results:Array(index).fill(true)};return s;};
   learningCards=true;russianAudio=true;await open({[sessionKey(town)]:at(town,'listen'),[sessionKey(plans)]:at(plans,'match')});
   await openPhysicalSettings();await click('.native-physical-actions .button','Connect');await click('.native-physical-devices button');
   await until(()=>window.__bleFrames.some(p=>p[0]===1&&p[6]===10));await physicalBackHome();
@@ -1138,6 +1150,10 @@ try{
    else if(e.kind==='choice'||e.kind==='listen'){await evaluate(text=>{[...document.querySelectorAll('.choice')].find(b=>b.querySelector('.native-choice-copy > span').textContent===text).click();},e.answer);}
    else if(e.kind==='sentence'){for(const word of e.answer.split(' '))await evaluate(word=>{[...document.querySelectorAll('.word-bank button')].find(b=>!b.disabled&&b.textContent===word).click();},word);}
    else if(e.kind==='typed'){for(const letter of Array.from(e.answer.toLowerCase()))await evaluate(letter=>{[...document.querySelectorAll('.letter-bank button')].find(b=>b.textContent===letter).click();},letter);}
+   // Speaking steps, as their quiet versions (no recogniser here): a Repeat is a listening or meaning choice;
+   // a Reply is "Hear it", whose Continue counts it as done and moves straight on.
+   else if(e.kind==='speak'&&!e.exchange){await evaluate(text=>{[...document.querySelectorAll('.choice')].find(b=>b.querySelector('.native-choice-copy > span').textContent===text).click();},e.quiet==='meaning'?e.translation:e.answer);}
+   else if(e.kind==='speak'){await assertNativeLayout();assert.ok(await evaluate(()=>!!document.querySelector('.speak-reply.is-heard')),'Hear it shows the reply');await click('.lesson-bottom .button','Continue');return;}
    else if(e.kind==='match'){const tap=text=>evaluate(text=>{[...document.querySelectorAll('.match-item')].find(b=>!b.disabled&&(b.querySelector('span')?.textContent??b.textContent)===text).click();},text);for(const [ru,en] of e.pairs){await tap(ru);await pause(40);await tap(en);await pause(40);}}
    await pause(60);await assertNativeLayout();
    if(e.kind!=='match')await click('.lesson-bottom .button','Check answer');

@@ -23,7 +23,7 @@ test('vocabulary reveals only the requested known word and discovery meaning',()
  const l=nativeLessons[0],p=initialProgress();assert.equal(companionDisplay(l,p)?.primary,'Tap a word');assert.equal(companionDisplay(l,p,{kind:'reveal',word:'coffee'})?.primary,'кофе');assert.equal(companionDisplay(l,p,{kind:'reveal',word:'coffee'})?.secondary,'coffee');assert.equal(companionDisplay(l,p,{kind:'reveal',word:'unknown'}),undefined);
 });
 test('meaning prompt hides its English answer; grading permits it, incorrect does not',()=>{
- const l=nativeLessons[0],p={...initialProgress(),index:1};assert.equal(companionDisplay(l,p)?.primary,'кофе');assert.equal(companionDisplay(l,p)?.secondary,'Choose on phone');assert.equal(companionDisplay(l,{...p,feedback:'correct'})?.secondary,'coffee');assert.equal(companionDisplay(l,{...p,feedback:'incorrect'})?.secondary,'Choose on phone');
+ const l=nativeLessons[0],p={...initialProgress(),index:l.exercises.findIndex(e=>e.id==='meaning')};assert.equal(companionDisplay(l,p)?.primary,'кофе');assert.equal(companionDisplay(l,p)?.secondary,'Choose on phone');assert.equal(companionDisplay(l,{...p,feedback:'correct'})?.secondary,'coffee');assert.equal(companionDisplay(l,{...p,feedback:'incorrect'})?.secondary,'Choose on phone');
 });
 test('completed and failed typed/sentence contexts have no card',()=>{
  for(const l of nativeLessons)for(const [index,e] of l.exercises.entries())if(e.kind==='typed'||e.kind==='sentence'){

@@ -1,4 +1,5 @@
 import type {CyrillicLetter} from './cyrillic';
+import type {SpeakingController} from './useSpeaking';
 import type {Word} from './curriculum/types';
 import {useEffect} from 'react';
 import {LessonPanel} from './LessonPanel';
@@ -23,7 +24,7 @@ export function ReviewBar({review,onStart}:{review:ReviewController;onStart:()=>
 
 // One mounted session per started review; hearts are unlimited so review never costs or refills them.
 // onPrint: print a strip from this review, with each item's first-try result (only while a printer is connected).
-export function NativeReviewSession({session,sessionId,shared,review,companion,physical,activity,onClose,onPrint,onPrintLetter}:{onPrintLetter?:(letter:CyrillicLetter,words:readonly Word[])=>void;onPrint?:(session:ReviewSession,results:readonly boolean[])=>void;session:ReviewSession;sessionId:string;shared:LessonController;review:ReviewController;companion:NativeCompanionController;physical:PhysicalCompanionController;activity:NativeStatsController;onClose:()=>void}){
+export function NativeReviewSession({speaking,session,sessionId,shared,review,companion,physical,activity,onClose,onPrint,onPrintLetter}:{speaking?:SpeakingController;onPrintLetter?:(letter:CyrillicLetter,words:readonly Word[])=>void;onPrint?:(session:ReviewSession,results:readonly boolean[])=>void;session:ReviewSession;sessionId:string;shared:LessonController;review:ReviewController;companion:NativeCompanionController;physical:PhysicalCompanionController;activity:NativeStatsController;onClose:()=>void}){
  const controller=useLesson({definition:session.definition,persistSession:false,saveResults:false,unlimitedHearts:true,sharedSpeech:shared.speech,sharedPreferences:{value:shared.preferences,set:shared.setPreferences},onTransition:(previous,next,action)=>{
   companion.onTransition(previous,next,action);
   physical.onTransition(previous,next,action,session.definition.id);
@@ -31,5 +32,5 @@ export function NativeReviewSession({session,sessionId,shared,review,companion,p
   if(action.type==='continue'&&!previous.complete&&next.complete&&!next.failed)review.finish(session,next.results);
  }});
  useEffect(()=>{controller.lessonHeading.current?.focus({preventScroll:true});},[]);
- return <div className="native-lesson-view"><LessonPanel controller={controller} native review onListen={physical.onListen} onListenEnd={physical.onListenEnd} onHint={physical.onHint} onReveal={physical.onReveal} onMatchPair={physical.onMatchPair} nativeCompanion={companion} onPrintLetter={onPrintLetter} onPrintPractice={onPrint&&controller.progress.complete?()=>onPrint(session,controller.progress.results):undefined} onClose={onClose}/></div>;
+ return <div className="native-lesson-view"><LessonPanel controller={controller} native review speaking={speaking} onListen={physical.onListen} onListenEnd={physical.onListenEnd} onHint={physical.onHint} onReveal={physical.onReveal} onMatchPair={physical.onMatchPair} nativeCompanion={companion} onPrintLetter={onPrintLetter} onPrintPractice={onPrint&&controller.progress.complete?()=>onPrint(session,controller.progress.results):undefined} onClose={onClose}/></div>;
 }

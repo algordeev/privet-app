@@ -195,5 +195,6 @@ public class PrivetStorePlugin: CAPPlugin, CAPBridgedPlugin {
 class PrivetBridgeViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(PrivetStorePlugin())
+        bridge?.registerPluginInstance(PrivetSpeechPlugin())
     }
 }

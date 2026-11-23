@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {moveSentenceWord,sentenceOccurrences,sentenceBank,selectSentenceWord,removeSentenceWord,validSentenceTokens} from './sentenceOrder.ts';
 import {checkAnswer} from './engine.ts';
-import {restoreSession,freshSession} from './session.ts';
+import {restoreSession,freshSession,LESSON_DATA_VERSION} from './session.ts';
 import {cafeLesson,introductionsLesson} from './lessons.ts';
 
 test('moving words in both directions preserves canonical text and leaves the original untouched',()=>{
@@ -14,9 +14,10 @@ test('moving words in both directions preserves canonical text and leaves the or
 });
 test('reordered answers still check and persist through existing lesson sessions',()=>{
  for(const [definition,words,from,to] of [[cafeLesson,['чай','Я','хочу'],0,2],[introductionsLesson,['Анна','Меня','зовут'],0,2]] as const){
-  const tokens=moveSentenceWord([...words],from,to);assert.equal(checkAnswer(2,tokens.join(' '),definition.exercises),true);
-  const session=freshSession();session.progress.index=2;session.progress.results=[true,true];session.tokens=tokens;
-  assert.deepEqual(restoreSession(JSON.stringify(session),definition).tokens,tokens);
+  const at=definition.exercises.findIndex(e=>e.kind==='sentence');
+  const tokens=moveSentenceWord([...words],from,to);assert.equal(checkAnswer(at,tokens.join(' '),definition.exercises),true);
+  const session=freshSession();session.progress.index=at;session.progress.results=Array(at).fill(true);session.tokens=tokens;
+  assert.deepEqual(restoreSession(JSON.stringify({version:LESSON_DATA_VERSION,...session}),definition).tokens,tokens);
  }
 });
 
@@ -52,14 +53,15 @@ test('drag/keyboard index moves and occurrence removal preserve repeated-word co
  assert.equal(validSentenceTokens(['я',42],repeatedSource),false);
 });
 test('repeated canonical answers serialize/restore without migration or extra token IDs',()=>{
- const exercise={...cafeLesson.exercises[2],tokens:repeatedSource,answer:'я знаю что я'};
- const definition={...cafeLesson,exercises:cafeLesson.exercises.map((item,index)=>index===2?exercise:item)};
- const session=freshSession();session.progress.index=2;session.progress.results=[true,true];
+ const sentenceIndex=cafeLesson.exercises.findIndex(e=>e.kind==='sentence');
+ const exercise={...cafeLesson.exercises[sentenceIndex],tokens:repeatedSource,answer:'я знаю что я'};
+ const definition={...cafeLesson,exercises:cafeLesson.exercises.map((item,index)=>index===sentenceIndex?exercise:item)};
+ const session=freshSession();session.progress.index=sentenceIndex;session.progress.results=Array(sentenceIndex).fill(true);
  session.tokens=moveSentenceWord(['я','я','знаю','что'],1,3);
- assert.equal(checkAnswer(2,session.tokens.join(' '),definition.exercises),true);
- const restored=restoreSession(JSON.stringify(session),definition);
+ assert.equal(checkAnswer(sentenceIndex,session.tokens.join(' '),definition.exercises),true);
+ const restored=restoreSession(JSON.stringify({version:LESSON_DATA_VERSION,...session}),definition);
  assert.deepEqual(restored,session);assert.deepEqual(restored.tokens,repeatedSource);
- const partial={...session,tokens:['я','я']};assert.deepEqual(restoreSession(JSON.stringify(partial),definition),partial);
- assert.deepEqual(restoreSession(JSON.stringify({...session,tokens:[...repeatedSource,'я']}),definition),freshSession(),'Over-counts are rejected');
- assert.deepEqual(restoreSession(JSON.stringify({...session,tokens:['Я','Я']}),cafeLesson),freshSession(),'Existing unique-token lessons still reject duplicates');
+ const partial={...session,tokens:['я','я']};assert.deepEqual(restoreSession(JSON.stringify({version:LESSON_DATA_VERSION,...partial}),definition),partial);
+ assert.deepEqual(restoreSession(JSON.stringify({version:LESSON_DATA_VERSION,...{...session,tokens:[...repeatedSource,'я']}}),definition),freshSession(),'Over-counts are rejected');
+ assert.deepEqual(restoreSession(JSON.stringify({version:LESSON_DATA_VERSION,...{...session,tokens:['Я','Я']}}),cafeLesson),freshSession(),'Existing unique-token lessons still reject duplicates');
 });

@@ -26,7 +26,8 @@ export function useReview(){
   if(action.type!=='continue'||previous.complete||!next.complete||next.failed)return;
   update(s=>recordLesson(s,lessonId,next.results,localDay(new Date())));
  },[update]);
- const start=useCallback(()=>buildReviewSession(state.current!,localDay(new Date())),[]);
+ // speaking: this iPhone can listen now, so some words are said aloud instead of chosen.
+ const start=useCallback((speaking=false)=>buildReviewSession(state.current!,localDay(new Date()),undefined,speaking),[]);
  const finish=useCallback((session:ReviewSession,results:readonly boolean[])=>update(s=>recordReview(s,session.items,results,localDay(new Date()))),[update]);
  const reset=useCallback(()=>{update(()=>emptyReview());try{appStorage.removeItem(POCKET_DECK_KEY);}catch{/* Nothing to forget. */}},[update]);
  // Pocket deck (keychain Mini): build today's deck, remember the one sent, apply the Mini's answers to it.

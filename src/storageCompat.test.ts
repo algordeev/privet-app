@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {nativeLessons} from './curriculum/catalog.ts';
-import {parseSaved,restoreSession,savedKey,sessionKey} from './session.ts';
+import {parseSaved,restoreSession,savedKey,sessionKey,speakingUpgrade} from './session.ts';
 import {NATIVE_STATS_KEY,restoreStats} from './statsStorage.ts';
 import {REVIEW_KEY,restoreReview} from './review.ts';
 import {REMINDERS_KEY,restoreReminders} from './reminders.ts';
@@ -22,7 +22,12 @@ const [cafe,introductions,aroundTown]=nativeLessons;
 test('1.0 lesson results still read back: passed lessons, best scores and display choices',()=>{
  for(const lesson of [cafe,introductions]){
   const saved=parsed(savedKey(lesson));
-  assert.deepEqual(parseSaved(stored(savedKey(lesson)),lesson),{preferences:saved.preferences,completion:saved.completion,bestFirstTry:saved.bestFirstTry});
+  // Lesson data version 2 added speaking steps: 1.0 results move onto the longer lesson, the new steps
+  // counting as done, and everything else (date, hearts, best run, choices) is kept as it was.
+  const results=speakingUpgrade(lesson).results(saved.completion.results);
+  assert.equal(results.length,lesson.exercises.length);
+  assert.deepEqual(results.filter((_,i)=>lesson.exercises[i].kind!=='speak'),saved.completion.results);
+  assert.deepEqual(parseSaved(stored(savedKey(lesson)),lesson),{preferences:saved.preferences,completion:{...saved.completion,results},bestFirstTry:Math.max(saved.bestFirstTry,results.filter(Boolean).length)});
  }
 });
 

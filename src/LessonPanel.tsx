@@ -3,7 +3,7 @@ import type {Word} from './curriculum/types';
 import {NativeLessonTour} from './NativeLessonTour';
 import {sentenceBank,selectSentenceWord} from './sentenceOrder';
 import {SentenceWords} from './SentenceWords';
-import {useEffect,useRef,useState,type ReactNode} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState,type ReactNode} from 'react';
 import {NativeAlphabetGuide} from './NativeCyrillic';
 import {NativeLessonSettings} from './NativeLessonSettings';
 import {NativeRobot} from './NativeRobot';
@@ -19,9 +19,19 @@ import {matchOrder} from './matchOrder';
 import {CountedNumber} from './CountedNumber';
 import {Sparkles} from './OnboardingArt';
 import {DEVICE} from './device';
+import {NativeSheet} from './NativeSheet';
+import {HearContent,MicIcon,SpeakButton,SpeakContent,SpeakToast} from './SpeakExercise';
+import {hearsReply,modelLine,presentExercise} from './speakSteps';
+import {useSpeakStep} from './useSpeakStep';
+import type {SpeakingController} from './useSpeaking';
 function CloseIcon(){return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>;}
-export function LessonPanel({controller,native=false,onClose,onUpgrade,nextLesson,onReplay,onListen,onListenEnd,onHint,onReveal,onMatchPair,nativeCompanion,gems=0,onRefill,gemAward,completionDetails,practiceOnly=false,showFeatureTour=false,review=false,onPrintWord,onPrintPractice,onPrintLetter}:{onPrintLetter?:(letter:CyrillicLetter,words:readonly Word[])=>void;onPrintWord?:(wordId:string)=>void;onPrintPractice?:()=>void;review?:boolean;controller:LessonController;native?:boolean;onClose?:()=>void;onUpgrade?:()=>void;onReplay?:()=>void;onListen?:(text?:string)=>(()=>void)|void;onListenEnd?:()=>void;onHint?:()=>void;onReveal?:(wordId:string)=>void;onMatchPair?:(correct:boolean,matched:number)=>void;nextLesson?:{label:string;onOpen:()=>void};nativeCompanion?:NativeCompanionController;gems?:number;onRefill?:()=>void;gemAward?:GemBreakdown;completionDetails?:ReactNode;practiceOnly?:boolean;showFeatureTour?:boolean}){
- const {definition,preferences,setPreferences,progress,dispatch,selected,setSelected,tokens,setTokens,matches,matchPair,revealed,setRevealed,lessonSettings,setLessonSettings,lessonScroll,inputRef,lessonHeading,speech,exercise,hintRequested,display,ready,check,restart,incorrect,setVocabularyWord,setThinkingAt,setHintAt}=controller;
+export function LessonPanel({controller,native=false,onClose,onUpgrade,nextLesson,onReplay,onListen,onListenEnd,onHint,onReveal,onMatchPair,nativeCompanion,gems=0,onRefill,gemAward,completionDetails,practiceOnly=false,showFeatureTour=false,review=false,onPrintWord,onPrintPractice,onPrintLetter,speaking}:{speaking?:SpeakingController;onPrintLetter?:(letter:CyrillicLetter,words:readonly Word[])=>void;onPrintWord?:(wordId:string)=>void;onPrintPractice?:()=>void;review?:boolean;controller:LessonController;native?:boolean;onClose?:()=>void;onUpgrade?:()=>void;onReplay?:()=>void;onListen?:(text?:string)=>(()=>void)|void;onListenEnd?:()=>void;onHint?:()=>void;onReveal?:(wordId:string)=>void;onMatchPair?:(correct:boolean,matched:number)=>void;nextLesson?:{label:string;onOpen:()=>void};nativeCompanion?:NativeCompanionController;gems?:number;onRefill?:()=>void;gemAward?:GemBreakdown;completionDetails?:ReactNode;practiceOnly?:boolean;showFeatureTour?:boolean}){
+ const {definition,preferences,setPreferences,progress,dispatch,selected,setSelected,tokens,setTokens,matches,matchPair,revealed,setRevealed,lessonSettings,setLessonSettings,lessonScroll,inputRef,lessonHeading,speech,exercise:stepExercise,hintRequested,display,ready,check,restart,incorrect,setVocabularyWord,setThinkingAt,setHintAt}=controller;
+ // A speaking step is spoken when this iPhone can listen and speaking is on; otherwise it shows its quiet version.
+ const spokenStep=stepExercise.kind==='speak'&&!!speaking?.spoken&&!progress.complete&&!progress.failed;
+ const exercise=presentExercise(stepExercise,spokenStep);
+ // A quiet Reply is "Hear it": both lines play, and Continue counts it as done.
+ const hearing=hearsReply(stepExercise,spokenStep)&&!progress.complete&&!progress.failed;
  const {exercises:lesson,words}=definition;
  const panel=useRef<HTMLDivElement>(null);
  const [tourOpen,setTourOpen]=useState(()=>native&&showFeatureTour&&progress.index===0&&!progress.feedback&&revealed.length===0);
@@ -40,11 +50,44 @@ export function LessonPanel({controller,native=false,onClose,onUpgrade,nextLesso
  useEffect(()=>{setAlphabetOpen(false);setPick({});setMismatch(null);},[progress.index,progress.complete,progress.failed]);
  useEffect(()=>{if(!mismatch)return;const timer=setTimeout(()=>setMismatch(null),700);return ()=>clearTimeout(timer);},[mismatch]);
  const questionWord=words.find(w=>w.id===exercise.wordId);
+ const speakStep=useSpeakStep({exercise:stepExercise,stepKey:`${definition.id}:${progress.index}:${progress.complete}`,onGrade:value=>{setThinkingAt(progress.index);dispatch({type:'check',value});},onUnavailable:()=>{void speaking?.refresh();}});
+ const [speakIntro,setSpeakIntro]=useState(false);
+ const [speakNotice,setSpeakNotice]=useState('');
+ useEffect(()=>{if(!speakNotice)return;const timer=setTimeout(()=>setSpeakNotice(''),5000);return ()=>clearTimeout(timer);},[speakNotice]);
  const displayText=(text:string)=>preferences.stress?stressText(text,words):text;
  // The companion listens for as long as the audio plays, then returns to what it showed before.
  const listen=(text:string,rate?:number)=>{if(!speech.available)return;const done=onListen?.(text);speech.speak(text,typeof done==='function'?done:onListenEnd,rate);};
  // Listening falls back to the written sound guide when no Russian voice works, or on request.
  const listenByEar=speech.available&&speech.status!=='error'&&listenFallbackAt!==progress.index;
+ // The model voice: the word for a Repeat, the other person's line for a Reply. It plays once by itself
+ // when a spoken step opens; the microphone never starts on its own.
+ const playModel=(rate?:number)=>listen(modelLine(stepExercise),rate);
+ // "Hear it": the other person's line, then the reply.
+ function playExchange(){
+  if(!speech.available||!stepExercise.exchange)return;
+  const done=onListen?.(stepExercise.exchange.text);
+  speech.speak(stepExercise.exchange.text,()=>speech.speak(stepExercise.answer,typeof done==='function'?done:onListenEnd));
+ }
+ useEffect(()=>{
+  if(!(spokenStep||hearing)||progress.feedback||!speech.available)return;
+  const timer=setTimeout(()=>hearing?playExchange():playModel(),450);
+  return ()=>clearTimeout(timer);
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[progress.index,spokenStep,hearing]);
+ // Continue on "Hear it" checks the step as done and moves straight on, without a feedback screen.
+ const hearContinue=useRef(false);
+ useLayoutEffect(()=>{if(hearContinue.current&&progress.feedback==='correct'){hearContinue.current=false;dispatch({type:'continue'});}},[progress.feedback]);
+ function speakNow(){
+  if(speaking?.needsPermission){speech.stop();setSpeakIntro(true);return;}
+  speech.stop();onListenEnd?.();void speakStep.start();
+ }
+ function cantSpeak(){speech.stop();speaking?.pause();setSpeakIntro(false);setSpeakNotice('Speaking is paused for 10 minutes. You can turn it off in Settings.');}
+ async function allowSpeaking(){
+  const allowed=await speaking?.authorize();
+  setSpeakIntro(false);
+  if(allowed)void speakStep.start();
+  else setSpeakNotice('Without the microphone, speaking steps use their quiet version.');
+ }
  function choosePair(side:'ru'|'en',value:string){
   if(progress.feedback)return;
   const next={...pick,[side]:pick[side]===value?undefined:value};
@@ -73,7 +116,9 @@ export function LessonPanel({controller,native=false,onClose,onUpgrade,nextLesso
 
        <div className="exercise-content">
         {exercise.kind==='vocabulary'&&<div className="vocab-grid">{words.map((w,i)=><div className={`vocab-card ${revealed.includes(w.id)?'revealed':''}${onPrintWord&&revealed.includes(w.id)?' has-print':''}${speech.available?'':' no-audio'}`} key={w.id}><button className="vocab-reveal" aria-expanded={revealed.includes(w.id)} onClick={()=>{setRevealed(r=>r.includes(w.id)?r:r.concat(w.id));setVocabularyWord(w.text);onReveal?.(w.id);}}><span className="vocab-row-icon" aria-hidden="true">{["↗","♨","☕","Aa","♡","✦"][i%6]}</span><span className="vocab-row-text"><span lang="ru">{display(w.id)}</span>{preferences.pronunciation&&<small>{w.pronunciation}</small>}<span className="word-meaning">{revealed.includes(w.id)?w.meaning:'Tap to reveal'}</span></span><span className="vocab-row-check" aria-hidden="true">{revealed.includes(w.id)?'✓':'+'}</span></button>{onPrintWord&&revealed.includes(w.id)&&<button className="vocab-print" aria-label={`Print a card for ${w.meaning}`} onClick={()=>onPrintWord(w.id)}><PrintIcon/></button>}{speech.available&&<button className="word-audio" aria-label={`Listen to ${w.meaning}`} onClick={()=>listen(w.text)}><SoundIcon/></button>}</div>)}</div>}
-        {!!questionWord&&exercise.kind!=='listen'&&<><div className="question-word"><span lang="ru">{display(questionWord!.id)}</span>{preferences.pronunciation&&<small>{questionWord!.pronunciation}</small>}{speech.available&&<button className="round-audio" aria-label={`Hear ${questionWord!.meaning} in Russian`} onClick={()=>listen(questionWord!.text)}><SoundIcon/></button>}</div></>}
+        {hearing&&<HearContent exercise={stepExercise} playing={speech.speaking} audio={speech.available} showReading={preferences.pronunciation} reading={russianReading(stepExercise.exchange!.text,words)} display={displayText} onPlay={playExchange} note={speaking?.reason==='paused'?'Speaking is paused for a few minutes. Next time, say it yourself.':speaking?.reason==='off'?'Speaking is off in Settings, so the reply plays for you.':speaking?.reason==='denied'?'The microphone isn’t allowed, so the reply plays for you.':undefined}/>}
+        {spokenStep&&<SpeakContent exercise={stepExercise} step={speakStep} feedback={progress.feedback} playing={speech.speaking} audio={speech.available} showReading={preferences.pronunciation} reading={stepExercise.exchange?russianReading(stepExercise.exchange.text,words):undefined} display={displayText} onPlay={playModel}/>}
+        {!!questionWord&&exercise.kind!=='listen'&&exercise.kind!=='speak'&&<><div className="question-word"><span lang="ru">{display(questionWord!.id)}</span>{preferences.pronunciation&&<small>{questionWord!.pronunciation}</small>}{speech.available&&<button className="round-audio" aria-label={`Hear ${questionWord!.meaning} in Russian`} onClick={()=>listen(questionWord!.text)}><SoundIcon/></button>}</div></>}
         {exercise.kind==='choice'&&<>{exercise.exchange&&<div className="exchange"><span>{exercise.exchange.speaker}</span><p lang="ru">{displayText(exercise.exchange.text)} {definition.id==='cafe'&&<span aria-hidden="true">☕</span>}</p>{native&&preferences.pronunciation&&russianReading(exercise.exchange.text,words)&&<small className="native-russian-reading" lang="en">{russianReading(exercise.exchange.text,words)}</small>}<small>{exercise.exchange.meaning}</small></div>}{choiceList(preferences.pronunciation)}</>}
         {exercise.kind==='listen'&&questionWord&&<><div className="listen-prompt">{listenByEar?<><button className="listen-play" onClick={()=>listen(questionWord.text)} aria-label="Play the Russian audio"><SoundIcon/> Play</button><button className="listen-slow" onClick={()=>listen(questionWord.text,.3)}>Slower</button>{!progress.feedback&&<button className="listen-skip" onClick={()=>{speech.stop();setListenFallbackAt(progress.index);}}>Can’t listen now?</button>}</>:<div className="listen-fallback"><small>{speech.available&&speech.status!=='error'?'Read how it sounds:':'Audio isn’t available. Read how it sounds:'}</small><strong lang="en">{questionWord.pronunciation}</strong></div>}</div>{choiceList(preferences.pronunciation&&progress.feedback==='correct')}</>}
         {exercise.kind==='match'&&<div className="match-grid" role="group" aria-label="Match each Russian expression with its meaning"><div className="match-column">{exercise.pairs!.map(([ru])=>{const done=matches.includes(ru);return <button key={ru} lang="ru" className={`match-item ${done?'matched':''} ${pick.ru===ru?'selected':''} ${mismatch?.[0]===ru?'mismatch':''}`} aria-pressed={pick.ru===ru} disabled={done||!!progress.feedback} onClick={()=>choosePair('ru',ru)}><span>{displayText(ru)}</span>{native&&preferences.pronunciation&&russianReading(ru,words)&&<small className="native-russian-reading" lang="en">{russianReading(ru,words)}</small>}</button>;})}</div><div className="match-column">{matchOrder(exercise.pairs!).map(([ru,en])=><button key={en} className={`match-item ${matches.includes(ru)?'matched':''} ${pick.en===en?'selected':''} ${mismatch?.[1]===en?'mismatch':''}`} aria-pressed={pick.en===en} disabled={matches.includes(ru)||!!progress.feedback} onClick={()=>choosePair('en',en)}>{en}</button>)}</div></div>}
@@ -90,11 +135,17 @@ export function LessonPanel({controller,native=false,onClose,onUpgrade,nextLesso
          {preferences.pronunciation&&(hintRequested||progress.feedback==='correct')&&<p className="pronunciation-guide">{exercise.pronunciationGuide}</p>}</>}
        </div>
        {exercise.hint&&progress.feedback!=='correct'&&<div className="lesson-hint"><button className="lesson-hint-button" onClick={showHint} aria-expanded={hintRequested} aria-controls="lesson-hint-text" disabled={hintRequested}>{hintRequested?'Hint shown':'Show a hint'} <span aria-hidden="true">?</span></button>{hintRequested&&<p id="lesson-hint-text" role="status">{displayText(exercise.hint)}</p>}</div>}
-       <div className={`feedback ${progress.feedback||''}${native&&nativeCompanion&&progress.feedback?' native-companion-feedback':''}${!progress.feedback&&exercise.kind!=='vocabulary'?' is-idle':''}`} aria-live="polite" aria-atomic="true">{progress.feedback?<>{native&&nativeCompanion&&<NativeRobot companion={nativeCompanion}/>}<strong>{companionMessage||(incorrect?'A little practice. You’ve got this.':'✓  That’s it!')}</strong><p>{displayText(incorrect?(exercise.retryFeedback??'Reveal each word and try again.'):exercise.success)}</p></>:exercise.kind==='vocabulary'?<p>{`${revealed.length} of ${words.length} expressions explored. Reveal all ${['zero','one','two','three','four','five','six','seven','eight'][words.length]??words.length}, then check in.`}</p>:null}</div>
+       <div className={`feedback ${progress.feedback||''}${native&&nativeCompanion&&progress.feedback?' native-companion-feedback':''}${!progress.feedback&&exercise.kind!=='vocabulary'?' is-idle':''}`} aria-live="polite" aria-atomic="true">{progress.feedback?<>{native&&nativeCompanion&&<NativeRobot companion={nativeCompanion}/>}<strong>{companionMessage||(incorrect?'A little practice. You’ve got this.':'✓  That’s it!')}</strong><p>{displayText(incorrect?(exercise.retryFeedback??'Reveal each word and try again.'):exercise.success)}</p>{spokenStep&&speakStep.heard&&<span className="speak-heard-line">I heard: <b lang="ru">{speakStep.heard}</b></span>}</>:exercise.kind==='vocabulary'?<p>{`${revealed.length} of ${words.length} expressions explored. Reveal all ${['zero','one','two','three','four','five','six','seven','eight'][words.length]??words.length}, then check in.`}</p>:null}</div>
 
       </>}
          </div>
-         {!progress.complete&&!progress.failed&&<div className="lesson-bottom"><span className="app-audio-note" role="status" aria-live="polite" aria-atomic="true">{speech.message?speech.message:speech.available?<><SoundIcon/> {native?'Device voice · optional':'Browser voice · optional'}</>:(native?'Russian audio unavailable · use text':'No Russian browser voice · use text')}</span>{progress.feedback?<button className={`button teal${incorrect?'':' is-continue'}`} onClick={()=>{if(incorrect){if(lessonScroll.current)lessonScroll.current.scrollTop=0;dispatch({type:'retry'});setThinkingAt(null);}else{setSelected('');setTokens([]);dispatch({type:'continue'});}}}>{incorrect?'Try again':'Continue'} <span>→</span></button>:<button className="button teal" disabled={!ready} onClick={check}>Check answer <span>→</span></button>}</div>}
+         {!progress.complete&&!progress.failed&&<div className="lesson-bottom"><span className="app-audio-note" role="status" aria-live="polite" aria-atomic="true">{speech.message?speech.message:speech.available?<><SoundIcon/> {native?'Device voice · optional':'Browser voice · optional'}</>:(native?'Russian audio unavailable · use text':'No Russian browser voice · use text')}</span>{progress.feedback?<button className={`button teal${incorrect?'':' is-continue'}`} onClick={()=>{if(incorrect){if(lessonScroll.current)lessonScroll.current.scrollTop=0;dispatch({type:'retry'});setThinkingAt(null);if(spokenStep){speakStep.reset();setTimeout(()=>playModel(),300);}}else{setSelected('');setTokens([]);dispatch({type:'continue'});}}}>{incorrect?'Try again':'Continue'} <span>→</span></button>:hearing?<button className="button teal is-continue" onClick={()=>{speech.stop();hearContinue.current=true;setThinkingAt(progress.index);dispatch({type:'check',value:stepExercise.answer});}}>Continue <span>→</span></button>:spokenStep?<>
+          {speakStep.phase==='silence'&&<SpeakToast><MicIcon/><span>I didn’t catch anything. Try again a little closer to your {DEVICE}.</span></SpeakToast>}
+          {speakStep.phase==='error'&&<SpeakToast><MicIcon/><span>The microphone didn’t start. Try again, or tap Can’t speak now.</span></SpeakToast>}
+          <SpeakButton step={speakStep} onSpeak={speakNow} onRetry={()=>{speakStep.reset();playModel();}}/>
+          {(speakStep.phase==='idle'||speakStep.phase==='silence'||speakStep.phase==='error')&&<button className="speak-cant" onClick={cantSpeak}>Can’t speak now</button>}
+         </>:<>{speakNotice&&<SpeakToast><span>{speakNotice}</span></SpeakToast>}<button className="button teal" disabled={!ready} onClick={check}>Check answer <span>→</span></button></>}</div>}
+         {speakIntro&&<NativeSheet id="native-speak-intro" title="Say it out loud" onClose={()=>setSpeakIntro(false)}><div className="native-sheet-scroll speak-intro"><span className="speak-intro-mic"><MicIcon/></span><p>Some steps ask you to say Russian aloud. {PRODUCT.name} listens only while the speak button is moving, and checks your words on this {DEVICE}. Your voice is never sent anywhere.</p><ul><li>iOS asks twice next: microphone, then speech recognition.</li><li>You can turn speaking off any time in Settings.</li></ul><button className="button teal" onClick={()=>void allowSpeaking()}>Continue</button><button className="native-text-button" onClick={cantSpeak}>Not now</button></div></NativeSheet>}
          {!native&&<div className="ios-home-area" aria-hidden="true"><span/></div>}
         </div>
  );

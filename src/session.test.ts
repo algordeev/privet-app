@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {freshSession,restoreSession,loadSession,NATIVE_SESSION_KEY} from './session.ts';
+import {freshSession,restoreSession,loadSession,NATIVE_SESSION_KEY,LESSON_DATA_VERSION} from './session.ts';
+import {websiteCafeLesson} from './curriculum/catalog.ts';
 import {progressReducer} from './engine.ts';
 import {lesson} from './lesson.ts';
 import {PRODUCT} from './config.ts';
@@ -12,35 +13,35 @@ test('restores wrong answers, retries, and first-attempt history across reloads'
  s.progress=progressReducer(s.progress,{type:'continue'});
  s.selected='tea';
  s.progress=progressReducer(s.progress,{type:'check',value:s.selected});
- s=restoreSession(JSON.stringify(s));
+ s=restoreSession(JSON.stringify(s),websiteCafeLesson);
  assert.equal(s.progress.feedback,'incorrect');
  assert.equal(s.selected,'tea');
  assert.deepEqual(s.progress.results,[true]);
  s.progress=progressReducer(s.progress,{type:'retry'});
- s=restoreSession(JSON.stringify(s));
+ s=restoreSession(JSON.stringify(s),websiteCafeLesson);
  assert.equal(s.progress.attempts,1);
  assert.equal(s.progress.feedback,null);
  s.selected='coffee';
  s.progress=progressReducer(s.progress,{type:'check',value:s.selected});
  s.progress=progressReducer(s.progress,{type:'continue'});
- s=restoreSession(JSON.stringify(s));
+ s=restoreSession(JSON.stringify(s),websiteCafeLesson);
  assert.deepEqual(s.progress.results,[true,false]);
 });
 test('preserves partial vocabulary, sentence, typed input, and explicit hints',()=>{
  const vocabulary={...freshSession(),revealed:['hi','tea'],vocabularyWord:'чай'};
- assert.deepEqual(restoreSession(JSON.stringify(vocabulary)),vocabulary);
+ assert.deepEqual(restoreSession(JSON.stringify(vocabulary),websiteCafeLesson),vocabulary);
  const sentence={...freshSession(),progress:{...freshSession().progress,index:2,results:[true,true]},tokens:['Я','хочу'],hintAt:2};
- assert.deepEqual(restoreSession(JSON.stringify(sentence)),sentence);
+ assert.deepEqual(restoreSession(JSON.stringify(sentence),websiteCafeLesson),sentence);
  const typed={...freshSession(),progress:{...freshSession().progress,index:4,results:[true,true,true,true]},selected:'спа'};
- assert.deepEqual(restoreSession(JSON.stringify(typed)),typed);
+ assert.deepEqual(restoreSession(JSON.stringify(typed),websiteCafeLesson),typed);
 });
 test('completed sessions and reset snapshots round-trip',()=>{
  let s=freshSession();
  for(const exercise of lesson){s.progress=progressReducer(s.progress,{type:'check',value:exercise.answer});s.progress=progressReducer(s.progress,{type:'continue'});}
- s=restoreSession(JSON.stringify(s));
+ s=restoreSession(JSON.stringify(s),websiteCafeLesson);
  assert.equal(s.progress.complete,true);
  s.progress=progressReducer(s.progress,{type:'reset'});
- assert.deepEqual(restoreSession(JSON.stringify(s)),freshSession());
+ assert.deepEqual(restoreSession(JSON.stringify(s),websiteCafeLesson),freshSession());
 });
 test('invalid or incompatible storage falls back safely',()=>{
  for(const raw of [null,'not json','null','{}',JSON.stringify({...freshSession(),progress:{index:99}}),JSON.stringify({...freshSession(),hintAt:4}),JSON.stringify({...freshSession(),tokens:['answer']}),JSON.stringify({...freshSession(),revealed:['unknown']}),JSON.stringify({...freshSession(),progress:{...freshSession().progress,feedback:'correct'}})])assert.deepEqual(restoreSession(raw),freshSession());
@@ -56,15 +57,16 @@ test('only native mode loads resumable sessions and rebuilds a finished lesson f
   data.delete(NATIVE_SESSION_KEY);
   data.set(PRODUCT.storageKey,JSON.stringify({completion:{results:[true,false,true,true,true],date:'2026-10-17',hearts:2,bestCombo:3}}));
   assert.equal(loadSession(true).progress.complete,true);
-  assert.deepEqual(loadSession(true).progress.results,[true,false,true,true,true]);
+  // A version 1 completion moves onto the lesson with speaking steps; those count as done.
+  assert.deepEqual(loadSession(true).progress.results,[true,true,false,true,true,true,true]);
   assert.deepEqual(loadSession(false),freshSession());
  }finally{if(descriptor)Object.defineProperty(globalThis,'localStorage',descriptor);else Reflect.deleteProperty(globalThis,'localStorage');}
 });
 test('matched pairs persist only for the current match exercise; older snapshots restore with none',()=>{
  const plans=lessonById('making-plans'),index=plans.exercises.findIndex(e=>e.kind==='match');
  const partial={...freshSession(),progress:{...freshSession().progress,index,results:Array(index).fill(true)},matches:['завтра','До завтра!']};
- assert.deepEqual(restoreSession(JSON.stringify(partial),plans),partial);
- const {matches:_,...older}=partial;assert.deepEqual(restoreSession(JSON.stringify(older),plans),{...partial,matches:[]});
- for(const matches of [['завтра','завтра'],['tomorrow'],['Пока!'],'завтра',[1]])assert.deepEqual(restoreSession(JSON.stringify({...partial,matches}),plans),freshSession());
- assert.deepEqual(restoreSession(JSON.stringify({...partial,progress:{...partial.progress,index:index+1,results:Array(index+1).fill(true)}}),plans),freshSession());
+ assert.deepEqual(restoreSession(JSON.stringify({version:LESSON_DATA_VERSION,...partial}),plans),partial);
+ const {matches:_,...older}=partial;assert.deepEqual(restoreSession(JSON.stringify({version:LESSON_DATA_VERSION,...older}),plans),{...partial,matches:[]});
+ for(const matches of [['завтра','завтра'],['tomorrow'],['Пока!'],'завтра',[1]])assert.deepEqual(restoreSession(JSON.stringify({version:LESSON_DATA_VERSION,...{...partial,matches}}),plans),freshSession());
+ assert.deepEqual(restoreSession(JSON.stringify({version:LESSON_DATA_VERSION,...{...partial,progress:{...partial.progress,index:index+1,results:Array(index+1).fill(true)}}}),plans),freshSession());
 });

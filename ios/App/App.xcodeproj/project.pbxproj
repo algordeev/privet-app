@@ -18,6 +18,7 @@
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 		A7C0FFEE00000000000000B1 /* PrivetStorePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0FFEE00000000000000F1 /* PrivetStorePlugin.swift */; };
+		A7C0FFEE00000000000000B3 /* PrivetSpeechPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0FFEE00000000000000F3 /* PrivetSpeechPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +35,7 @@
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		A7C0FFEE00000000000000F1 /* PrivetStorePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivetStorePlugin.swift; sourceTree = "<group>"; };
+		A7C0FFEE00000000000000F3 /* PrivetSpeechPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivetSpeechPlugin.swift; sourceTree = "<group>"; };
 		A7C0FFEE00000000000000F2 /* Privet.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Privet.storekit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -71,6 +73,7 @@
 			children = (
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				A7C0FFEE00000000000000F1 /* PrivetStorePlugin.swift */,
+				A7C0FFEE00000000000000F3 /* PrivetSpeechPlugin.swift */,
 				A7C0FFEE00000000000000F2 /* Privet.storekit */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
@@ -170,6 +173,7 @@
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
 				A7C0FFEE00000000000000B1 /* PrivetStorePlugin.swift in Sources */,
+				A7C0FFEE00000000000000B3 /* PrivetSpeechPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

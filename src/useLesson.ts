@@ -2,7 +2,7 @@ import {appStorage} from './previewStorage';
 import {useEffect,useReducer,useRef,useState,type Dispatch,type SetStateAction} from 'react';
 import {cafeLesson,type LessonDefinition} from './lessons';
 import {companionReaction,isPair,lessonCompanionEvent,matchValue,progressReducer,type Action,type Progress} from './engine';
-import {LESSON_DATA_VERSION,loadSession,sessionKey,savedKey,readSaved,lessonPassed,recordLessonCompletion,type Preferences} from './session';
+import {LESSON_DATA_VERSION,loadSession,sessionKey,savedKey,readSaved,lessonPassed,recordLessonCompletion,speakingUpgrade,type Preferences} from './session';
 import {useSpeech} from './useSpeech';
 import {hapticFor} from './haptics';
 import {playHaptic} from './nativeHaptics';
@@ -80,7 +80,13 @@ export function useLesson({persistSession=false,saveResults=true,definition=cafe
   setLessonSettings(false);dispatch({type:'reset'});setRevealed([]);setSelected('');setTokens([]);setMatches([]);setSlipAt(null);setThinkingAt(null);setHintAt(null);setVocabularyWord(null);
   setNotice('');
  }
- function adoptCompletion(value:Progress){if(progress.complete||!value.complete||value.failed||value.index!==lesson.length||value.results.length!==lesson.length)return;speech.stop();setSelected('');setTokens([]);setMatches([]);setHintAt(null);reduce({type:'adoptCompletion',progress:{...value,results:[...value.results]}});}
+ // The welcome lesson's result credits Lesson 1. It has the café lesson's original five steps, so its
+ // results move onto the speaking steps the way saved version 1 results do.
+ function adoptCompletion(result:Progress){
+  const up=speakingUpgrade(definition);
+  const value=result.results.length===up.oldLength&&up.oldLength!==lesson.length?{...result,index:lesson.length,results:up.results(result.results)}:result;
+  if(progress.complete||!value.complete||value.failed||value.index!==lesson.length||value.results.length!==lesson.length)return;speech.stop();setSelected('');setTokens([]);setMatches([]);setHintAt(null);reduce({type:'adoptCompletion',progress:{...value,results:[...value.results]}});
+ }
  // Hearts back after running out: revive while Plus is active, refill after gems are spent.
  const revive=()=>dispatch({type:'restoreHearts',by:'plus'});
  const refill=()=>dispatch({type:'restoreHearts',by:'gems'});

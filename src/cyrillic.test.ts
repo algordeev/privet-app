@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {CYRILLIC,QUICK_LETTERS,READING_WORDS,contextualLetters,referenceExample,targetLetterParts,letterAudioText} from './cyrillic.ts';
 import {cafeLesson,introductionsLesson,nativeLessons} from './lessons.ts';
+import type {LessonDefinition} from './curriculum/types.ts';
+// Steps by id: speaking steps sit between the original ones.
+const step=(lesson:LessonDefinition,id:string)=>lesson.exercises.find(e=>e.id===id)!;
 
 test('all 33 Russian letters have unique correct forms, rough sounds and matching examples',()=>{
  assert.equal(CYRILLIC.map(item=>item.upper).join(''),'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ');
@@ -11,9 +14,9 @@ test('all 33 Russian letters have unique correct forms, rough sounds and matchin
  for(const sign of ['Ь','Ъ'])assert.match(CYRILLIC.find(item=>item.upper===sign)!.note!,/No sound of its own/);
 });
 test('context letters use visible material, deduplicate and follow alphabet order rather than answer order',()=>{
- assert.equal(contextualLetters(cafeLesson,cafeLesson.exercises[1]).map(item=>item.upper).join(''),'ЕКОФ');
- assert.equal(contextualLetters(cafeLesson,cafeLesson.exercises[2]).map(item=>item.upper).join(''),'АЙОУХЧЯ');
- assert.equal(contextualLetters(introductionsLesson,introductionsLesson.exercises[4]).map(item=>item.upper).join(''),'АКОП');
+ assert.equal(contextualLetters(cafeLesson,step(cafeLesson,'meaning')).map(item=>item.upper).join(''),'ЕКОФ');
+ assert.equal(contextualLetters(cafeLesson,step(cafeLesson,'sentence')).map(item=>item.upper).join(''),'АЙОУХЧЯ');
+ assert.equal(contextualLetters(introductionsLesson,step(introductionsLesson,'type')).map(item=>item.upper).join(''),'АКОП');
  for(const definition of nativeLessons)for(const exercise of definition.exercises){
   const items=contextualLetters(definition,exercise);assert.ok(items.length>0);assert.equal(new Set(items).size,items.length);
   assert.deepEqual(items,CYRILLIC.filter(item=>items.includes(item)));
@@ -22,9 +25,9 @@ test('context letters use visible material, deduplicate and follow alphabet orde
 test('quick start stays focused and reference examples avoid printing assessed targets',()=>{
  assert.deepEqual(QUICK_LETTERS[1],['В','Н','Р','С','У','Х']);assert.equal(QUICK_LETTERS.length,3);assert.equal(READING_WORDS.length,4);
  const letter=CYRILLIC.find(item=>item.upper==='П')!;
- assert.notEqual(referenceExample(letter,introductionsLesson,introductionsLesson.exercises[4]).example,'Пока!');
- assert.equal(referenceExample(letter,cafeLesson,cafeLesson.exercises[0]),letter);
- assert.equal(referenceExample(CYRILLIC.find(item=>item.upper==='Ф')!,cafeLesson,cafeLesson.exercises[1]).example,'фото');
+ assert.notEqual(referenceExample(letter,introductionsLesson,step(introductionsLesson,'type')).example,'Пока!');
+ assert.equal(referenceExample(letter,cafeLesson,step(cafeLesson,'discover')),letter);
+ assert.equal(referenceExample(CYRILLIC.find(item=>item.upper==='Ф')!,cafeLesson,step(cafeLesson,'meaning')).example,'фото');
 });
 
 test('every exercise resolves every contextual and full-reference letter without exposing a Russian assessed answer',()=>{
@@ -46,22 +49,22 @@ test('every exercise resolves every contextual and full-reference letter without
 test('typed thanks, typed goodbye and Russian choice answers use safe whole-word examples',()=>{
  const entry=(upper:string)=>CYRILLIC.find(item=>item.upper===upper)!;
  assert.equal(entry('А').example,'Анна');assert.equal(entry('А').meaning,'Anna');
- const thanks=referenceExample(entry('Б'),cafeLesson,cafeLesson.exercises[4]);
+ const thanks=referenceExample(entry('Б'),cafeLesson,step(cafeLesson,'type'));
  assert.equal(thanks.example,'банк');assert.equal(thanks.meaning,'bank');
- assert.equal(referenceExample(entry('Б'),cafeLesson,cafeLesson.exercises[3]).example,'банк');
- assert.equal(referenceExample(entry('П'),introductionsLesson,introductionsLesson.exercises[4]).example,'привет');
- const nice=referenceExample(entry('Ь'),introductionsLesson,introductionsLesson.exercises[3]);
+ assert.equal(referenceExample(entry('Б'),cafeLesson,step(cafeLesson,'exchange')).example,'банк');
+ assert.equal(referenceExample(entry('П'),introductionsLesson,step(introductionsLesson,'type')).example,'привет');
+ const nice=referenceExample(entry('Ь'),introductionsLesson,step(introductionsLesson,'exchange'));
  assert.equal(nice.example,'день');assert.equal(nice.meaning,'day');
  // Russian targets are normalized, while English-only answers are never compared
  // to Cyrillic examples as empty strings. Safe current-lesson examples win.
- assert.equal(referenceExample({...entry('П'),example:'Пока!'},introductionsLesson,{...introductionsLesson.exercises[4],answer:'  ПО́КА?! '}).example,'парк');
+ assert.equal(referenceExample({...entry('П'),example:'Пока!'},introductionsLesson,{...step(introductionsLesson,'type'),answer:'  ПО́КА?! '}).example,'парк');
  const withSafeLessonWord={...introductionsLesson,words:[...introductionsLesson.words,{id:'tomato',text:'помидор',stressed:'помидо́р',pronunciation:'pa-mee-DOR',meaning:'tomato'}]};
- assert.equal(referenceExample({...entry('П'),example:'Пока!'},withSafeLessonWord,introductionsLesson.exercises[4]).example,'помидор','A safe starting-letter lesson example wins over neutral vocabulary');
- assert.equal(referenceExample(entry('Ф'),cafeLesson,{...cafeLesson.exercises[1],prompt:'Choose a drink',answer:'coffee'}),entry('Ф'));
+ assert.equal(referenceExample({...entry('П'),example:'Пока!'},withSafeLessonWord,step(introductionsLesson,'type')).example,'помидор','A safe starting-letter lesson example wins over neutral vocabulary');
+ assert.equal(referenceExample(entry('Ф'),cafeLesson,{...step(cafeLesson,'meaning'),prompt:'Choose a drink',answer:'coffee'}),entry('Ф'));
 });
 test('an impossible single-letter target omits its example rather than falling back to a leaking one',()=>{
  const item=CYRILLIC.find(item=>item.upper==='Б')!;
- const resolved=referenceExample(item,cafeLesson,{...cafeLesson.exercises[4],answer:'б'});
+ const resolved=referenceExample(item,cafeLesson,{...step(cafeLesson,'type'),answer:'б'});
  assert.equal(resolved.upper,'Б');assert.equal(resolved.example,'');
 });
 
@@ -101,7 +104,7 @@ test('highlight parts select the target grapheme without changing the complete w
 test('any future assessment matching a default example still cannot leak that answer',()=>{
  const normalize=(text:string)=>text.normalize('NFD').replace(/\u0301/g,'').normalize('NFC').toLowerCase().replace(/[^а-яё]/g,'');
  for(const item of CYRILLIC){
-  const exercise={...cafeLesson.exercises[4],answer:item.example,prompt:item.example};
+  const exercise={...step(cafeLesson,'type'),answer:item.example,prompt:item.example};
   const resolved=referenceExample(item,cafeLesson,exercise);
   assert.equal(resolved.upper,item.upper);
   assert.ok(!normalize(resolved.example).includes(normalize(exercise.answer)),item.upper);

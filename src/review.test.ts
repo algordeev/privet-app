@@ -67,7 +67,8 @@ test('format follows the box: meaning, listen, recall, then typing for single wo
 });
 test('every generated exercise is gradable, has three distinct choices with one answer, and resolves its word in the session',()=>{
  for(let box=0;box<=MAX_BOX;box++){
-  const {definition,items}=buildReviewSession(everything(box),today,Infinity)!;
+  // With speaking available, so every item (Replies included) comes up.
+  const {definition,items}=buildReviewSession(everything(box),today,Infinity,true)!;
   assert.equal(items.length,reviewSources().length);
   assert.equal(new Set(definition.exercises.map(e=>e.id)).size,definition.exercises.length);
   assert.equal(new Set(definition.words.map(w=>w.id)).size,definition.words.length);

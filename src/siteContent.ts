@@ -12,6 +12,7 @@ export const EXERCISE_KINDS:Record<Exercise['kind'],{label:string;example:string
  typed:{label:'Type it',example:'Write the Russian yourself.'},
  listen:{label:'Listen and choose',example:'Hear a line, find what was said.'},
  match:{label:'Match the pairs',example:'Pair each Russian word with its meaning.'},
+ speak:{label:'Say it aloud',example:'Repeat a word or reply out loud, checked on your iPhone.'},
 };
 
 export const siteLessons=nativeLessons.map(lesson=>({

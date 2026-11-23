@@ -1,4 +1,5 @@
 import {Fragment,useState} from 'react';
+import {websiteCafeLesson} from './curriculum/catalog';
 import {LEGAL,PRODUCT} from './config';
 import {Companion} from './Companion';
 import {useLesson} from './useLesson';
@@ -18,7 +19,7 @@ function HeroPrinter(){
 }
 
 function App(){
- const controller=useLesson();
+ const controller=useLesson({definition:websiteCafeLesson});
  const {saved,progress,reaction,notice,setNotice,speech,restart,resetAll,incorrect}=controller;
  const [menu,setMenu]=useState(false);
  useReveal();

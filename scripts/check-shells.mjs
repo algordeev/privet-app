@@ -32,7 +32,8 @@ try {
  const {freshSession,NATIVE_SESSION_KEY}=await server.ssrLoadModule('/src/session.ts');
  const {lesson}=await server.ssrLoadModule('/src/lesson.ts');
  const {introductionsLesson,cafeLesson}=await server.ssrLoadModule('/src/lessons.ts');
- const {sessionKey}=await server.ssrLoadModule('/src/session.ts');
+ const {sessionKey,LESSON_DATA_VERSION}=await server.ssrLoadModule('/src/session.ts');
+ const {presentExercise,hearsReply}=await server.ssrLoadModule('/src/speakSteps.ts');
  Capacitor.isNativePlatform=()=>false;
  const website=renderToStaticMarkup(createElement(RuntimeApp));
  for(const marker of ['class="site-header wrap"','class="hero wrap"','class="lesson-phone"','class="ios-status-bar"','id="course"','id="app"','id="devices"','id="plans"','class="site-ticker"'])assert.ok(website.includes(marker),marker);
@@ -129,7 +130,7 @@ try {
  for(const marker of ['Current streak','Best streak','Lesson finishes','Today XP','Total XP','Your last seven days','Finish the lesson to see your first result here.'])assert.ok(emptyProfile.includes(marker));
  storage.set(NATIVE_STATS_KEY,JSON.stringify({...emptyStats(),days:{'2020-01-01':2},latest:{day:'2020-01-01',firstTry:4}}));
  const storedProfile=renderToStaticMarkup(createElement(Profile));
- assert.ok(storedProfile.includes('<strong>4<span>/5</span></strong>'));
+ assert.ok(storedProfile.includes('<strong>4<span>/7</span></strong>'),'Out of the café lesson steps, speaking included');
  assert.ok(storedProfile.includes('January 1, 2020'));
  storage.delete(NATIVE_STATS_KEY);
  console.log('PASS: native home exposes profile/streak, and local statistics render zero and saved activity accurately.');
@@ -167,7 +168,8 @@ try {
  assert.ok(!results.includes('Check answer'));
  const completedHome=renderToStaticMarkup(createElement(RuntimeApp));
  // A passed lesson sits under Completed as a row with its score; tapping it shows See your results.
- assert.ok(completedHome.includes('Completed · <!-- -->1')||completedHome.includes('Completed · 1'));assert.ok(/home-row-score">\d+\/5 ✓/.test(completedHome.replace(/<!-- -->/g,'')));
+ // (Saved without a version, this 5-step attempt is moved onto the 7-step lesson with speaking.)
+ assert.ok(completedHome.includes('Completed · <!-- -->1')||completedHome.includes('Completed · 1'));assert.ok(/home-row-score">\d+\/7 ✓/.test(completedHome.replace(/<!-- -->/g,'')));
  assert.ok(connectedGreeting().includes('Молодец! You finished Café essentials.'));
  assert.ok(!completedHome.includes('Practise again'));
  assert.ok(results.includes('You practised greetings, tea and coffee, ordering tea, and saying thank you.'));
@@ -186,12 +188,15 @@ try {
  storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));
  function SecondLesson(){const controller=useLesson({persistSession:true,definition:introductionsLesson});return createElement(LessonPanel,{controller,native:true});}
  for(const [index,exercise] of introductionsLesson.exercises.entries()){
-  const snapshot={...freshSession(),progress:{...freshSession().progress,index,results:Array(index).fill(true)}};
+  const snapshot={version:LESSON_DATA_VERSION,...freshSession(),progress:{...freshSession().progress,index,results:Array(index).fill(true)}};
   storage.set(sessionKey(introductionsLesson),JSON.stringify(snapshot));
   const html=renderToStaticMarkup(createElement(SecondLesson));
-  assert.ok(html.includes(exercise.title));assert.ok(html.includes('Nice to meet you'));assert.ok(html.includes('Check answer'));
+  // No recogniser here, so speaking steps show their quiet version (listening choice or typed reply).
+  assert.ok(html.includes(presentExercise(exercise,false).title));assert.ok(html.includes('Nice to meet you'));
+  // A quiet Reply ("Hear it") has nothing to check: its button is Continue.
+  assert.ok(html.includes(hearsReply(exercise,false)?'Continue':'Check answer'));
   assert.ok(!html.includes('Café essentials'));assert.ok(!html.includes('Ваш чай.'));
-  if(index===4){assert.ok(html.includes('“Bye!”'));assert.ok(!html.includes('пока'));}
+  if(exercise.id==='type'){assert.ok(html.includes('“Bye!”'));assert.ok(!html.includes('пока'));}
  }
  storage.set(sessionKey(introductionsLesson),JSON.stringify({...freshSession(),revealed:['name']}));
  const secondPartial=renderToStaticMarkup(createElement(RuntimeApp));
@@ -204,21 +209,23 @@ try {
  const secondHome=renderToStaticMarkup(createElement(RuntimeApp));assert.ok(connectedGreeting(introductionsLesson).includes('Молодец! You finished Nice to meet you.'));
  storage.set(NATIVE_STATS_KEY,JSON.stringify({...emptyStats(),days:{'2020-01-01':1},latest:{day:'2020-01-01',firstTry:5,lessonId:'introductions'}}));
  assert.ok(renderToStaticMarkup(createElement(Profile)).includes('<h2 id="native-result-title">Nice to meet you</h2>'));
- console.log('PASS: second lesson renders all five exercises, separate progress/results, matching greeting and profile title.');
+ console.log('PASS: second lesson renders every exercise (speaking as its quiet version), separate progress/results, matching greeting and profile title.');
  for(const definition of (await server.ssrLoadModule('/src/curriculum/catalog.ts')).nativeLessons){
   function CurriculumLesson({help=true}={}){const controller=useLesson({persistSession:true,definition});controller.preferences={...controller.preferences,pronunciation:help};return createElement(LessonPanel,{controller,native:true});}
   for(const [index,exercise] of definition.exercises.entries()){
-   storage.set(sessionKey(definition),JSON.stringify({...freshSession(),progress:{...freshSession().progress,index,results:Array(index).fill(true)}}));
-   const html=renderToStaticMarkup(createElement(CurriculumLesson));assert.ok(html.includes(exercise.title));assert.ok(html.includes(definition.title));assert.ok(html.includes('Open Cyrillic guide'));
+   storage.set(sessionKey(definition),JSON.stringify({version:LESSON_DATA_VERSION,...freshSession(),progress:{...freshSession().progress,index,results:Array(index).fill(true)}}));
+   // No recogniser in this shell: speaking steps render their quiet version.
+   const shown=presentExercise(exercise,false);
+   const html=renderToStaticMarkup(createElement(CurriculumLesson));assert.ok(html.includes(shown.title));assert.ok(html.includes(definition.title));assert.ok(html.includes('Open Cyrillic guide'));
    // Listening hides option readings until answered: they would give away the sound.
-   const readingCount=exercise.kind==='listen'?0:(exercise.choices??[]).filter(choice=>/[а-яё]/iu.test(choice)).length+(exercise.exchange?1:0)+(exercise.pairs?.length??0);
+   const readingCount=shown.kind==='listen'?0:(shown.choices??[]).filter(choice=>/[а-яё]/iu.test(choice)).length+(shown.exchange?1:0)+(shown.pairs?.length??0);
    assert.equal((html.match(/class="native-russian-reading"/g)??[]).length,readingCount,`${definition.id}/${exercise.id}: all visible Russian options/dialogue have readings`);
    const withoutHelp=renderToStaticMarkup(createElement(CurriculumLesson,{help:false}));assert.ok(!withoutHelp.includes('native-russian-reading'));
 
   }
   for(const [index,exercise] of definition.exercises.entries()){
-   const at=(extra={})=>{storage.set(sessionKey(definition),JSON.stringify({...freshSession(),progress:{...freshSession().progress,index,results:Array(index).fill(true)},...extra}));return renderToStaticMarkup(createElement(CurriculumLesson));};
-   if(exercise.kind==='listen'){
+   const at=(extra={})=>{storage.set(sessionKey(definition),JSON.stringify({version:LESSON_DATA_VERSION,...freshSession(),progress:{...freshSession().progress,index,results:Array(index).fill(true)},...extra}));return renderToStaticMarkup(createElement(CurriculumLesson));};
+   if(presentExercise(exercise,false).kind==='listen'){
     // No speech synthesis in this shell: the written sound guide replaces audio, and the word itself is never printed as a prompt.
     const html=at(),word=definition.words.find(w=>w.id===exercise.wordId);
     assert.ok(html.includes('Audio isn’t available. Read how it sounds:')&&html.includes(word.pronunciation),`${definition.id}/${exercise.id}: no-voice fallback`);

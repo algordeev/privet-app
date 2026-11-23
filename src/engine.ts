@@ -1,4 +1,5 @@
 import { lesson,type Exercise } from './lesson.ts';
+import { spokenWords } from './speechMatch.ts';
 export type CompanionState = 'idle'|'prompting'|'thinking'|'correct'|'try-again'|'celebrating';
 export type CompanionEvent = { type:'prompt'|'thinking'|'correct'|'incorrect'|'complete'|'reset'; text?:string };
 export function companionReaction(event: CompanionEvent): { state:CompanionState; text:string } {
@@ -7,7 +8,9 @@ export function companionReaction(event: CompanionEvent): { state:CompanionState
  return { state:states[event.type], text:event.text || labels[event.type] };
 }
 export function normalizeAnswer(value:string) { return value.normalize('NFD').replace(/[\u0300\u0301]/g,'').normalize('NFC').trim().toLocaleLowerCase('ru').replace(/[.!?…]+$/u,'').trim().replace(/\s+/g,' '); }
-export function checkAnswer(index:number, value:string, exercises:readonly Exercise[]=lesson) { const exercise=exercises[index]; if(exercise.kind==='match') return value===matchValue(exercise.pairs!.map(([ru])=>ru),exercise); const {answer,alsoAccepted=[]}=exercise; return [answer,...alsoAccepted].some(accepted=>normalizeAnswer(value) === normalizeAnswer(accepted)); }
+export function checkAnswer(index:number, value:string, exercises:readonly Exercise[]=lesson) { const exercise=exercises[index]; if(exercise.kind==='match') return value===matchValue(exercise.pairs!.map(([ru])=>ru),exercise); if(exercise.kind==='speak') return sameSpokenAnswer(value,[exercise.answer,...exercise.alsoAccepted??[]])||(exercise.quiet==='meaning'&&!!exercise.translation&&normalizeAnswer(value)===normalizeAnswer(exercise.translation)); const {answer,alsoAccepted=[]}=exercise; return [answer,...alsoAccepted].some(accepted=>normalizeAnswer(value) === normalizeAnswer(accepted)); }
+// Speaking (and its quiet versions) is graded on the words alone: punctuation, case, stress and ё never decide it.
+export function sameSpokenAnswer(value:string,accepted:readonly string[]){const said=spokenWords(value).join(' ');return !!said&&accepted.some(answer=>spokenWords(answer).join(' ')===said);}
 // Match exercises: each tapped pair is graded at once; the final check submits the matched Russian sides in content order.
 export function isPair(exercise:Exercise,ru:string,en:string){return !!exercise.pairs?.some(pair=>pair[0]===ru&&pair[1]===en);}
 export function matchValue(matched:readonly string[],exercise:Exercise){return (exercise.pairs??[]).filter(([ru])=>matched.includes(ru)).map(([ru])=>ru).join('\n');}
