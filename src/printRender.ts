@@ -358,8 +358,8 @@ export function renderLetterStrip(strip:LetterStrip):Rendered{
  c.cut();
  return c.finish();
 }
-// Write from memory: a section per quick start page. Letters: each sound above an empty box (rows of
-// six, or of four when a section is longer, so labels like "soft sign" fit). Words: each reading guide
+// Write from memory: a section of letters, then one of words. Letters: each sound above an empty box (rows
+// of six, or of four when a section is longer, so labels like "soft sign" fit). Words: each reading guide
 // above an empty writing line. The answers, in the printed order, upside down below the cut.
 export function renderRecallStrip(strip:RecallStrip):Rendered{
  const c=new Card(),ctx=c.ctx;

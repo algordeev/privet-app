@@ -223,10 +223,9 @@ export function letterStrip(letter:CyrillicLetter,words:readonly Word[]=[]):Lett
   ...(letter.example?{example:{russian:letter.example,reading:russianReading(letter.example,words),english:letter.meaning}}:{})};
 }
 
-// Write-from-memory strip, for the end of the Cyrillic quick start: each quick start page becomes a
-// section of prompts (the letters' sounds, then the reading words' guides) to answer in Russian. The order
-// is shuffled within each section on every print, so it doesn't give the answers away; the answers follow
-// the printed order. The prompts are the sounds the quick start shows and the words' spellings in Latin letters.
+// Write-from-memory strip, for the end of the Cyrillic quick start: a section of letters (each prompted
+// by its sound) and one of the reading words, to answer in Russian. The order is shuffled on every print,
+// so it doesn't give the answers away; the answers follow the printed order. The prompts are the sounds the quick start shows and the words' spellings in Latin letters.
 export type RecallItem={prompt:string;answer:string};
 export type RecallSection={title:string;kind:'letter'|'word';items:RecallItem[]};
 export type RecallStrip={sections:RecallSection[]};
@@ -235,13 +234,21 @@ function shuffled<T>(items:readonly T[],random:()=>number){
  for(let i=out.length-1;i>0;i--){const j=Math.min(i,Math.floor(random()*(i+1)));[out[i],out[j]]=[out[j],out[i]];}
  return out;
 }
+// Letters on the strip: five full rows of four. The quick start has 22, so each print leaves two out.
+export const RECALL_LETTERS=20;
 export function recallStrip(random:()=>number=Math.random):RecallStrip{
  const title=(page:number)=>QUICK_TITLES[page].replace(/\.$/u,'');
- const letters=QUICK_LETTERS.map((group,page)=>({title:title(page),kind:'letter' as const,items:shuffled(group.map(upper=>{
-  const item=ALPHABET.find(letter=>letter.upper===upper);
+ const letter=(upper:string)=>{
+  const item=ALPHABET.find(entry=>entry.upper===upper);
   if(!item)throw new Error(`Unknown quick start letter ${upper}`);
-  return {prompt:item.sound,answer:item.lower};
- }),random)}));
+  return item;
+ };
+ // One mixed section (approved 2026-11-23): the look-alikes (В Н Р С У Х, where learners slip most) every
+ // time, the rest a different random pick each print, all shuffled together.
+ const quick=(QUICK_LETTERS as readonly (readonly string[])[]).flat().map(letter);
+ const lookalikes=quick.filter(item=>item.group==='tricky'),others=quick.filter(item=>item.group!=='tricky');
+ const chosen=[...lookalikes,...shuffled(others,random).slice(0,Math.max(0,RECALL_LETTERS-lookalikes.length))];
+ const letters=[{title:'Letters',kind:'letter' as const,items:shuffled(chosen.map(item=>({prompt:item.sound,answer:item.lower})),random)}];
  const words={title:title(QUICK_LETTERS.length),kind:'word' as const,items:shuffled(READING_WORDS.map(word=>{
   // The spelling, not the reading guide: "pa-KA" says how пока sounds, but the learner writes it letter by letter.
   return {prompt:`${word.spelling}  ·  ${word.meaning}`,answer:word.text};

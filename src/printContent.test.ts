@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {nativeLessons} from './curriculum/catalog.ts';
-import {alphabetStrip,exampleFor,letterStrip,recallStrip,practiceStrip,progressReceipt,reviewStrip,wordOfTheDay} from './printContent.ts';
+import {alphabetStrip,exampleFor,letterStrip,RECALL_LETTERS,recallStrip,practiceStrip,progressReceipt,reviewStrip,wordOfTheDay} from './printContent.ts';
 import {emptyReview,type ReviewState} from './review.ts';
 import {emptyStats} from './nativeStats.ts';
 import {localDay} from './days.ts';
@@ -131,25 +131,30 @@ test('letter strips: any of the 33 letters, in alphabet position, with the examp
  assert.throws(()=>letterStrip({...tea,upper:'Q'}));
 });
 
-test('write from memory: a section per quick start page, shuffled per print, answers matching the prompts',()=>{
- const sounds=(upper:string)=>CYRILLIC.find(l=>l.upper===upper)!;
+test('write from memory: one section of 20 letters (the look-alikes always in), then the words, shuffled per print',()=>{
+ const sound=(lower:string)=>CYRILLIC.find(l=>l.lower===lower)!.sound;
  // A seeded random, so each run is repeatable.
  const seeded=(seed:number)=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/2**32;};
  const strip=recallStrip(seeded(7));
- assert.deepEqual(strip.sections.map(s=>[s.title,s.kind]),[...QUICK_TITLES.slice(0,3).map(t=>[t.replace(/\.$/,''),'letter']),[QUICK_TITLES[3].replace(/\.$/,''),'word']]);
- // Every letter of each page, once, prompted by its sound and answered by its small letter.
- QUICK_LETTERS.forEach((group,i)=>{
-  const items=strip.sections[i].items;
-  assert.deepEqual(items.map(item=>item.answer).sort(),group.map(u=>u.toLowerCase()).sort());
-  for(const item of items)assert.equal(item.prompt,sounds(item.answer.toUpperCase()).sound);
- });
- assert.deepEqual(strip.sections[3].items.map(item=>item.answer).sort(),READING_WORDS.map(w=>w.text).sort());
+ assert.deepEqual(strip.sections.map(s=>[s.title,s.kind]),[['Letters','letter'],[QUICK_TITLES[3].replace(/\.$/,''),'word']]);
+ const quick=QUICK_LETTERS.flat().map(u=>u.toLowerCase()),lookalikes=QUICK_LETTERS[1].map(u=>u.toLowerCase());
+ for(const seed of [1,2,3,7,42,99]){
+  const items=recallStrip(seeded(seed)).sections[0].items;
+  assert.equal(items.length,RECALL_LETTERS);
+  assert.equal(new Set(items.map(i=>i.answer)).size,RECALL_LETTERS,'no letter twice');
+  for(const item of items){assert.ok(quick.includes(item.answer),item.answer);assert.equal(item.prompt,sound(item.answer));}
+  for(const l of lookalikes)assert.ok(items.some(i=>i.answer===l),`look-alike ${l} is always asked (seed ${seed})`);
+ }
+ // The two left out change from print to print.
+ const leftOut=(seed:number)=>quick.filter(l=>!recallStrip(seeded(seed)).sections[0].items.some(i=>i.answer===l)).sort().join('');
+ assert.ok(new Set([1,2,3,7,42,99].map(leftOut)).size>1);
+ assert.deepEqual(strip.sections[1].items.map(item=>item.answer).sort(),READING_WORDS.map(w=>w.text).sort());
  // Words are prompted by their spelling, as written, not by how they sound.
- assert.deepEqual(strip.sections[3].items.map(item=>item.prompt).sort(),['chay  ·  tea','kofe  ·  coffee','poka  ·  Bye!','privet  ·  Hi!']);
- // Shuffled: different random numbers give different orders, the same ones the same order.
+ assert.deepEqual(strip.sections[1].items.map(item=>item.prompt).sort(),['chay  ·  tea','kofe  ·  coffee','poka  ·  Bye!','privet  ·  Hi!']);
+ // Shuffled: the same random numbers give the same strip, different ones a different one.
  const order=(s:typeof strip)=>s.sections.map(x=>x.items.map(i=>i.answer).join('')).join('|');
  assert.equal(order(recallStrip(seeded(7))),order(strip));
  assert.notEqual(order(recallStrip(seeded(8))),order(strip));
- // Even an edge-case random (always 0, or just under 1) keeps every item exactly once.
- for(const edge of [()=>0,()=>0.9999999])assert.equal(recallStrip(edge).sections.flatMap(x=>x.items).length,5+6+11+4);
+ // Even an edge-case random (always 0, or just under 1) gives 20 letters and the 4 words.
+ for(const edge of [()=>0,()=>0.9999999])assert.equal(recallStrip(edge).sections.flatMap(x=>x.items).length,RECALL_LETTERS+4);
 });
