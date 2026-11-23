@@ -301,20 +301,16 @@ function tracePattern(ctx:Ctx):CanvasPattern|string{
  t.fillStyle='#fff';t.fillRect(0,0,2,2);t.fillStyle='#000';t.fillRect(0,0,1,1);
  return ctx.createPattern(tile,'repeat')??'#000';
 }
-// Handwriting lines for one row: a dotted cap line, a dashed midline (the top of small letters) and a
-// solid baseline, in whole pixels so they print crisply.
-function writingLines(ctx:Ctx,base:number,size:number){
- const cap=base-Math.round(size*0.71),mid=base-Math.round(size*0.52);
- for(let x=PAD;x<W-PAD;x+=8)ctx.fillRect(x,cap,2,2);
- for(let x=PAD;x<W-PAD;x+=12)ctx.fillRect(x,mid,6,2);
- ctx.fillRect(PAD,base,INNER,2);
-}
+// The writing line for one row: a solid baseline, like ordinary lined paper (chosen 2026-11-23). No cap
+// line or midline: on this narrow paper they crowded the dotted letters, and the dotted letters and the
+// model at the start of each row already show the size.
+function writingLine(ctx:Ctx,base:number){ctx.fillRect(PAD,base,INNER,2);}
 const WRITING_SIZE=46;
 type Cell=[value:string,kind:'model'|'trace'|'empty'];
 // One row on writing lines, the cells spread evenly across it: models in black, the rest to trace.
 function writingRow(c:Card,trace:CanvasPattern|string,cells:readonly Cell[]){
  const ctx=c.ctx,base=c.y+Math.round(WRITING_SIZE*0.92),cell=INNER/Math.max(1,cells.length);
- writingLines(ctx,base,WRITING_SIZE);font(ctx,WRITING_SIZE,500);ctx.textAlign='center';
+ writingLine(ctx,base);font(ctx,WRITING_SIZE,500);ctx.textAlign='center';
  cells.forEach(([value,kind],i)=>{if(kind==='empty')return;ctx.fillStyle=kind==='model'?'#000':trace;ctx.fillText(value,PAD+cell*(i+0.5),base);});
  ctx.fillStyle='#000';ctx.textAlign='left';c.y=base+12;
 }
@@ -325,7 +321,7 @@ function traceWord(c:Card,trace:CanvasPattern|string,word:AlphabetWord){
  c.text(label?`${label}  ·  ${word.english}`:word.english,{size:16,style:'italic'});
  c.gap(2);
  const base=c.y+Math.round(WRITING_SIZE*0.92);
- writingLines(ctx,base,WRITING_SIZE);font(ctx,WRITING_SIZE,500);ctx.fillStyle=trace;ctx.fillText(word.russian,PAD+6,base);ctx.fillStyle='#000';c.y=base+12;
+ writingLine(ctx,base);font(ctx,WRITING_SIZE,500);ctx.fillStyle=trace;ctx.fillText(word.russian,PAD+6,base);ctx.fillStyle='#000';c.y=base+12;
  writingRow(c,trace,[]);
 }
 export function renderAlphabetStrip(strip:AlphabetStrip):Rendered{
