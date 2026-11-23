@@ -45,7 +45,9 @@ export const CYRILLIC:readonly CyrillicLetter[]=[
 // One title per quick start page; the last page is reading words.
 export const QUICK_TITLES=['A few familiar faces.','Same shape. New sound.','A few new friends.','You can already read a little.'] as const;
 export const QUICK_LETTERS=[['А','К','М','О','Т'],['В','Н','Р','С','У','Х'],['П','И','Е','Ф','Ч','Ш','Б','З','Й','Я','Ь']] as const;
-export const READING_WORDS=[{text:'кофе',meaning:'coffee'},{text:'чай',meaning:'tea'},{text:'привет',meaning:'Hi!'},{text:'пока',meaning:'Bye!'}] as const;
+// spelling: the word letter for letter in Latin letters (as written, not as said; approved 2026-11-23), for
+// writing it back in Cyrillic on the write-from-memory strip. Reading guides say how it sounds instead.
+export const READING_WORDS=[{text:'кофе',meaning:'coffee',spelling:'kofe'},{text:'чай',meaning:'tea',spelling:'chay'},{text:'привет',meaning:'Hi!',spelling:'privet'},{text:'пока',meaning:'Bye!',spelling:'poka'}] as const;
 const canonical=(text:string)=>text.toLowerCase().normalize('NFD').replace(/\u0301/g,'').normalize('NFC').replace(/[^а-яё]/g,'');
 export function contextualLetters(definition:LessonDefinition,exercise:Exercise):CyrillicLetter[]{
  // Use the visible prompt/material, never the answer to assemble a solution.

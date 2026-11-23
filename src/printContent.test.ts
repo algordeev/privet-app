@@ -108,7 +108,8 @@ test('alphabet strips: one per quick start page, built only from the quick start
  // Page 4: the reading words with their reading guides.
  assert.deepEqual(strips[3].letters,[]);
  assert.deepEqual(strips[3].words.map(w=>w.russian),READING_WORDS.map(w=>w.text));
- assert.deepEqual(strips[3].words.map(w=>[w.reading,w.english]),[['KO-fe','coffee'],['chai','tea'],['pri-VET','Hi!'],['pa-KA','Bye!']]);
+ // Spelt as written, to copy letter by letter (not the reading guide, which says how it sounds).
+ assert.deepEqual(strips[3].words.map(w=>[w.spelling,w.english,w.reading]),[['kofe','coffee',undefined],['chay','tea',undefined],['privet','Hi!',undefined],['poka','Bye!',undefined]]);
  // Out of range pages fall back to the nearest real page.
  assert.equal(alphabetStrip(-1).page,0);assert.equal(alphabetStrip(9).page,3);assert.equal(alphabetStrip(Number.NaN).page,0);
 });
@@ -143,7 +144,8 @@ test('write from memory: a section per quick start page, shuffled per print, ans
   for(const item of items)assert.equal(item.prompt,sounds(item.answer.toUpperCase()).sound);
  });
  assert.deepEqual(strip.sections[3].items.map(item=>item.answer).sort(),READING_WORDS.map(w=>w.text).sort());
- assert.ok(strip.sections[3].items.some(item=>item.answer==='кофе'&&item.prompt==='KO-fe  ·  coffee'));
+ // Words are prompted by their spelling, as written, not by how they sound.
+ assert.deepEqual(strip.sections[3].items.map(item=>item.prompt).sort(),['chay  ·  tea','kofe  ·  coffee','poka  ·  Bye!','privet  ·  Hi!']);
  // Shuffled: different random numbers give different orders, the same ones the same order.
  const order=(s:typeof strip)=>s.sections.map(x=>x.items.map(i=>i.answer).join('')).join('|');
  assert.equal(order(recallStrip(seeded(7))),order(strip));

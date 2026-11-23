@@ -321,7 +321,8 @@ function writingRow(c:Card,trace:CanvasPattern|string,cells:readonly Cell[]){
 // A word: its reading guide and meaning, the word to trace, then an empty line to write it again.
 function traceWord(c:Card,trace:CanvasPattern|string,word:AlphabetWord){
  const ctx=c.ctx;
- c.text(word.reading?`${word.reading}  ·  ${word.english}`:word.english,{size:16,style:'italic'});
+ const label=word.spelling??word.reading;
+ c.text(label?`${label}  ·  ${word.english}`:word.english,{size:16,style:'italic'});
  c.gap(2);
  const base=c.y+Math.round(WRITING_SIZE*0.92);
  writingLines(ctx,base,WRITING_SIZE);font(ctx,WRITING_SIZE,500);ctx.fillStyle=trace;ctx.fillText(word.russian,PAD+6,base);ctx.fillStyle='#000';c.y=base+12;
