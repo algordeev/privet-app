@@ -38,7 +38,8 @@ export function PhysicalCompanionHomeStatus({controller,onOpen}:{controller:Phys
 // Survives home remounts: the connected ripple plays once per connection, not on every return home.
 // Only a real end of the session resets it; a reconcile on app return keeps the same connection.
 let connectionAnnounced=false;
-export function PhysicalCompanionChip({controller,onOpen,greeting}:{controller:PhysicalCompanionController;onOpen:()=>void;greeting?:string}){
+// Without a robot the bubble is only the greeting; prompt: this visit shows the connect prompt instead.
+export function PhysicalCompanionChip({controller,onOpen,greeting,prompt=false}:{controller:PhysicalCompanionController;onOpen:()=>void;greeting?:string;prompt?:boolean}){
  const ble=useBleState(controller);
  // A quiet discovery scan is invisible here: the chip keeps its ordinary disconnected look.
  const state=ble.quiet?{...ble,phase:'disconnected' as const}:ble;
@@ -50,7 +51,9 @@ export function PhysicalCompanionChip({controller,onOpen,greeting}:{controller:P
   if(connected&&!connectionAnnounced){connectionAnnounced=true;setCelebrate(true);}
  },[connected,inSession]);
  const label=connected?'Companion connected':state.phase==='suspended'?'Companion paused':state.phase==='reconciling'?'Checking companion…':state.phase==='connecting'?'Connecting companion…':state.phase==='scanning'?'Finding companion…':'Have a physical companion? Let’s connect it.';
- return <div className="native-companion-bubble" data-connected={connected} data-searching={!connected&&searching(state.phase)}>
+ // Idle with no robot and no prompt today: just what the robot says, nothing about Bluetooth.
+ if(!inSession&&!prompt)return <div className="native-companion-bubble" data-connected={false} data-searching={false}><p role="status" aria-live="polite" aria-atomic="true">{greeting}</p></div>;
+ return <div className="native-companion-bubble" data-connected={connected} data-searching={!connected&&searching(state.phase)} data-prompt={prompt&&!inSession}>
   <button id="native-companion-chip" className="native-companion-chip" data-connected={connected} data-celebrate={celebrate&&connected} onClick={onOpen} aria-label={connected?'Companion connected. Open physical companion settings.':`${label} Open physical companion settings.`}>
    {connected?<><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m7 7 10 10-5 4V3l5 4L7 17"/></svg><span className="native-sr-only" role="status" aria-live="polite" aria-atomic="true">{label}</span></>:<><span role="status" aria-live="polite" aria-atomic="true">{label}</span>{searching(state.phase)?<span className="native-searching-dots" aria-hidden="true"><i/><i/><i/></span>:<span aria-hidden="true">›</span>}</>}
   </button>

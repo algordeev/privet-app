@@ -599,6 +599,10 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 @keyframes app-gem-in { 0% { opacity: 0; transform: scale(.4) rotate(-45deg); } 100% { opacity: 1; transform: none; } }
 
 /* Robot connection. Searching loops animate only opacity/transform (compositor-only), so a long scan stays cheap. */
+/* The day's connect prompt arrives a few seconds into a home visit: it fades in where the message was. */
+.native-app .native-companion-bubble[data-prompt=true] .native-companion-chip { animation: native-bubble-beat 520ms var(--ease) backwards; }
+@keyframes native-bubble-beat { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .native-app .native-companion-bubble[data-prompt=true] .native-companion-chip { animation: app-fade-in 200ms ease-out backwards; } }
 .native-app .native-companion-bubble::after { content: ''; position: absolute; inset: -1px; border: 2px solid #9fbf8c; border-radius: inherit; opacity: 0; pointer-events: none; }
 .native-app .native-companion-bubble[data-searching=true]::after { animation: app-search-ring 1.8s ease-in-out infinite; }
 .native-searching-dots { display: inline-flex; flex: none; gap: 4px; padding-right: 2px; }

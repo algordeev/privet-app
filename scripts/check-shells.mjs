@@ -27,7 +27,6 @@ try {
  const {emptyStats}=await server.ssrLoadModule('/src/nativeStats.ts');
  const {NATIVE_STATS_KEY}=await server.ssrLoadModule('/src/statsStorage.ts');
  const {useNativeCompanion}=await server.ssrLoadModule('/src/useNativeCompanion.ts');
- const {homeGreeting} = await server.ssrLoadModule('/src/nativeCompanion.ts');
  const {COMPANION_PREFERENCE_KEY}=await server.ssrLoadModule('/src/nativeCompanion.ts');
  const {LessonPanel}=await server.ssrLoadModule('/src/LessonPanel.tsx');
  const {freshSession,NATIVE_SESSION_KEY}=await server.ssrLoadModule('/src/session.ts');
@@ -51,11 +50,12 @@ try {
  Capacitor.isNativePlatform=()=>true;
  storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));
  const home=renderToStaticMarkup(createElement(RuntimeApp));
- for(const marker of ['class="native-app"','Café essentials','Show Café essentials','Your virtual companion','Have a physical companion? Let’s connect it.'])assert.ok(home.includes(marker),marker);
+ for(const marker of ['class="native-app"','Café essentials','Show Café essentials','Your virtual companion','native-companion-bubble'])assert.ok(home.includes(marker),marker);
  for(const marker of ['site-header','class="hero','lesson-phone','ios-status-bar','dynamic-island','ios-home-area','Demo connection'])assert.ok(!home.includes(marker),marker);
  assert.ok(home.includes('Nice to meet you'));assert.ok(home.includes('02 · Nice to meet you'));
  console.log('PASS: Capacitor runtime renders app home with local lesson entry and simulated companion.');
- assert.ok(home.includes('Have a physical companion? Let’s connect it.'));assert.ok(!website.includes('native-companion-chip'));
+ // Home opens with the robot's greeting; the connect prompt only arrives a few seconds later.
+ assert.ok(!home.includes('Have a physical companion? Let’s connect it.'));assert.ok(!website.includes('native-companion-chip'));
  assert.ok(!home.includes('Physical companion settings'));assert.ok(home.includes('native-settings-open'));assert.ok(!home.includes('Reset saved lesson &amp; preferences'));
  assert.ok(!website.includes('Physical companion settings'));
  const noOp=()=>{};
@@ -66,10 +66,14 @@ try {
  const stub=state=>({getState:()=>state,subscribe:()=>()=>{}});
  function ConnectedGreeting({definition=cafeLesson}){
   const controller=useLesson({persistSession:true,definition});
-  return createElement(PhysicalCompanionChip,{controller:stub({...initialBleState(),phase:'connected',ready:true}),onOpen:noOp,greeting:homeGreeting(controller,definition.title)});
+  // The saved lesson decides the greeting: fresh, in progress or finished (on a quiet afternoon).
+  const greeting=homeGreeting({hour:14,today:'2026-10-17',streak:0,practisedToday:false,due:0,midLesson:lessonStarted(controller)&&!controller.progress.complete,connect:false,quickStartUnseen:false,anyPassed:true,freezes:0,finished:controller.progress.complete?{title:definition.title,today:false}:undefined}).text;
+  return createElement(PhysicalCompanionChip,{controller:stub({...initialBleState(),phase:'connected',ready:true}),onOpen:noOp,greeting});
  }
+ const {homeGreeting}=await server.ssrLoadModule('/src/homeGreeting.ts');
+ const {lessonStarted}=await server.ssrLoadModule('/src/nativeCompanion.ts');
  const connectedGreeting=(definition=cafeLesson)=>renderToStaticMarkup(createElement(ConnectedGreeting,{definition}));
- assert.ok(connectedGreeting().includes('Привет! Ready for a little Russian?'));
+ assert.ok(connectedGreeting().includes('Good afternoon! Ready for a little Russian?'));
  function physical(state,remembered){return renderToStaticMarkup(createElement(PhysicalCompanionSettings,{controller:{...stub(state),scan:noOp,connect:noOp,disconnect:noOp,testHappy:noOp,remembered:()=>remembered},onClose:noOp}));}
  const disconnectedPhysical=physical(initialBleState());
  // A remembered companion: settings says it reconnects by itself; the app's own quiet look stays invisible.
@@ -249,7 +253,7 @@ try {
  // The website footer links the Support and Privacy pages published from public/.
  assert.ok(website.includes('href="support.html">Support</a>'));assert.ok(website.includes('href="privacy.html">Privacy Policy</a>'));assert.ok(website.includes('Independent app'));
  function Plus(){const subscription=useSubscription();return createElement(PlusScreen,{subscription,onClose:()=>{}});}
- storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));const offer=renderToStaticMarkup(createElement(Plus));for(const text of ['All 8 lessons, and every new one','Unlimited hearts','$39.99 / year','$3.33 / month','$4.99 / month','Best value','Continue · $39.99/year','Renews automatically until cancelled','Restore','Terms of Use','Privacy Policy','Browser preview · No payment'])assert.ok(offer.includes(text),text);assert.ok(offer.indexOf('Yearly')<offer.indexOf('Monthly'),'Yearly is listed (and chosen) first');assert.ok(/role="radio" aria-checked="true"[^>]*><span class="plus-plan-name">Yearly/.test(offer),'Yearly starts selected');assert.ok(!offer.includes('Concept pricing'));
+ storage.clear();storage.set(FIRST_RUN_KEY,JSON.stringify(completedFirstRun));const offer=renderToStaticMarkup(createElement(Plus));const lessonCount=(await server.ssrLoadModule('/src/curriculum/catalog.ts')).nativeLessons.length;for(const text of [`All ${lessonCount} lessons, and every new one`,'Unlimited hearts','$39.99 / year','$3.33 / month','$4.99 / month','Best value','Continue · $39.99/year','Renews automatically until cancelled','Restore','Terms of Use','Privacy Policy','Browser preview · No payment'])assert.ok(offer.includes(text),text);assert.ok(offer.indexOf('Yearly')<offer.indexOf('Monthly'),'Yearly is listed (and chosen) first');assert.ok(/role="radio" aria-checked="true"[^>]*><span class="plus-plan-name">Yearly/.test(offer),'Yearly starts selected');assert.ok(!offer.includes('Concept pricing'));
  storage.set(SUBSCRIPTION_KEY,JSON.stringify({version:1,plan:'monthly',since:'2026-10-18'}));
  const active=renderToStaticMarkup(createElement(Plus));assert.ok(active.includes('Plus is active'));assert.ok(active.includes('Monthly'));assert.ok(active.includes('Cancel Plus demo'));assert.ok(!active.includes('plus-buy'));assert.ok(renderToStaticMarkup(createElement(Profile)).includes('Manage Plus'));
  Capacitor.isNativePlatform=()=>true;

@@ -13,9 +13,6 @@ type StartedSnapshot=Pick<LessonSnapshot,'progress'|'revealed'|'selected'|'token
 export function lessonStarted(s:StartedSnapshot){
  return s.progress.complete||s.progress.index>0||s.progress.attempts>0||s.revealed.length>0||!!s.selected||s.tokens.length>0||!!s.matches?.length;
 }
-export function homeGreeting(s:StartedSnapshot,title='Café essentials'){
- return s.progress.complete?`Молодец! You finished ${title}.`:lessonStarted(s)?'Shall we pick up where we left off?':'Привет! Ready for a little Russian?';
-}
 export const completionSummary='You practised greetings, tea and coffee, ordering tea, and saying thank you.';
 const correct=['A little connection made!','That clicked. Nicely done!','One useful phrase at a time.'];
 const encouraging=['Take your time. You can try again.','A little practice helps. Have another go.','No rush. Try a different answer.'];
@@ -59,6 +56,8 @@ export function createNativeCompanion(
   setEnabled(value:boolean){if(disposed)return;clear();update({enabled:value});},
   setActive(value:boolean){if(disposed)return;if(!value)clear();update({active:value});},
   tap(){react({expression:'greeting',message:friendly[taps++%friendly.length]});},
+  // A reaction without words: home's message picks the face; the bubble keeps its own text.
+  express(expression:NativeExpression){react({expression,message:view.message});},
   transition(previous:Progress,next:Progress,action:Action){
    if(disposed)return;
    if(action.type==='reset'){lastTransition='';clear();return;}

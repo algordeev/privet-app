@@ -3,20 +3,23 @@ import type {Word} from './curriculum/types';
 import {CurriculumControllers} from './CurriculumControllers';
 import {useNativeFocus} from './useNativeFocus';
 import {SettingsConfirmation,type SettingsAction} from './SettingsConfirmation';
-import {isOnboardingPreview} from './previewStorage';
+import {appStorage,isOnboardingPreview} from './previewStorage';
 import {Capacitor} from '@capacitor/core';
 import {useFirstRun} from './useFirstRun';
 import {NativeFirstRun} from './NativeFirstRun';
 import {initialProgress,type Progress} from './engine';
 import {useEffect,useLayoutEffect,useRef,useState,type CSSProperties} from 'react';
 import {PhysicalCompanionSettings,PhysicalCompanionHomeStatus,PhysicalCompanionChip} from './PhysicalCompanionSettings';
-import {usePhysicalCompanion,type PhysicalCompanionController} from './usePhysicalCompanion';
+import {rememberedCompanion,useBleState,usePhysicalCompanion,type PhysicalCompanionController} from './usePhysicalCompanion';
 import {NativeProfile,ProfileIcon,StreakIcon} from './NativeProfile';
 import {useNativeStats,type NativeStatsController} from './useNativeStats';
 import {PRODUCT} from './config';
 import {cafeLesson,nextLesson} from './lessons';
 import {NativeRobot} from './NativeRobot';
-import {homeGreeting,lessonStarted} from './nativeCompanion';
+import {lessonStarted} from './nativeCompanion';
+import {CONNECT_BEAT_MS,GREETING_FACE,homeGreeting,learnedWord,type GreetingFacts} from './homeGreeting';
+import {chapterOf} from './curriculum/chapters';
+
 import {useNativeCompanion,type NativeCompanionController} from './useNativeCompanion';
 import {LessonPanel} from './LessonPanel';
 import {type LessonController} from './useLesson';
@@ -48,11 +51,44 @@ import {renderAlphabetStrip,renderLetterStrip,renderRecallStrip,renderPracticeSt
 import {localDay} from './days';
 import {DEVICE} from './device';
 
+// The day the home robot last showed the connect prompt (once a day at most).
+export const CONNECT_PROMPT_KEY=`${PRODUCT.storageKey}-companion-prompt-day`;
 // Survives NativeHome remounts, so the badges only pop when a number grew since the last home visit.
 const seenHomeStats={streak:-1,gems:-1};
 export function NativeHome({unlocked,controller,controllers,companion,activity,plus,onStart,onUnlock,onProfile,onGems,onStreak,physical,onPhysical,onboarding,onQuickStart,onSettings,review,onReview,note}:{unlocked?:{focus:string|null}|null;note?:string;onUnlock?:()=>void;review?:ReviewController;onReview?:()=>void;onSettings?:()=>void;physical:PhysicalCompanionController;onPhysical:()=>void;onboarding:CyrillicController;onQuickStart:()=>void;controller:LessonController;controllers:LessonController[];companion:NativeCompanionController;activity:NativeStatsController;plus:boolean;onStart:(id:string)=>void;onProfile:()=>void;onGems:()=>void;onStreak:()=>void}) {
  const midLesson=lessonStarted(controller)&&!controller.progress.complete;
- const greeting=companion.view.scope==='home'&&companion.view.message?companion.view.message:note?note:review?.due&&!midLesson?`Привет! ${review.due} to review today. Shall we?`:homeGreeting(controller,controller.definition.title);
+ const now=new Date(),today=localDay(now);
+ const ble=useBleState(physical),robotConnected=ble.phase==='connected'&&ble.ready;
+ // The lesson home is showing, when finished today, and the chapter it completed (if it did). On later
+ // days the robot goes back to its everyday lines.
+ const finished=(()=>{
+  const completed=controller.saved.completion?.date;
+  if(!controller.progress.complete||!completed||localDay(new Date(completed))!==today)return undefined;
+  const id=controller.definition.id,day=(item:LessonController)=>item.saved.completion?.date??'';
+  const chapter=chapterOf(id),inChapter=chapter?controllers.filter(item=>chapter.lessonIds.includes(item.definition.id)):[];
+  // The chapter is done and this lesson was the last of it to be finished.
+  const closed=!!chapter&&inChapter.every(item=>item.passed)&&inChapter.every(item=>day(item)<=day(controller));
+  return {title:controller.definition.title,...(closed?{chapter:chapter!.number}:{})};
+ })();
+ const practisedToday=activity.summary.week.some(day=>day.today&&day.finishes>0);
+ const facts:GreetingFacts={hour:now.getHours(),today,tap:companion.view.scope==='home'&&companion.view.message?companion.view.message:undefined,note:note||undefined,
+  streak:activity.summary.current,practisedToday,away:activity.summary.current===0&&!practisedToday&&Object.keys(activity.stats.days).some(day=>day<today),due:review?.due??0,midLesson,finished,connect:false,
+  quickStartUnseen:onboarding.state.status==='unseen',anyPassed:controllers.some(item=>item.passed),freezes:activity.summary.freezes,word:review?learnedWord(review.state,today):undefined};
+ // The connect prompt, as a second beat: on a visit where it may show (no robot ever connected, not
+ // seen yet today), home first shows its message, then after CONNECT_BEAT_MS the prompt takes the
+ // bubble for the rest of the visit. The day counts only once the prompt was really on screen.
+ const [mayConnect]=useState(()=>{
+  let shown='';try{shown=appStorage.getItem(CONNECT_PROMPT_KEY)??'';}catch{/* Treated as not shown. */}
+  return !rememberedCompanion()&&shown!==today;
+ });
+ const [beat,setBeat]=useState(false);
+ useEffect(()=>{if(!mayConnect)return;const timer=setTimeout(()=>setBeat(true),CONNECT_BEAT_MS);return ()=>clearTimeout(timer);},[mayConnect]);
+ const greeting=homeGreeting({...facts,connect:beat&&!robotConnected});
+ const prompting=greeting.kind==='connect';
+ // The robot's face follows what it says: when home opens and whenever the message changes.
+ const {express}=companion;
+ useEffect(()=>{const face=GREETING_FACE[greeting.kind];if(face)express(face);},[greeting.kind,express]);
+ useEffect(()=>{if(prompting)try{appStorage.setItem(CONNECT_PROMPT_KEY,today);}catch{/* Asked again next visit. */}},[prompting,today]);
  const {current:streak,gems}=activity.summary;
  const [bumped]=useState(()=>({streak:seenHomeStats.streak>=0&&streak>seenHomeStats.streak,gems:seenHomeStats.gems>=0&&gems>seenHomeStats.gems}));
  useEffect(()=>{seenHomeStats.streak=streak;seenHomeStats.gems=gems;},[streak,gems]);
@@ -66,7 +102,7 @@ export function NativeHome({unlocked,controller,controllers,companion,activity,p
   <header className="native-home-header"><div className="wordmark"><span className="brand-icon" aria-hidden="true"><i/><i/></span>{PRODUCT.name}<span className="brand-dot">.</span></div><div className="native-home-tools"><button id="native-streak-open" className={`native-streak-badge${bumped.streak?' is-bumped':''}`} onClick={onStreak} aria-label={`${activity.summary.current}-day learning streak; open streak`}><StreakIcon/><span>{activity.summary.current}</span><span className="native-streak-unit">{activity.summary.current===1?'day':'days'}</span></button><button id="native-gems-open" className={`native-gems-pill${bumped.gems?' is-bumped':''}`} onClick={onGems} aria-label={`${activity.summary.gems} gems; open gems`}><span aria-hidden="true">◆</span> {activity.summary.gems}</button><button id="native-profile-open" className={`native-profile-open ${plus?'is-plus':''}`} onClick={onProfile} aria-label="Open your profile and statistics" aria-describedby={plus?'native-profile-plus-status':undefined}><ProfileIcon/>{plus&&<span className="native-profile-plus-tag" aria-hidden="true">PLUS</span>}</button>{plus&&<span id="native-profile-plus-status" className="native-sr-only">Plus active</span>}</div></header>
   {/* No visible headline; VoiceOver and focus still get the page's main heading. */}
   <h1 id="native-home-title" className="native-sr-only" tabIndex={-1}>Home</h1>
-  <section className="native-companion-greeting" aria-label="Your virtual companion"><div className="native-greeting-row"><NativeRobot companion={companion} size="greeting"/><PhysicalCompanionChip controller={physical} onOpen={onPhysical} greeting={greeting}/></div></section>
+  <section className="native-companion-greeting" aria-label="Your virtual companion"><div className="native-greeting-row"><NativeRobot companion={companion} size="greeting"/><PhysicalCompanionChip controller={physical} onOpen={onPhysical} greeting={greeting.text} prompt={prompting}/></div></section>
   {review&&onReview&&<ReviewBar review={review} onStart={onReview}/>}
   <HomeLessons controllers={controllers} plus={plus} onStart={onStart} onUnlock={onUnlock} onboarding={onboarding} onQuickStart={onQuickStart} unlocked={unlocked}/>
   <div className="native-home-footer"><p>{`Your progress stays on this ${DEVICE}.`}</p>{onSettings&&<button className="native-text-button" id="native-settings-open" onClick={onSettings}>Settings</button>}</div>

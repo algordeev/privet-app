@@ -3,7 +3,10 @@ import {LEGAL} from './config';
 import type {SubscriptionController} from './useSubscription';
 import {introText,monthlyEquivalent,perPeriod,PLUS_PRODUCTS,type PlusPlan} from './store';
 import {SubpageHeader} from './SubpageHeader';
+import {nativeLessons} from './curriculum/catalog';
 import './plusScreen.css';
+// Counted, so a new lesson in an update keeps the perk true.
+export const LESSONS_PERK=`All ${nativeLessons.length} lessons, and every new one`;
 
 const PLANS:readonly {id:PlusPlan;name:string;short:string;badge?:string}[]=[
  {id:'yearly',name:'Yearly',short:'year',badge:'Best value'},
@@ -21,7 +24,7 @@ export function PlusOffer({subscription,onPurchased}:{subscription:SubscriptionC
  const ready=productsState==='ready'&&!!chosen;
  async function buy(){if(ready&&!busy&&await purchase(choice)==='purchased')onPurchased?.();}
  return <div className="plus-offer">
-  <ul className="plus-perks"><li>All 8 lessons, and every new one</li><li>Unlimited hearts</li></ul>
+  <ul className="plus-perks"><li>{LESSONS_PERK}</li><li>Unlimited hearts</li></ul>
   <div className="plus-plans" role="radiogroup" aria-label="Choose a plan">
    {PLANS.map(plan=>{
     const item=product(plan.id),perMonth=item?monthlyEquivalent(item):null;
