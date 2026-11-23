@@ -195,7 +195,9 @@ export function progressReceipt(stats:NativeStats,review:ReviewState,completions
 // or its reading words (page 4). Everything comes from the quick start itself; the look-alike notes
 // are kept only on the look-alikes page, where they are the point.
 export type AlphabetLetter={upper:string;lower:string;sound:string;note?:string};
-export type AlphabetWord={russian:string;reading?:string;english:string};
+// spelling: letter for letter in Latin letters (the quick start words, to write them back); reading: how it
+// sounds (a letter strip's example). A word shows its spelling when it has one.
+export type AlphabetWord={russian:string;reading?:string;spelling?:string;english:string};
 export type AlphabetStrip={page:number;pages:number;title:string;letters:AlphabetLetter[];words:AlphabetWord[]};
 export function alphabetStrip(page:number):AlphabetStrip{
  const pages=QUICK_TITLES.length,at=Math.min(Math.max(0,Math.trunc(page)||0),pages-1);
@@ -205,7 +207,7 @@ export function alphabetStrip(page:number):AlphabetStrip{
   if(!item)throw new Error(`Unknown quick start letter ${upper}`);
   return {upper:item.upper,lower:item.lower,sound:item.sound,...(item.group==='tricky'&&item.note?{note:item.note}:{})};
  });
- const words=group?[]:READING_WORDS.map(word=>({russian:word.text,reading:russianReading(word.text),english:word.meaning}));
+ const words=group?[]:READING_WORDS.map(word=>({russian:word.text,spelling:word.spelling,english:word.meaning}));
  return {page:at,pages,title:QUICK_TITLES[at].replace(/\.$/u,''),letters,words};
 }
 
@@ -221,10 +223,9 @@ export function letterStrip(letter:CyrillicLetter,words:readonly Word[]=[]):Lett
   ...(letter.example?{example:{russian:letter.example,reading:russianReading(letter.example,words),english:letter.meaning}}:{})};
 }
 
-// Write-from-memory strip, for the end of the Cyrillic quick start: each quick start page becomes a
-// section of prompts (the letters' sounds, then the reading words' guides) to answer in Russian. The order
-// is shuffled within each section on every print, so it doesn't give the answers away; the answers follow
-// the printed order. Nothing new: the prompts are the sounds and reading guides the quick start shows.
+// Write-from-memory strip, for the end of the Cyrillic quick start: a section of letters (each prompted
+// by its sound) and one of the reading words, to answer in Russian. The order is shuffled on every print,
+// so it doesn't give the answers away; the answers follow the printed order. The prompts are the sounds the quick start shows and the words' spellings in Latin letters.
 export type RecallItem={prompt:string;answer:string};
 export type RecallSection={title:string;kind:'letter'|'word';items:RecallItem[]};
 export type RecallStrip={sections:RecallSection[]};
@@ -233,16 +234,24 @@ function shuffled<T>(items:readonly T[],random:()=>number){
  for(let i=out.length-1;i>0;i--){const j=Math.min(i,Math.floor(random()*(i+1)));[out[i],out[j]]=[out[j],out[i]];}
  return out;
 }
+// Letters on the strip: five full rows of four. The quick start has 22, so each print leaves two out.
+export const RECALL_LETTERS=20;
 export function recallStrip(random:()=>number=Math.random):RecallStrip{
  const title=(page:number)=>QUICK_TITLES[page].replace(/\.$/u,'');
- const letters=QUICK_LETTERS.map((group,page)=>({title:title(page),kind:'letter' as const,items:shuffled(group.map(upper=>{
-  const item=ALPHABET.find(letter=>letter.upper===upper);
+ const letter=(upper:string)=>{
+  const item=ALPHABET.find(entry=>entry.upper===upper);
   if(!item)throw new Error(`Unknown quick start letter ${upper}`);
-  return {prompt:item.sound,answer:item.lower};
- }),random)}));
+  return item;
+ };
+ // One mixed section (approved 2026-11-23): the look-alikes (В Н Р С У Х, where learners slip most) every
+ // time, the rest a different random pick each print, all shuffled together.
+ const quick=(QUICK_LETTERS as readonly (readonly string[])[]).flat().map(letter);
+ const lookalikes=quick.filter(item=>item.group==='tricky'),others=quick.filter(item=>item.group!=='tricky');
+ const chosen=[...lookalikes,...shuffled(others,random).slice(0,Math.max(0,RECALL_LETTERS-lookalikes.length))];
+ const letters=[{title:'Letters',kind:'letter' as const,items:shuffled(chosen.map(item=>({prompt:item.sound,answer:item.lower})),random)}];
  const words={title:title(QUICK_LETTERS.length),kind:'word' as const,items:shuffled(READING_WORDS.map(word=>{
-  const reading=russianReading(word.text);
-  return {prompt:reading?`${reading}  ·  ${word.meaning}`:word.meaning,answer:word.text};
+  // The spelling, not the reading guide: "pa-KA" says how пока sounds, but the learner writes it letter by letter.
+  return {prompt:`${word.spelling}  ·  ${word.meaning}`,answer:word.text};
  }),random)};
  return {sections:[...letters,words]};
 }

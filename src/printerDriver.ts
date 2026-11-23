@@ -32,6 +32,7 @@ export function createNativePrinterDriver():PrinterDriver {
    // iOS reports the write-without-response maximum + 3.
    try{const mtu=await BleClient.getMtu(id);if(Number.isInteger(mtu)&&mtu>23)chunk=Math.min(mtu-3,512);}catch{chunk=20;}
   },
+  maxWrite:()=>chunk,
   subscribe:(id,callback,timeout)=>BleClient.startNotifications(id,PRINTER_SERVICE,PRINTER_NOTIFY,callback,{timeout}),
   async write(id,value){
    for(let offset=0;offset<value.length;offset+=chunk){

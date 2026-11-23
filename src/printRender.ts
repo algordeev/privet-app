@@ -301,30 +301,27 @@ function tracePattern(ctx:Ctx):CanvasPattern|string{
  t.fillStyle='#fff';t.fillRect(0,0,2,2);t.fillStyle='#000';t.fillRect(0,0,1,1);
  return ctx.createPattern(tile,'repeat')??'#000';
 }
-// Handwriting lines for one row: a dotted cap line, a dashed midline (the top of small letters) and a
-// solid baseline, in whole pixels so they print crisply.
-function writingLines(ctx:Ctx,base:number,size:number){
- const cap=base-Math.round(size*0.71),mid=base-Math.round(size*0.52);
- for(let x=PAD;x<W-PAD;x+=8)ctx.fillRect(x,cap,2,2);
- for(let x=PAD;x<W-PAD;x+=12)ctx.fillRect(x,mid,6,2);
- ctx.fillRect(PAD,base,INNER,2);
-}
+// The writing line for one row: a solid baseline, like ordinary lined paper (chosen 2026-11-23). No cap
+// line or midline: on this narrow paper they crowded the dotted letters, and the dotted letters and the
+// model at the start of each row already show the size.
+function writingLine(ctx:Ctx,base:number){ctx.fillRect(PAD,base,INNER,2);}
 const WRITING_SIZE=46;
 type Cell=[value:string,kind:'model'|'trace'|'empty'];
 // One row on writing lines, the cells spread evenly across it: models in black, the rest to trace.
 function writingRow(c:Card,trace:CanvasPattern|string,cells:readonly Cell[]){
  const ctx=c.ctx,base=c.y+Math.round(WRITING_SIZE*0.92),cell=INNER/Math.max(1,cells.length);
- writingLines(ctx,base,WRITING_SIZE);font(ctx,WRITING_SIZE,500);ctx.textAlign='center';
+ writingLine(ctx,base);font(ctx,WRITING_SIZE,500);ctx.textAlign='center';
  cells.forEach(([value,kind],i)=>{if(kind==='empty')return;ctx.fillStyle=kind==='model'?'#000':trace;ctx.fillText(value,PAD+cell*(i+0.5),base);});
  ctx.fillStyle='#000';ctx.textAlign='left';c.y=base+12;
 }
 // A word: its reading guide and meaning, the word to trace, then an empty line to write it again.
 function traceWord(c:Card,trace:CanvasPattern|string,word:AlphabetWord){
  const ctx=c.ctx;
- c.text(word.reading?`${word.reading}  ·  ${word.english}`:word.english,{size:16,style:'italic'});
+ const label=word.spelling??word.reading;
+ c.text(label?`${label}  ·  ${word.english}`:word.english,{size:16,style:'italic'});
  c.gap(2);
  const base=c.y+Math.round(WRITING_SIZE*0.92);
- writingLines(ctx,base,WRITING_SIZE);font(ctx,WRITING_SIZE,500);ctx.fillStyle=trace;ctx.fillText(word.russian,PAD+6,base);ctx.fillStyle='#000';c.y=base+12;
+ writingLine(ctx,base);font(ctx,WRITING_SIZE,500);ctx.fillStyle=trace;ctx.fillText(word.russian,PAD+6,base);ctx.fillStyle='#000';c.y=base+12;
  writingRow(c,trace,[]);
 }
 export function renderAlphabetStrip(strip:AlphabetStrip):Rendered{
@@ -361,8 +358,8 @@ export function renderLetterStrip(strip:LetterStrip):Rendered{
  c.cut();
  return c.finish();
 }
-// Write from memory: a section per quick start page. Letters: each sound above an empty box (rows of
-// six, or of four when a section is longer, so labels like "soft sign" fit). Words: each reading guide
+// Write from memory: a section of letters, then one of words. Letters: each sound above an empty box (rows
+// of six, or of four when a section is longer, so labels like "soft sign" fit). Words: each reading guide
 // above an empty writing line. The answers, in the printed order, upside down below the cut.
 export function renderRecallStrip(strip:RecallStrip):Rendered{
  const c=new Card(),ctx=c.ctx;
@@ -417,5 +414,13 @@ export function renderTestPage():Rendered{
  const grad=ctx.createLinearGradient(PAD,0,W-PAD,0);grad.addColorStop(0,'#fff');grad.addColorStop(1,'#000');
  ctx.fillStyle=grad;ctx.fillRect(PAD,top,INNER,40);ctx.fillStyle='#000';c.dither.push({x:PAD,y:top,width:INNER,height:40});
  c.y=top+48;for(let i=1;i<=6;i++){ctx.fillRect(PAD,c.y,INNER,i);c.y+=i+6;}
+ // Length check for comparing sending speeds: 240 rows are 30 mm (8 rows per mm). Rows lost on the way
+ // make the box shorter and put a step in the diagonal; ticks are 5 mm apart.
+ c.gap(8);c.text('Length check: the box is 30 mm tall.',{size:16,weight:600});c.gap(6);
+ const box=c.y,rows=240;
+ ctx.lineWidth=2;ctx.strokeRect(PAD+1,box+1,INNER-2,rows-2);
+ ctx.beginPath();ctx.moveTo(PAD+1,box+rows-1);ctx.lineTo(W-PAD-1,box+1);ctx.stroke();
+ for(let tick=1;tick<rows/40;tick++)ctx.fillRect(PAD,box+tick*40,14,2);
+ c.y=box+rows;
  c.cut();return c.finish();
 }
