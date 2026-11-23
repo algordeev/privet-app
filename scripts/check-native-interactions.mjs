@@ -101,6 +101,8 @@ try{
   const result=await call('Runtime.evaluate',{expression:`(${fn.toString()})(${JSON.stringify(arg)})`,awaitPromise:true,returnByValue:true});
   assert.ok(!result.exceptionDetails,JSON.stringify(result.exceptionDetails));return result.result.value;
  };
+ // The connect prompt arrives about 6 s into a home visit (CONNECT_BEAT_MS): wait up to 10 s for it.
+ const untilPrompt=async()=>{for(let n=0;n<100;n++){if(await evaluate(()=>document.querySelector('#native-companion-chip [role=status]')?.textContent==='Have a physical companion? Let’s connect it.'))return;await pause(100);}throw Error('The connect prompt never arrived');};
  const until=async(fn,arg)=>{for(let n=0;n<120;n++){if(await evaluate(fn,arg))return;await pause(50);}throw Error(`UI condition timed out: ${fn}; browser exceptions: ${JSON.stringify(browserErrors)}`);};
  async function assertNativeLayout(){
   const panes=await evaluate(()=>[...document.querySelectorAll('.native-app,.native-home-scroll,.native-profile-scroll,.native-app .lesson-scroll,.native-sheet,.native-sheet-panel,.native-sheet-scroll,.native-quick-scroll,.first-scroll')].map(el=>{
@@ -960,14 +962,14 @@ try{
  assert.ok(await evaluate(()=>{const b=document.querySelector('.native-alphabet-trigger');return document.activeElement===b&&getComputedStyle(b).outlineStyle==='none';}),'Closing АБВ after touch retains focus without a lingering ring');
  console.log('PASS: pointer-restored Settings/АБВ focus has no ring; real keyboard Tab retains a visible green indicator.');
  // Home chip is discoverable beside the virtual robot and shares the existing BLE controller.
- await open();assert.equal(await evaluate(()=>document.querySelector('#native-companion-chip [role=status]').textContent),'Have a physical companion? Let’s connect it.');
+ await open();assert.ok(await evaluate(()=>!document.querySelector('#native-companion-chip')),'Home opens with the greeting; the connect prompt comes as a second beat');await untilPrompt();
  assert.ok(await evaluate(()=>{const chip=document.querySelector('#native-companion-chip'),r=chip.getBoundingClientRect();return !!chip.closest('.native-companion-bubble')&&getComputedStyle(chip).backgroundColor==='rgba(0, 0, 0, 0)'&&getComputedStyle(chip).borderTopWidth==='0px'&&!chip.closest('.native-companion-bubble').querySelector('p')&&r.height>=44&&r.width<=innerWidth;}));
  await click('#native-companion-chip');await click('.native-physical-actions .button','Connect');await click('.native-physical-devices button');await until(()=>document.querySelector('.native-physical-status strong')?.textContent==='Connected');
  await click('[aria-label="Back to home"]');assert.equal(await evaluate(()=>document.querySelector('#native-companion-chip [role=status]').textContent),'Companion connected');assert.equal(await evaluate(()=>document.activeElement?.id),'native-companion-chip');
- assert.ok(await evaluate(()=>{const chip=document.querySelector('#native-companion-chip'),r=chip.getBoundingClientRect();return !!chip.querySelector('svg')&&r.width===44&&r.height>=44&&chip.closest('.native-companion-bubble').querySelector('p').textContent==='Привет! Ready for a little Russian?'&&chip.querySelector('[role=status]').classList.contains('native-sr-only');}));
+ assert.ok(await evaluate(()=>{const chip=document.querySelector('#native-companion-chip'),r=chip.getBoundingClientRect();return !!chip.querySelector('svg')&&r.width===44&&r.height>=44&&chip.closest('.native-companion-bubble').querySelector('p').textContent==='Good afternoon! Ready for a little Russian?'&&chip.querySelector('[role=status]').classList.contains('native-sr-only');}));
  await click('#native-companion-chip');await click('[aria-label="Back to home"]');assert.ok(await evaluate(()=>document.querySelector('#native-companion-chip').dataset.connected==='true'));
  assert.equal((await codes()).filter(code=>code===9).length,1,'Home chip never creates a second subscription/reconnect');
- await openPhysicalSettings();await click('.native-physical-disconnect','Disconnect');await physicalBackHome();assert.equal(await evaluate(()=>document.querySelector('#native-companion-chip [role=status]').textContent),'Have a physical companion? Let’s connect it.');
+ await openPhysicalSettings();await click('.native-physical-disconnect','Disconnect');await physicalBackHome();assert.ok(await evaluate(()=>!document.querySelector('#native-companion-chip')&&!!document.querySelector('.native-companion-bubble > p[role=status]')?.textContent.trim()),'After a robot was connected once, home shows the greeting, never the connect prompt again');
  console.log('PASS: Home companion chip placement, real status, direct settings shortcut, return focus, connection continuity and explicit disconnect.');
  // Capable peripheral: exercise actual native semantic wiring and app-owned
  // card generation; the rest of the suite above deliberately tests legacy v1.
@@ -1011,7 +1013,7 @@ try{
  }
  // "Companion found" card: settings lists every companion and the card follows the pick; quiet home discovery (only once Bluetooth was used), Not now.
  {
-  const BLE_USED='privet-demo-v1-ble-used',idleChip='Have a physical companion? Let’s connect it.';
+  const BLE_USED='privet-demo-v1-ble-used';
   await open({'test-two-robots':1});await pause(500);
   assert.equal(await evaluate(()=>window.__bleInit||0),0,'Home never starts Bluetooth before it was used');
   assert.ok(await evaluate(()=>!document.querySelector('#companion-found')),'No card without discovery');
@@ -1039,12 +1041,15 @@ try{
   assert.equal(await evaluate(()=>document.querySelector('#companion-found-title').textContent),'Privet-ESP32');
   assert.equal(await evaluate(()=>document.querySelector('.companion-found').dataset.model),'desk');
   assert.equal(await evaluate(()=>document.querySelector('.companion-found-status').textContent),'Your desk companion is nearby. Connect to wake it up.');
-  assert.equal(await evaluate(()=>document.querySelector('#native-companion-chip [role=status]').textContent),idleChip,'Discovery stays quiet: no scanning status');
+  assert.ok(await evaluate(()=>!/Finding|Connecting|Checking/.test(document.querySelector('.native-companion-bubble').textContent)&&!document.querySelector('.native-searching-dots')),'Discovery stays quiet: no scanning status');
   await click('#companion-found .native-text-button','Not now');
   await until(()=>!document.querySelector('#companion-found'));
-  assert.equal(await evaluate(()=>document.querySelector('#native-companion-chip [role=status]').textContent),idleChip);
-  await click('#native-profile-open');await click('[aria-label="Back to home"]');await pause(600);
+  assert.ok(await evaluate(()=>!/Finding|Connecting|Checking/.test(document.querySelector('.native-companion-bubble').textContent)&&!document.querySelector('.native-searching-dots')),'Still quiet after Not now');
+  // Once the day's prompt has been seen, later visits that day keep the greeting.
+  await untilPrompt();
+  await click('#native-profile-open');await click('[aria-label="Back to home"]');await pause(7000);
   assert.ok(await evaluate(()=>!document.querySelector('#companion-found')),'Not now holds for the session');
+  assert.ok(await evaluate(()=>!document.querySelector('#native-companion-chip')&&!document.querySelector('.native-companion-bubble svg')&&/Ready for a little Russian\?|quick start/.test(document.querySelector('.native-companion-bubble').textContent)),'The connect prompt takes one home visit a day; later visits show the greeting, with nothing about Bluetooth');
   await open({[BLE_USED]:1});
   await until(()=>!!document.querySelector('#companion-found[open]'));await click('#companion-found .button','Connect');
   await until(()=>document.querySelector('#native-companion-chip')?.dataset.connected==='true');
@@ -1055,7 +1060,7 @@ try{
   for(let n=0;n<40&&!(await evaluate(()=>window.__bleScans>=2));n++)await pause(500);
   assert.ok(await evaluate(()=>window.__bleScans>=2),'Home starts a new discovery scan after the first one ends');
   assert.ok(await evaluate(()=>!document.querySelector('#companion-found')),'No card while the robot is off');
-  assert.equal(await evaluate(()=>document.querySelector('#native-companion-chip [role=status]').textContent),idleChip,'Repeated discovery stays quiet');
+  assert.ok(await evaluate(()=>!/Finding|Connecting|Checking/.test(document.querySelector('.native-companion-bubble').textContent)&&!document.querySelector('.native-searching-dots')),'Repeated discovery stays quiet');
   await evaluate(()=>{localStorage.removeItem('test-robot-off');window.__switchOn();});
   await until(()=>!!document.querySelector('#companion-found[open]'));
   await until(()=>document.querySelector('.companion-found-stage canvas')?.dataset.ready!=='false');

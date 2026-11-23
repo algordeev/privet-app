@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {initialProgress,progressReducer} from './engine.ts';
 import {freshSession} from './session.ts';
-import {companionEnabled,homeGreeting,lessonStarted,nativeLessonReaction,completionSummary,createNativeCompanion,type NativeCompanionView} from './nativeCompanion.ts';
+import {companionEnabled,lessonStarted,nativeLessonReaction,completionSummary,createNativeCompanion,type NativeCompanionView} from './nativeCompanion.ts';
 import {lesson} from './lesson.ts';
 
 function harness(enabled=true){
@@ -15,12 +15,12 @@ function harness(enabled=true){
  });
  return {actor,timers,snapshots,get view(){return actor.getSnapshot();},settle(){for(const [id,fn] of [...timers]){timers.delete(id);fn();}}};
 }
-test('home greetings reflect fresh, partial, attempted, and completed saved progress',()=>{
- const s=freshSession();assert.equal(lessonStarted(s),false);assert.equal(homeGreeting(s),'Привет! Ready for a little Russian?');
+test('a lesson counts as started once anything was revealed, picked, built, attempted or passed',()=>{
+ const s=freshSession();assert.equal(lessonStarted(s),false);
  for(const partial of [{...s,revealed:['hi']},{...s,selected:'спа'},{...s,tokens:['Я']},{...s,progress:{...s.progress,attempts:1}},{...s,progress:{...s.progress,index:1}}]){
-  assert.equal(lessonStarted(partial),true);assert.equal(homeGreeting(partial),'Shall we pick up where we left off?');
+  assert.equal(lessonStarted(partial),true);
  }
- assert.equal(homeGreeting({...s,progress:{...s.progress,complete:true,index:5,results:Array(5).fill(true)}}),'Молодец! You finished Café essentials.');
+ assert.equal(lessonStarted({...s,progress:{...s.progress,complete:true,index:5,results:Array(5).fill(true)}}),true);
 });
 test('native feedback is concise, varied, and incorrect reactions never expose answers',()=>{
  for(let index=0;index<lesson.length;index++){

@@ -7,7 +7,6 @@ import {PRODUCT} from './config.ts';
 import {createStatsTracker,emptyStats,type NativeStats} from './nativeStats.ts';
 import {restoreStats} from './statsStorage.ts';
 import {createPhysicalLessonEvents} from './physicalLessonEvents.ts';
-import {homeGreeting} from './nativeCompanion.ts';
 
 test('both lessons have complete, consistent content and separate canonical display aids',()=>{
  for(const definition of [cafeLesson,introductionsLesson]){
@@ -46,7 +45,6 @@ test('second lesson supports wrong answers, retry, explicit continue, results, r
  assert.equal(p.complete,true);
  assert.deepEqual(p.results,exercises.map((_,index)=>index!==missed),'only the missed step lacks a first-try result');
  assert.deepEqual(progressReducer(p,{type:'reset'},exercises),initialProgress());
- assert.equal(homeGreeting({...freshSession(),progress:p},introductionsLesson.title),'Молодец! You finished Nice to meet you.');
 });
 
 test('second lesson snapshots restore its vocabulary, hints and partial sentence without accepting café tokens',()=>{
