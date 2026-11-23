@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CMD,DEFAULT_ENERGY,PRINTER_WIDTH,ROW_BYTES,crc8,decodeFlowControl,isCatPrinter,isRowPacket,packRows,packet,printJob} from './printerProtocol.ts';
+import {CMD,DEFAULT_ENERGY,PRINTER_WIDTH,ROW_BYTES,crc8,decodeFlowControl,isCatPrinter,isRowPacket,notificationCommand,packRows,packet,printJob} from './printerProtocol.ts';
 const hex=(bytes:Uint8Array)=>[...bytes].map(b=>b.toString(16).padStart(2,'0')).join(' ');
 // An RGBA image filled by a per-pixel gray function.
 function image(height:number,gray:(x:number,y:number)=>number,width=PRINTER_WIDTH){
@@ -68,4 +68,16 @@ test('flow control: byte 6 is 0x10 to pause and 0x00 to resume',()=>{
  assert.equal(decodeFlowControl(view),'pause');
  assert.equal(decodeFlowControl(new Uint8Array([0x51,0x78,0xA3,0,1,0,0x10,0,0xFF])),null);
  assert.equal(decodeFlowControl(new Uint8Array([0x51,0x78])),null);
+});
+
+test('a message from the printer names its command; anything else is not one',()=>{
+ assert.equal(notificationCommand(new Uint8Array([0x51,0x78,0xA3,0,1,0,0,0,0xFF])),0xA3);
+ assert.equal(notificationCommand(new DataView(new Uint8Array([0x51,0x78,0xAE,0,1,0,0x10,0x70,0xFF]).buffer)),0xAE);
+ assert.equal(notificationCommand(new Uint8Array([0x00,0x78,0xA3])),null);
+ assert.equal(notificationCommand(new Uint8Array([0x51])),null);
+});
+test('the printer speed goes in the job as one byte; 32 is the default',()=>{
+ const speedOf=(job:Uint8Array[])=>job.find(p=>p[2]===CMD.SPEED)![6];
+ assert.equal(speedOf(printJob([])),32);assert.equal(speedOf(printJob([],{speed:24})),24);
+ for(const bad of [0,256,12.5])assert.throws(()=>printJob([],{speed:bad}),/speed/);
 });

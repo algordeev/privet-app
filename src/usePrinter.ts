@@ -6,13 +6,17 @@ import {PRODUCT} from './config';
 import {printJob} from './printerProtocol';
 import {createNativePrinterDriver} from './printerDriver';
 import {BLE_USED_KEY} from './usePhysicalCompanion';
-import {createPrinterTransport,initialPrinterState,type PrinterDevice,type PrinterState,type PrinterTransport} from './printerTransport';
+import {createPrinterTransport,DEFAULT_PRINT_ROWS_PER_SECOND,initialPrinterState,learnRate,type PrinterDevice,type PrinterState,type PrinterTransport} from './printerTransport';
 
 // The thermal printer remembered by itself, apart from the companion (COMPANION_KEY), so the companion's
 // discovery never offers it. Like the companion, the app reconnects to it by itself whenever the app is
 // open and it is nearby; Disconnect turns that off (PRINTER_AUTO_OFF_KEY) until the next connection by hand.
 export const PRINTER_KEY=`${PRODUCT.storageKey}-printer-device`;
 export const PRINTER_AUTO_OFF_KEY=`${PRODUCT.storageKey}-printer-auto-off`;
+// The printer's speed in rows per second, learnt from prints it said it finished (see learnRate).
+export const PRINTER_RATE_KEY=`${PRODUCT.storageKey}-printer-rate`;
+function learntRate():number|undefined{try{const value=Number(appStorage.getItem(PRINTER_RATE_KEY));return Number.isFinite(value)&&value>0?value:undefined;}catch{return undefined;}}
+export const printRate=()=>learntRate()??DEFAULT_PRINT_ROWS_PER_SECOND;
 // Same rhythm as the companion: a quick look every 4 s for two minutes after the printer went away (or
 // the app came back), then every 20 s.
 const LOOK_FAST_MS=4000,LOOK_FAST_FOR_MS=120000,LOOK_SLOW_MS=20000;
@@ -64,7 +68,11 @@ export function usePrinter(){
  const getState=useCallback(()=>store.current!.state,[]);
  const subscribe=useCallback((listener:()=>void)=>{store.current!.listeners.add(listener);return ()=>{store.current!.listeners.delete(listener);};},[]);
  // Always the Normal darkness (printJob's default), which suits the SC03h-type printers.
- const start=useCallback((rows:Uint8Array[])=>{void transport.current?.print(printJob(rows));},[]);
+ // Each print the printer says it finished refines its speed, for the next print's progress and time left.
+ const start=useCallback((rows:Uint8Array[])=>{void transport.current?.print(printJob(rows),{onOutcome:stats=>{
+  const rate=learnRate(learntRate(),stats);
+  if(rate!==undefined)try{appStorage.setItem(PRINTER_RATE_KEY,String(rate));}catch{/* The default speed stays. */}
+ }});},[]);
  const setState=useCallback((next:PrinterState)=>{
   const previous=store.current!.state;
   store.current!.state=next;
@@ -86,15 +94,17 @@ export function usePrinter(){
   for(const listener of store.current!.listeners)listener();
  },[start]);
  useEffect(()=>{
-  const actor=createPrinterTransport(createNativePrinterDriver(),setState,{supported:printingSupported});
+  const actor=createPrinterTransport(createNativePrinterDriver(),setState,{supported:printingSupported,hidden:()=>document.hidden});
   transport.current=actor;
   let nativeActive=true;
   const visibility=()=>{
-   const active=nativeActive&&!document.hidden;actor.setActive(active);
+   // Only a real background holds a running print; being covered for a moment (Control Center, a banner,
+   // a system prompt) does not interrupt it.
+   const active=nativeActive&&!document.hidden;actor.setActive(active,document.hidden);
    // Back in the app: look quickly again, starting now.
    if(active){reconnect.current.lostAt=Date.now();lookAgain();}
   };
-  const pagehide=()=>actor.setActive(false);
+  const pagehide=()=>actor.setActive(false,true);
   document.addEventListener('visibilitychange',visibility);window.addEventListener('pagehide',pagehide);
   const listener=Capacitor.isNativePlatform()?App.addListener('appStateChange',({isActive})=>{nativeActive=isActive;visibility();}):undefined;
   // The look-again loop, on every screen while the app is open (only on a device that can print).
@@ -125,7 +135,7 @@ export function usePrinter(){
   void transport.current?.disconnect();
  },[]);
  const forget=useCallback(()=>{try{appStorage.removeItem(PRINTER_KEY);}catch{/* Nothing to forget. */}},[]);
- return {getState,subscribe,connect,choose,discover,dismissDiscovery,holdScan,cancelConnection,print,cancel,disconnect,remembered:rememberedPrinter,autoTarget:autoReconnectPrinter,forget,supported:printingSupported};
+ return {rate:printRate,getState,subscribe,connect,choose,discover,dismissDiscovery,holdScan,cancelConnection,print,cancel,disconnect,remembered:rememberedPrinter,autoTarget:autoReconnectPrinter,forget,supported:printingSupported};
 }
 export type PrinterController=ReturnType<typeof usePrinter>;
 export function usePrinterState(controller:PrinterController){return useSyncExternalStore(controller.subscribe,controller.getState,controller.getState);}

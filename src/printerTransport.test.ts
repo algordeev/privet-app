@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {batches,createPrinterTransport,PRINTER_BUSY_HINT,PRINTER_TIMEOUTS,ROWS_PER_WRITE,type PrinterDriver,type PrinterState} from './printerTransport.ts';
+import {AWAY_TOO_LONG_MESSAGE,batches,BACKGROUND_MESSAGE,createPrinterTransport,DEFAULT_PRINT_ROWS_PER_SECOND,describePrint,HELD_MESSAGE,learnRate,printEstimate,PRINTER_BUSY_HINT,PRINTER_TIMEOUTS,ROWS_PER_WRITE,SLOWEST_PRINT_ROWS_PER_SECOND,type PrinterDriver,type PrinterState} from './printerTransport.ts';
 import {CMD,LATTICE_END,isRowPacket,printJob} from './printerProtocol.ts';
 const flush=async()=>{for(let i=0;i<5;i++)await new Promise<void>(resolve=>setImmediate(resolve));};
 const PAUSE=new DataView(new Uint8Array([0x51,0x78,0xAE,0,1,0,0x10,0x70,0xFF]).buffer);
@@ -8,7 +8,7 @@ const RESUME=new DataView(new Uint8Array([0x51,0x78,0xAE,0,1,0,0x00,0x00,0xFF]).
 const isEnd=(p:Uint8Array)=>p[2]===CMD.LATTICE&&p[6]===LATTICE_END[0]&&p[9]===0x00;
 const rows=(n:number)=>Array.from({length:n},()=>new Uint8Array(48));
 function harness(overrides:Partial<PrinterDriver>={},supported=true,rowsPerWrite=1){
- let now=0,nextTimer=0,initializations=0,cleanups=0;
+ let now=0,nextTimer=0,initializations=0,cleanups=0,hiddenNow=true;
  let found!:(d:{deviceId:string;name?:string})=>void,notified!:(v:DataView)=>void,dropped!:()=>void;
  const timers=new Map<number,{at:number;fn:()=>void}>(),writes:{at:number;value:Uint8Array}[]=[],states:PrinterState[]=[];
  const driver:PrinterDriver={
@@ -19,13 +19,14 @@ function harness(overrides:Partial<PrinterDriver>={},supported=true,rowsPerWrite
   async connect(id,cb,timeout){dropped=cb;await overrides.connect?.(id,cb,timeout);},
   async subscribe(id,cb,timeout){notified=cb;await overrides.subscribe?.(id,cb,timeout);},
   async write(id,value){writes.push({at:now,value});await overrides.write?.(id,value);},
+  maxWrite:overrides.maxWrite,
   async cleanup(id){cleanups++;await overrides.cleanup?.(id);},
  };
- const actor=createPrinterTransport(driver,s=>states.push(s),{supported:()=>supported,rowsPerWrite,clock:{
+ const actor=createPrinterTransport(driver,s=>states.push(s),{supported:()=>supported,rowsPerWrite,now:()=>now,hidden:()=>hiddenNow,clock:{
   set(fn,ms){const id=++nextTimer;timers.set(id,{at:now+ms,fn});return id as unknown as ReturnType<typeof setTimeout>;},
   clear(id){timers.delete(id as unknown as number);},
  }});
- const h={actor,writes,states,timers,get state(){return actor.getState();},get initializations(){return initializations;},get cleanups(){return cleanups;},
+ const h={actor,writes,states,timers,setHidden:(value:boolean)=>{hiddenNow=value;},get state(){return actor.getState();},get initializations(){return initializations;},get cleanups(){return cleanups;},
   found:(id='printer-a',name='SC03h-438F')=>found({deviceId:id,name}),notify:(v:DataView)=>notified(v),drop:()=>dropped(),
   async tick(ms:number){const end=now+ms;while(true){const due=[...timers].filter(([,t])=>t.at<=end).sort((a,b)=>a[1].at-b[1].at)[0];if(!due)break;now=Math.max(now,due[1].at);timers.delete(due[0]);due[1].fn();await flush();}now=end;await flush();},
   async ready(){await actor.scan();h.found();await actor.connect('printer-a');await flush();assert.equal(h.state.phase,'connected');},
@@ -101,15 +102,16 @@ test('a dropped link mid-job stops sending with no end packet and says what happ
  assert.equal(h.writes.length,before);assert.equal(h.state.phase,'disconnected');assert.match(h.state.message,/disconnected while printing/);
  assert.ok(h.cleanups>0);
 });
-test('a failed write drops the connection; disconnect and background end a job cleanly first',async()=>{
+test('a failed write drops the connection; disconnect ends a job cleanly first, and the background still frees an idle printer',async()=>{
  let fail=false;const h=harness({async write(){if(fail)throw new Error('Not connected');}});await h.ready();
  const job=h.actor.print(printJob(rows(20)));await h.tick(PRINTER_TIMEOUTS.pace*5);fail=true;
  assert.equal(await h.run(job),'failed');assert.equal(h.state.phase,'error');
- for(const leave of [(t:ReturnType<typeof harness>)=>t.actor.disconnect(),(t:ReturnType<typeof harness>)=>t.actor.setActive(false)]){
-  const t=harness();await t.ready();const running=t.actor.print(printJob(rows(50)));await t.tick(PRINTER_TIMEOUTS.pace*12);
-  void leave(t);assert.equal(await t.run(running),'cancelled');await flush();
-  assert.equal(isEnd(t.writes.at(-1)!.value),true);assert.equal(t.state.phase,'disconnected');assert.ok(t.cleanups>0);
- }
+ const t=harness();await t.ready();const running=t.actor.print(printJob(rows(50)));await t.tick(PRINTER_TIMEOUTS.pace*12);
+ void t.actor.disconnect();assert.equal(await t.run(running),'cancelled');await flush();
+ assert.equal(isEnd(t.writes.at(-1)!.value),true);assert.equal(t.state.phase,'disconnected');assert.ok(t.cleanups>0);
+ // Nothing printing: going to the background still releases the printer for other apps.
+ const idle=harness();await idle.ready();idle.actor.setActive(false);await flush();
+ assert.equal(idle.state.phase,'disconnected');assert.equal(idle.state.message,BACKGROUND_MESSAGE);
 });
 test('rows go two per write by default: same bytes in the same order, half the row writes, progress still counts rows',async()=>{
  assert.equal(ROWS_PER_WRITE,2);
@@ -163,4 +165,197 @@ test('home offer: a quiet look collects other printers for the card, holds while
  const plain=harness();await plain.actor.discover({});assert.equal(plain.initializations,0);
  const picked=harness();await picked.actor.discover({offer:true});picked.found('new','GB03');await picked.actor.connect('new');await flush();
  assert.equal(picked.state.phase,'connected');assert.equal(picked.state.auto,false);
+});
+
+test('going to the background mid-print holds it and the print carries on from the next row when the app is back',async()=>{
+ const h=harness();await h.ready();
+ const packets=printJob(rows(40));const job=h.actor.print(packets);
+ await h.tick(PRINTER_TIMEOUTS.pace*10);
+ h.actor.setActive(false);
+ assert.equal(h.state.held,true);assert.equal(h.state.phase,'printing');assert.equal(h.state.message,HELD_MESSAGE);
+ await h.tick(PRINTER_TIMEOUTS.pace*3);
+ const heldAt=h.writes.length;
+ await h.tick(PRINTER_TIMEOUTS.hold-1000);
+ assert.equal(h.writes.length,heldAt,'nothing is sent while held');assert.equal(h.state.phase,'printing');
+ h.actor.setActive(true);
+ assert.equal(h.state.held,false);assert.equal(h.state.message,'Printing…');
+ assert.equal(await h.run(job),'done');
+ assert.deepEqual(h.writes.map(w=>w.value),packets,'every packet once, in order, none skipped or repeated');
+ assert.ok(h.state.lastPrint!.heldMs>=PRINTER_TIMEOUTS.hold-1000);
+});
+test('a brief interruption you can still see (Control Center, a banner) does not touch a running print',async()=>{
+ const h=harness();await h.ready();
+ const packets=printJob(rows(30));const job=h.actor.print(packets);
+ await h.tick(PRINTER_TIMEOUTS.pace*8);
+ h.actor.setActive(false,false);assert.notEqual(h.state.held,true);
+ assert.equal(await h.run(job),'done');h.actor.setActive(true);
+ assert.deepEqual(h.writes.map(w=>w.value),packets);
+ // Without a print, being covered still releases the printer, as before.
+ const idle=harness();await idle.ready();idle.actor.setActive(false,false);await flush();assert.equal(idle.state.phase,'disconnected');
+});
+test('a print held in the background ends cleanly and frees the printer after the hold time',async()=>{
+ const h=harness();await h.ready();
+ const job=h.actor.print(printJob(rows(60)));await h.tick(PRINTER_TIMEOUTS.pace*8);
+ h.actor.setActive(false);await h.tick(PRINTER_TIMEOUTS.hold);
+ assert.equal(await h.run(job),'cancelled');await flush();
+ assert.equal(isEnd(h.writes.at(-1)!.value),true);assert.equal(h.state.phase,'disconnected');assert.equal(h.state.message,AWAY_TOO_LONG_MESSAGE);assert.ok(h.cleanups>0);
+});
+test('a web view frozen by iOS: back on screen, the app’s own return decides, by the wall clock',async()=>{
+ const short=harness();await short.ready();
+ const jobA=short.actor.print(printJob(rows(40)));await short.tick(PRINTER_TIMEOUTS.pace*8);
+ short.actor.setActive(false);short.setHidden(false); // timers fire late, once the app is visible again
+ await short.tick(PRINTER_TIMEOUTS.hold+5000);
+ assert.equal(short.state.phase,'printing','a late timer does not end a print the app is about to return to');
+ short.actor.setActive(true);
+ assert.equal(await short.run(jobA),'cancelled','away longer than the hold time: the print ends cleanly');await flush();
+ assert.equal(short.state.phase,'disconnected');assert.equal(short.state.message,AWAY_TOO_LONG_MESSAGE);
+ // Back within the hold time, even if the timer is late: the print carries on.
+ const quick=harness();await quick.ready();
+ const packets=printJob(rows(40));const jobB=quick.actor.print(packets);await quick.tick(PRINTER_TIMEOUTS.pace*8);
+ quick.actor.setActive(false);quick.setHidden(false);await quick.tick(5000);quick.actor.setActive(true);
+ assert.equal(await quick.run(jobB),'done');assert.deepEqual(quick.writes.map(w=>w.value),packets);
+});
+test('the stall limit waits while the app is in the background, so a paused printer is not given up on', async()=>{
+ const h=harness();await h.ready();
+ const packets=printJob(rows(30));const job=h.actor.print(packets);
+ await h.tick(PRINTER_TIMEOUTS.pace*6);h.notify(PAUSE);await h.tick(PRINTER_TIMEOUTS.pace*2);
+ h.actor.setActive(false);await h.tick(PRINTER_TIMEOUTS.stall*2);
+ assert.equal(h.state.phase,'printing','held for twice the stall limit without failing');
+ h.actor.setActive(true);h.notify(RESUME);
+ assert.equal(await h.run(job),'done');assert.deepEqual(h.writes.map(w=>w.value),packets);
+});
+test('cancel works while held, and a dropped link while held ends the job',async()=>{
+ const a=harness();await a.ready();const jobA=a.actor.print(printJob(rows(40)));await a.tick(PRINTER_TIMEOUTS.pace*6);
+ a.actor.setActive(false);a.actor.cancel();assert.equal(await a.run(jobA),'cancelled');
+ const b=harness();await b.ready();const jobB=b.actor.print(printJob(rows(40)));await b.tick(PRINTER_TIMEOUTS.pace*6);
+ b.actor.setActive(false);b.drop();assert.equal(await b.run(jobB),'failed');assert.equal(b.state.phase,'disconnected');
+});
+test('a finished print reports its time, rows per second and how long the printer made us wait',async()=>{
+ const h=harness();await h.ready();
+ const job=h.actor.print(printJob(rows(20)));await h.tick(PRINTER_TIMEOUTS.pace*4);
+ h.notify(PAUSE);await h.tick(500);h.notify(RESUME);h.notify(PAUSE);await h.tick(250);h.notify(RESUME);
+ await h.run(job);
+ const stats=h.state.lastPrint!;
+ assert.equal(stats.outcome,'done');assert.equal(stats.rows,20);assert.equal(stats.sent,20);assert.equal(stats.pauses,2);assert.equal(stats.pausedMs,750);assert.equal(stats.heldMs,0);
+ assert.equal(stats.rowsPerWrite,1);assert.equal(stats.pace,PRINTER_TIMEOUTS.pace);assert.ok(stats.writes>=20);assert.ok(stats.ms>=750);
+ const sample={outcome:'done' as const,rows:600,sent:600,ms:10400,sentMs:3900,finishedMs:10000,heldMs:0,pausedMs:3100,pauses:4,writes:300,rowsPerWrite:2,pace:10};
+ assert.deepEqual(describePrint(sample),{
+  summary:'600 rows printed in 10.0 s · 60 rows/s',
+  detail:'Sent in 3.9 s, 2 rows per write with a 10 ms gap. The printer made us wait 3.1 s (4 times).',
+ });
+ assert.equal(describePrint({...sample,finishedMs:undefined}).summary,'600 rows sent in 3.9 s · the printer didn’t say when it finished');
+ assert.equal(describePrint({...sample,finishedMs:9000,heldMs:5000}).summary,'600 rows printed in 4.0 s · 150 rows/s','time held in the background is not counted');
+ assert.match(describePrint({...sample,pausedMs:200,pauses:1}).detail,/\(1 time\)/);
+ assert.equal(describePrint({...sample,outcome:'stalled',sent:212}).summary,'Stopped after 212 of 600 rows: the printer stopped responding');
+ assert.equal(describePrint({...sample,outcome:'failed',sent:90}).summary,'Stopped after 90 of 600 rows: the connection was lost');
+ assert.equal(describePrint({...sample,outcome:'cancelled',sent:40}).summary,'Cancelled after 40 of 600 rows');
+});
+test('tuning one print: bigger batches and a shorter gap send the same bytes in the same order',async()=>{
+ const base=harness();await base.ready();const packets=printJob(rows(24));
+ await base.run(base.actor.print(packets,{rowsPerWrite:2,pace:10}));
+ const fast=harness();await fast.ready();
+ assert.equal(await fast.run(fast.actor.print(packets,{rowsPerWrite:6,pace:2})),'done');
+ const join=(writes:{value:Uint8Array}[])=>Buffer.concat(writes.map(w=>w.value)).toString('hex');
+ assert.equal(join(fast.writes),join(base.writes),'identical byte stream');
+ assert.ok(fast.writes.length<base.writes.length,'fewer writes');
+ assert.equal(fast.state.lastPrint!.rowsPerWrite,6);assert.equal(fast.state.lastPrint!.pace,2);
+});
+test('a write never holds more rows than the link takes at once, so a faster speed never sends back-to-back pieces',async()=>{
+ const packets=printJob(rows(30));
+ const base=harness();await base.ready();await base.run(base.actor.print(packets,{rowsPerWrite:2,pace:10}));
+ // The link takes 182 bytes: three 56-byte rows. Asking for six gives three.
+ const h=harness({maxWrite:()=>182});await h.ready();
+ assert.equal(await h.run(h.actor.print(packets,{rowsPerWrite:6,pace:2})),'done');
+ assert.equal(h.state.lastPrint!.rowsPerWrite,3);
+ assert.ok(h.writes.every(w=>w.value.length<=182),'no write is larger than the link takes');
+ assert.equal(Buffer.concat(h.writes.map(w=>w.value)).toString('hex'),Buffer.concat(base.writes.map(w=>w.value)).toString('hex'),'identical byte stream');
+ // A tiny link still sends, one row at a time. A request under the limit stands.
+ const tiny=harness({maxWrite:()=>20});await tiny.ready();await tiny.run(tiny.actor.print(packets,{rowsPerWrite:3,pace:2}));assert.equal(tiny.state.lastPrint!.rowsPerWrite,1);
+ const wide=harness({maxWrite:()=>512});await wide.ready();await wide.run(wide.actor.print(packets,{rowsPerWrite:3,pace:2}));assert.equal(wide.state.lastPrint!.rowsPerWrite,3);
+});
+test('a print that stops early is recorded with the rows sent, and the speed hears about it before the state is published',async()=>{
+ const heard:string[]=[];
+ // The printer pauses and never resumes: the stall limit ends the print partway.
+ const h=harness();await h.ready();
+ const job=h.actor.print(printJob(rows(60)),{rowsPerWrite:2,label:'Fast',onOutcome:stats=>heard.push(`${stats.outcome}:${stats.sent}:${h.state.lastPrint?.outcome??'none'}`)});
+ await flush();await h.tick(PRINTER_TIMEOUTS.pace*10);h.notify(PAUSE);
+ assert.equal(await h.run(job),'failed');await flush();
+ const stats=h.state.lastPrint!;
+ assert.equal(stats.outcome,'stalled');assert.ok(stats.sent>0&&stats.sent<60);assert.equal(stats.rows,60);assert.equal(stats.label,'Fast');assert.equal(stats.pauses,1);
+ assert.deepEqual(heard,[`stalled:${stats.sent}:none`],'heard before it is published');
+ // A lost connection mid-print is recorded too.
+ const lost=harness({async write(){if(lostNow)throw new Error('Not connected');}});let lostNow=false;await lost.ready();
+ const lostJob=lost.actor.print(printJob(rows(40)));await flush();await lost.tick(PRINTER_TIMEOUTS.pace*12);lostNow=true;
+ assert.equal(await lost.run(lostJob),'failed');assert.equal(lost.state.lastPrint!.outcome,'failed');assert.ok(lost.state.lastPrint!.sent>0);
+ // And a cancelled one.
+ const stop=harness();await stop.ready();const stopJob=stop.actor.print(printJob(rows(40)));await flush();await stop.tick(PRINTER_TIMEOUTS.pace*12);stop.actor.cancel();
+ assert.equal(await stop.run(stopJob),'cancelled');assert.equal(stop.state.lastPrint!.outcome,'cancelled');assert.ok(stop.state.lastPrint!.sent>0&&stop.state.lastPrint!.sent<40);
+});
+// The printer's answer to a status request (A3).
+const STATE_REPLY=new DataView(new Uint8Array([0x51,0x78,0xA3,0x00,0x03,0x00,0x00,0x00,0x00,0x00,0xFF]).buffer);
+async function untilFinishing(h:ReturnType<typeof harness>){for(let n=0;n<5000&&!h.state.finishing;n++)await h.tick(PRINTER_TIMEOUTS.pace);assert.equal(h.state.finishing,true,'everything sent, the printer still printing');}
+test('once everything is sent the print stays on "printing" until the printer answers the closing status request',async()=>{
+ const h=harness();await h.ready();
+ const packets=printJob(rows(40));const job=h.actor.print(packets);await flush();
+ // The answer to the opening status request comes early and does not count.
+ await h.tick(PRINTER_TIMEOUTS.pace*2);h.notify(STATE_REPLY);
+ await untilFinishing(h);
+ assert.equal(h.state.phase,'printing');assert.deepEqual(h.state.progress,{sent:40,total:40});
+ assert.deepEqual(h.writes.map(w=>w.value),packets,'everything was sent');
+ await h.tick(3000);assert.equal(h.state.phase,'printing','still printing on paper');
+ h.notify(STATE_REPLY);
+ assert.equal(await h.run(job),'done');
+ const stats=h.state.lastPrint!;
+ assert.equal(h.state.phase,'connected');assert.equal(h.state.finishing,false);assert.equal(h.state.message,'Printed.');
+ assert.ok(stats.finishedMs!==undefined&&stats.finishedMs>=stats.sentMs+3000,`${stats.sentMs} → ${stats.finishedMs}`);
+});
+test('a printer that answers the closing status request at once is not waited for',async()=>{
+ const h=harness({async write(_id,value){if(value[2]===CMD.STATE&&h.writes.length>3)queueMicrotask(()=>h.notify(STATE_REPLY));}});await h.ready();
+ const job=h.actor.print(printJob(rows(20)));await flush();
+ assert.equal(await h.run(job,400),'done','no long wait');
+ assert.notEqual(h.state.lastPrint!.finishedMs,undefined);
+});
+test('a printer that never says it has finished ends the print after a wait that allows for a slow printer',async()=>{
+ const h=harness();await h.ready();
+ const job=h.actor.print(printJob(rows(300)));await flush();
+ await untilFinishing(h);
+ const wait=Math.max(PRINTER_TIMEOUTS.finish,300*1000/SLOWEST_PRINT_ROWS_PER_SECOND);
+ await h.tick(wait-100);assert.equal(h.state.phase,'printing');
+ await h.tick(200);await flush();
+ assert.equal(await job,'done');assert.equal(h.state.phase,'connected');assert.equal(h.state.lastPrint!.finishedMs,undefined);
+ assert.match(describePrint(h.state.lastPrint!).summary,/didn’t say when it finished/);
+});
+test('while the printer finishes, cancel stops waiting, the background holds nothing, and a lost link still counts as printed',async()=>{
+ const a=harness();await a.ready();const jobA=a.actor.print(printJob(rows(30)));await flush();await untilFinishing(a);
+ a.actor.cancel();assert.equal(await a.run(jobA),'done','everything had reached the printer');assert.equal(a.state.phase,'connected');
+ const b=harness();await b.ready();const jobB=b.actor.print(printJob(rows(30)));await flush();await untilFinishing(b);
+ b.actor.setActive(false);assert.notEqual(b.state.held,true,'nothing left to hold');b.actor.setActive(true);b.notify(STATE_REPLY);
+ assert.equal(await b.run(jobB),'done');
+ const c=harness();await c.ready();const jobC=c.actor.print(printJob(rows(30)));await flush();await untilFinishing(c);
+ c.drop();assert.equal(await c.run(jobC),'done');assert.equal(c.state.lastPrint!.outcome,'done');assert.equal(c.state.phase,'disconnected');
+});
+
+test('the running print carries its start time, for the paper estimate, and drops it when it ends',async()=>{
+ const h=harness();await h.ready();await h.tick(1234);
+ const job=h.actor.print(printJob(rows(10)));
+ assert.equal(h.state.printStartedAt,1234);
+ await flush();await untilFinishing(h);h.notify(STATE_REPLY);
+ assert.equal(await h.run(job),'done');assert.equal(h.state.printStartedAt,undefined);
+});
+test('the paper estimate follows the printer’s speed, never runs ahead of what was sent, and is never done early',()=>{
+ const rate=DEFAULT_PRINT_ROWS_PER_SECOND;
+ assert.deepEqual(printEstimate({sent:600,total:600,elapsedMs:0,rowsPerSecond:rate}),{printed:0,secondsLeft:19});
+ assert.deepEqual(printEstimate({sent:600,total:600,elapsedMs:10000,rowsPerSecond:rate}),{printed:320,secondsLeft:9});
+ assert.equal(printEstimate({sent:100,total:600,elapsedMs:10000,rowsPerSecond:rate}).printed,100,'not ahead of what was sent');
+ assert.deepEqual(printEstimate({sent:600,total:600,elapsedMs:60000,rowsPerSecond:rate}),{printed:600,secondsLeft:0});
+ assert.equal(printEstimate({sent:10,total:10,elapsedMs:-50,rowsPerSecond:rate}).printed,0);
+});
+test('the printer’s speed is learnt from prints it said it finished, half old and half new, within bounds',()=>{
+ const done={outcome:'done' as const,rows:607,sent:607,ms:20000,sentMs:3900,finishedMs:19600,heldMs:0,pausedMs:0,pauses:0,writes:310,rowsPerWrite:2,pace:10};
+ assert.equal(learnRate(undefined,done),31);
+ assert.equal(learnRate(35,done),33);
+ assert.equal(learnRate(32,{...done,finishedMs:undefined}),32,'no answer from the printer: nothing learnt');
+ assert.equal(learnRate(32,{...done,outcome:'stalled'}),32);
+ assert.equal(learnRate(undefined,{...done,finishedMs:1}),200,'an implausible answer is bounded');
+ assert.equal(learnRate(undefined,{...done,rows:0}),undefined);
 });

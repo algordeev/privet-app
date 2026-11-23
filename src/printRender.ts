@@ -417,5 +417,13 @@ export function renderTestPage():Rendered{
  const grad=ctx.createLinearGradient(PAD,0,W-PAD,0);grad.addColorStop(0,'#fff');grad.addColorStop(1,'#000');
  ctx.fillStyle=grad;ctx.fillRect(PAD,top,INNER,40);ctx.fillStyle='#000';c.dither.push({x:PAD,y:top,width:INNER,height:40});
  c.y=top+48;for(let i=1;i<=6;i++){ctx.fillRect(PAD,c.y,INNER,i);c.y+=i+6;}
+ // Length check for comparing sending speeds: 240 rows are 30 mm (8 rows per mm). Rows lost on the way
+ // make the box shorter and put a step in the diagonal; ticks are 5 mm apart.
+ c.gap(8);c.text('Length check: the box is 30 mm tall.',{size:16,weight:600});c.gap(6);
+ const box=c.y,rows=240;
+ ctx.lineWidth=2;ctx.strokeRect(PAD+1,box+1,INNER-2,rows-2);
+ ctx.beginPath();ctx.moveTo(PAD+1,box+rows-1);ctx.lineTo(W-PAD-1,box+1);ctx.stroke();
+ for(let tick=1;tick<rows/40;tick++)ctx.fillRect(PAD,box+tick*40,14,2);
+ c.y=box+rows;
  c.cut();return c.finish();
 }

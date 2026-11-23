@@ -97,11 +97,19 @@ export function packRows(image:GrayImage,mode:PackMode='threshold',{threshold=14
  return rows;
 }
 
+// The command byte of a message from the printer (51 78 <cmd> …), or null if it isn't one.
+export function notificationCommand(value:DataView|Uint8Array):number|null{
+ const bytes=value instanceof Uint8Array?value:new Uint8Array(value.buffer,value.byteOffset,value.byteLength);
+ return bytes.length>=3&&bytes[0]===0x51&&bytes[1]===0x78?bytes[2]:null;
+}
+
+// speed: the printer's own print speed (BD), one byte; 32 was tested on the SC03h.
 export type JobOptions={energy?:number;speed?:number;quality?:number;feed?:number};
 // A3, A4, BD, AF, BE, A9, A6(start), one A2 per row, A1(feed), A6(end), A3.
 export function printJob(rows:readonly Uint8Array[],{energy=DEFAULT_ENERGY,speed=32,quality=0x33,feed=80}:JobOptions={}):Uint8Array[]{
  if(!Number.isInteger(energy)||energy<1||energy>0xFFFF)throw new Error('Invalid printer energy');
  if(!Number.isInteger(feed)||feed<0||feed>0xFFFF)throw new Error('Invalid feed');
+ if(!Number.isInteger(speed)||speed<1||speed>0xFF)throw new Error('Invalid printer speed');
  for(const row of rows)if(row.length!==ROW_BYTES)throw new Error(`Printer rows must be ${ROW_BYTES} bytes`);
  return [
   packet(CMD.STATE,[0x00]),packet(CMD.QUALITY,[quality]),packet(CMD.SPEED,[speed]),
