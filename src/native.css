@@ -814,3 +814,9 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
  .native-app .home-lessons[data-unlock] *, .native-app .home-lessons[data-unlock] *::after { animation:none !important; transition:none !important; }
  .native-app .home-lessons[data-unlock="done"] { animation:app-fade-in 400ms ease-out; }
 }
+/* Settings › Appearance: three choices side by side. */
+.native-app .native-appearance { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; padding:4px; border-radius:14px; background:#eef0e6; }
+.native-app .native-appearance-option { position:relative; display:grid; border:0; background:transparent; font:inherit; justify-items:center; gap:4px; padding:10px 4px 9px; border-radius:11px; color:#627458; font-size:13px; font-weight:600; cursor:pointer; }
+.native-app .native-appearance-option svg { width:24px; height:24px; }
+.native-app .native-appearance-option[aria-checked=true] { background:#fffdf7; color:#232b29; box-shadow:0 1px 3px #23372c24, 0 0 0 1.5px #246653; }
+.native-app .native-settings-card > .native-appearance-note { margin:10px 0 0; font-size:13px; }

@@ -196,5 +196,10 @@ class PrivetBridgeViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(PrivetStorePlugin())
         bridge?.registerPluginInstance(PrivetSpeechPlugin())
+        bridge?.registerPluginInstance(PrivetAppearancePlugin())
+        // Behind the page: the app's page colour, light or dark (not a fixed cream).
+        view.backgroundColor = .privetPage
+        webView?.backgroundColor = .privetPage
+        webView?.scrollView.backgroundColor = .privetPage
     }
 }
