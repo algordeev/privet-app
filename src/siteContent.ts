@@ -12,7 +12,12 @@ export const EXERCISE_KINDS:Record<Exercise['kind'],{label:string;example:string
  typed:{label:'Type it',example:'Write the Russian yourself.'},
  listen:{label:'Listen and choose',example:'Hear a line, find what was said.'},
  match:{label:'Match the pairs',example:'Pair each Russian word with its meaning.'},
+ speak:{label:'Say it aloud',example:'Repeat a word or reply out loud, checked on your iPhone.'},
 };
+
+// "Seven ways to practise": the number of exercise kinds, spelled out, so the copy can't drift from the list.
+const numberWords=['No','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve'];
+export const practiseWays=`${numberWords[Object.keys(EXERCISE_KINDS).length]} ways to practise`;
 
 export const siteLessons=nativeLessons.map(lesson=>({
  id:lesson.id,number:lesson.number,title:lesson.title,description:lesson.description,

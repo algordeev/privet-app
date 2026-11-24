@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {nativeLessons} from './curriculum/catalog.ts';
 import {COMPANION_PRICE,PLUS_MONTHLY_PRICE,PLUS_YEARLY_PRICE} from './subscription.ts';
 import {GEM_RULES} from './gems.ts';
-import {EXERCISE_KINDS,annualSaving,courseWords,gemRules,plusYearly,roadmap,siteDevices,siteLessons,sitePlans,ticker} from './siteContent.ts';
+import {readFileSync} from 'node:fs';
+import {EXERCISE_KINDS,annualSaving,practiseWays,courseWords,gemRules,plusYearly,roadmap,siteDevices,siteLessons,sitePlans,ticker} from './siteContent.ts';
 
 test('the website lists every lesson of the course, in order, with real counts',()=>{
  assert.deepEqual(siteLessons.map(l=>l.id),nativeLessons.map(l=>l.id));
@@ -33,4 +34,14 @@ test('gem rules, devices and roadmap say what the app and hardware actually do',
  // The printer is described by its type only, never by a brand or app name.
  assert.doesNotMatch(JSON.stringify(siteDevices),/iprint|cat printer/i);
  assert.equal(roadmap.filter(step=>step.state==='current').length,1);
+});
+
+test('the site counts its exercise kinds in words, and says what speaking does with your voice',()=>{
+ assert.equal(practiseWays,'Seven ways to practise');
+ assert.ok(ticker.includes(`${Object.keys(EXERCISE_KINDS).length} kinds of exercise`));
+ // No hand-typed count of exercise kinds is left on the page.
+ assert.doesNotMatch(readFileSync(new URL('./App.tsx',import.meta.url),'utf8')+readFileSync(new URL('./SiteSections.tsx',import.meta.url),'utf8'),/\b(Six|Seven|Eight) ways to practise/);
+ const privacy=readFileSync(new URL('../public/privacy.html',import.meta.url),'utf8');
+ assert.match(privacy,/microphone/);assert.match(privacy,/Speech recognition runs on your iPhone/);assert.match(privacy,/not recorded, saved or sent/);
+ assert.match(readFileSync(new URL('../public/support.html',import.meta.url),'utf8'),/Speaking doesn’t work/);
 });

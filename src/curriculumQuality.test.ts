@@ -13,9 +13,9 @@ function practised(lesson:LessonDefinition,e:Exercise){
 const isPractice=(e:Exercise)=>e.kind!=='vocabulary';
 const later=nativeLessons.slice(2);
 
-test('lessons 3–8 are 7–9 steps long and use at least four exercise kinds, including listening',()=>{
+test('lessons 3–8 are 9–11 steps long and use at least four exercise kinds, including listening',()=>{
  for(const lesson of later){
-  assert.ok(lesson.exercises.length>=7&&lesson.exercises.length<=9,`${lesson.id}: ${lesson.exercises.length} steps`);
+  assert.ok(lesson.exercises.length>=9&&lesson.exercises.length<=11,`${lesson.id}: ${lesson.exercises.length} steps`);
   const kinds=new Set(lesson.exercises.map(e=>e.kind));
   assert.ok(kinds.size>=4,`${lesson.id}: ${[...kinds]}`);
   assert.ok(kinds.has('listen'),`${lesson.id}: no listening step`);

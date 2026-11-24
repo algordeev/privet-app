@@ -16,8 +16,35 @@ export function lessonPassed(progress:Pick<Progress,'complete'>,saved:Saved){ret
 // Version of a lesson's saved results and of its saved attempt. When their shape changes, raise it and
 // convert older data in readSaved/restoreSession (never drop it: see storageCompat.test.ts).
 // Data written before versions existed has none and reads as version 1.
-export const LESSON_DATA_VERSION=1;
-const knownVersion=(version:unknown)=>version===undefined||version===LESSON_DATA_VERSION;
+// Version 2 (speaking exercises): lessons gained speak steps. Version 1 data was saved against the
+// lesson without them, so its step numbers and results are moved onto the longer lesson.
+export const LESSON_DATA_VERSION=2;
+const knownVersion=(version:unknown)=>version===undefined||version===1||version===LESSON_DATA_VERSION;
+const beforeSpeaking=(version:unknown)=>version===undefined||version===1;
+
+// Where each version 1 step sits now, and results for the longer lesson. A speak step added before
+// the learner's position counts as done right first time: it did not exist when they passed that point.
+export function speakingUpgrade(definition:LessonDefinition){
+ const steps=definition.exercises,old:number[]=[];
+ steps.forEach((exercise,i)=>{if(exercise.kind!=='speak')old.push(i);});
+ const index=(k:number)=>k>=old.length?steps.length:old[k];
+ const results=(previous:readonly boolean[])=>{
+  const out:boolean[]=[];
+  for(let j=0,k=0;j<index(previous.length);j++)out.push(steps[j].kind==='speak'?true:previous[k++]);
+  return out;
+ };
+ return {oldLength:old.length,index,results};
+}
+function upgradeSession(s:any,definition:LessonDefinition){
+ const p=s?.progress,up=speakingUpgrade(definition);
+ if(!p||!Number.isInteger(p.index)||p.index<0||p.index>up.oldLength||!Array.isArray(p.results)||p.results.length!==p.index)return s;
+ const index=up.index(p.index);
+ return {...s,progress:{...p,index,results:up.results(p.results)},hintAt:s.hintAt===p.index?index:s.hintAt};
+}
+function upgradeCompletion(completion:any,definition:LessonDefinition){
+ const up=speakingUpgrade(definition);
+ return Array.isArray(completion?.results)&&completion.results.length===up.oldLength?{...completion,results:up.results(completion.results)}:completion;
+}
 export const NATIVE_SESSION_KEY=`${PRODUCT.storageKey}-native-session`;
 export const sessionKey=(definition:LessonDefinition=cafeLesson)=>definition.id===cafeLesson.id?NATIVE_SESSION_KEY:`${NATIVE_SESSION_KEY}-${definition.id}`;
 export const savedKey=(definition:LessonDefinition=cafeLesson)=>definition.id===cafeLesson.id?PRODUCT.storageKey:`${PRODUCT.storageKey}-${definition.id}`;
@@ -55,8 +82,9 @@ export function restoreSession(serialized:string|null,definition:LessonDefinitio
  const pairsAt=(index:number)=>lesson[index]?.pairs??[];
  try {
   if(!serialized) return freshSession();
-  const s=JSON.parse(serialized);
-  if(!knownVersion(s?.version))return freshSession();
+  const raw=JSON.parse(serialized);
+  if(!knownVersion(raw?.version))return freshSession();
+  const s=beforeSpeaking(raw?.version)?upgradeSession(raw,definition):raw;
   const matches=s.matches??[];
   const p=s.progress;
   if(!validProgress(p,lesson.length)||
@@ -87,7 +115,7 @@ export function parseSaved(raw:string|null,definition:LessonDefinition=cafeLesso
  try {
   const data=JSON.parse(raw||'{}');
   if(!knownVersion(data?.version))return {preferences:{stress:false,pronunciation:true}};
-  const {completion}=data,steps=definition.exercises.length;
+  const completion=beforeSpeaking(data?.version)?upgradeCompletion(data.completion,definition):data.completion,steps=definition.exercises.length;
   const validCompletion=Array.isArray(completion?.results)&&completion.results.length===steps&&completion.results.every((v:unknown)=>typeof v==='boolean')
    &&typeof completion.date==='string'&&isWholeNumberIn(completion.hearts,0,MAX_HEARTS)&&isWholeNumberIn(completion.bestCombo,0,steps);
   return {preferences:{stress:data.preferences?.stress===true,pronunciation:data.preferences?.pronunciation!==false},completion:validCompletion?completion:undefined,...(validCompletion?{bestFirstTry:Math.max(completion.results.filter(Boolean).length,Number.isInteger(data.bestFirstTry)&&data.bestFirstTry>=0&&data.bestFirstTry<=definition.exercises.length?data.bestFirstTry:0)}:{})};

@@ -6,7 +6,7 @@ import {normalizeAnswer,checkAnswer,initialProgress,progressReducer,isPair,match
 import {matchOrder} from './matchOrder.ts';
 import type {Exercise} from './curriculum/types.ts';
 const correctValue=(e:Exercise)=>e.kind==='match'?matchValue(e.pairs!.map(p=>p[0]),e):e.answer;
-import {freshSession,restoreSession,sessionKey,savedKey,lessonPassed,readSaved,recordLessonCompletion} from './session.ts';
+import {freshSession,restoreSession,sessionKey,savedKey,lessonPassed,readSaved,recordLessonCompletion,LESSON_DATA_VERSION} from './session.ts';
 import {emptyStats,recordFinish} from './nativeStats.ts';
 import {restoreStats} from './statsStorage.ts';
 import {createPhysicalLessonEvents} from './physicalLessonEvents.ts';
@@ -21,7 +21,7 @@ test('eight unique ordered lessons have valid acyclic prerequisites and metadata
 });
 test('all curriculum exercises validate vocabulary, canonical answers and display aids',()=>{
  for(const l of nativeLessons){
-  assert.ok(l.exercises.length>=5&&l.exercises.length<=9);assert.equal(new Set(l.exercises.map(e=>e.id)).size,l.exercises.length);
+  assert.ok(l.exercises.length>=7&&l.exercises.length<=11);assert.equal(new Set(l.exercises.map(e=>e.id)).size,l.exercises.length);
   assert.equal(new Set(l.words.map(w=>w.id)).size,l.words.length);
   for(const w of l.words){assert.ok(w.meaning&&w.pronunciation);assert.equal(normalizeAnswer(w.text),normalizeAnswer(w.stressed));}
   for(const [i,e] of l.exercises.entries()){
@@ -30,6 +30,12 @@ test('all curriculum exercises validate vocabulary, canonical answers and displa
    if(e.kind==='choice')assert.ok(e.choices?.includes(e.answer));
    if(e.kind==='sentence')assert.deepEqual([...e.tokens!].sort(),e.answer.split(' ').sort());
    if(e.kind==='typed')for(const c of e.answer)assert.ok(e.letters?.includes(c));
+   // Speaking: a Repeat says a lesson word; its quiet version is a listening choice (Russian choices) or a
+   // meaning choice (English choices, from the lesson's own meanings). A Reply answers a dialogue line.
+   if(e.kind==='speak'&&!e.exchange){const word=l.words.find(w=>w.id===e.wordId)!;assert.equal(word.text,e.answer);assert.equal(e.prompt,e.answer);
+    const target=e.quiet==='meaning'?word.meaning:e.answer;assert.equal(e.translation,word.meaning);assert.ok(e.choices?.length===3&&e.choices.includes(target),`${l.id}/${e.id}`);
+    if(e.quiet==='meaning')for(const c of e.choices!)assert.ok(l.words.some(w=>w.meaning===c),`${l.id}/${e.id}: ${c}`);}
+   if(e.kind==='speak'&&e.exchange)assert.ok(e.translation&&!e.letters);
    if(e.kind==='listen'){const word=l.words.find(w=>w.id===e.wordId)!;assert.ok(word.pronunciation);assert.equal(normalizeAnswer(word.text),normalizeAnswer(e.answer));assert.ok(e.choices?.includes(e.answer)&&e.choices.every(c=>/[а-яё]/iu.test(c)));}
    if(e.kind==='match'){const pairs=e.pairs!;assert.ok(pairs.length>=3&&pairs.length<=5);for(const side of [0,1])assert.equal(new Set(pairs.map(p=>p[side])).size,pairs.length);
     assert.notDeepEqual(matchOrder(pairs).map(p=>p[1]),pairs.map(p=>p[1]),`${l.id}/${e.id}: English column must be scrambled`);
@@ -46,7 +52,7 @@ test('every lesson saves/restores independently and catalog supplies completion 
   keys.add(sessionKey(l));keys.add(savedKey(l));
   const sentenceIndex=l.exercises.findIndex(e=>e.kind==='sentence');
   const snapshot={...freshSession(),progress:{...initialProgress(),index:sentenceIndex,results:Array(sentenceIndex).fill(true)},tokens:[l.exercises[sentenceIndex].tokens![0]],revealed:[l.words[0].id]};
-  assert.deepEqual(restoreSession(JSON.stringify(snapshot),l),snapshot);
+  assert.deepEqual(restoreSession(JSON.stringify({version:LESSON_DATA_VERSION,...snapshot}),l),snapshot);
   assert.equal(nextLesson(l.id),nativeLessons[i+1]);assert.equal(lessonById(l.id),l);
  }
  assert.equal(keys.size,16);assert.equal(nextLesson('not-a-lesson'),undefined);
@@ -87,7 +93,7 @@ test('passed status survives unfinished and failed replays in every lesson, unti
   assert.equal(lessonPassed(completed,saved),true);
   const restarted=progressReducer(completed,{type:'reset'},definition.exercises);
   assert.equal(restarted.complete,false);assert.equal(lessonPassed(restarted,saved),true);
-  const restored=restoreSession(JSON.stringify({...freshSession(),progress:restarted}),definition);
+  const restored=restoreSession(JSON.stringify({version:LESSON_DATA_VERSION,...{...freshSession(),progress:restarted}}),definition);
   assert.deepEqual(restored.progress,restarted);assert.equal(lessonPassed(restored.progress,saved),true);
   assert.equal(lessonPassed({...restarted,failed:true,hearts:0},saved),true);
   assert.equal(lessonPassed(restarted,{preferences:saved.preferences}),false,'Explicit local reset clears completion');

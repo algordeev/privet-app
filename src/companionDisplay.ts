@@ -37,6 +37,8 @@ export function companionDisplay(definition:LessonDefinition,progress:Progress,a
  }
  if(e.kind==='vocabulary')return card(MODE.SAFE_PROMPT,'Tap a word',label);
  if(e.kind==='listen')return safe(MODE.SAFE_PROMPT,'Listen on phone',label);
+ // A Repeat (or its quiet listening version) never shows the word before it is graded.
+ if(e.kind==='speak'&&!e.exchange)return safe(MODE.SAFE_PROMPT,'Your turn',label);
  if(e.wordId){const word=definition.words.find(w=>w.id===e.wordId);if(word)return safe(MODE.SAFE_PROMPT,word.text,'Choose on phone');}
  if(e.exchange)return safe(MODE.SAFE_PROMPT,e.exchange.text,'Your reply?')??safe(MODE.SAFE_PROMPT,label,'Your reply?');
  return safe(MODE.SAFE_PROMPT,e.translation??label,'Try on your phone')??safe(MODE.SAFE_PROMPT,label);

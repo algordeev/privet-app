@@ -15,7 +15,7 @@ export const REVIEW_KEY=`${PRODUCT.storageKey}-native-review`;
 export const REVIEW_LESSON_ID='review';
 
 // pocket: a self-graded flashcard answered on the keychain Mini (see the pocket deck below).
-export type ReviewFormat='original'|'meaning'|'listen'|'recall'|'typed'|'pocket';
+export type ReviewFormat='original'|'meaning'|'listen'|'recall'|'typed'|'pocket'|'speak';
 export type ReviewItem={box:number;due:string;lapses:number;reviews:number};
 // The log keeps every graded review so a smarter scheduler (e.g. FSRS) can be fitted later.
 export type ReviewLog={key:string;day:string;correct:boolean;format:ReviewFormat};
@@ -96,12 +96,14 @@ export function dueKeys(state:ReviewState,today:string){
 }
 export function nextDue(state:ReviewState,today:string){return Object.values(state.items).map(item=>item.due).filter(day=>day>today).sort()[0];}
 
-// Recognition first, then listening, then recall; single words are finally typed.
+// Recognition first, then listening, then saying it aloud (when this iPhone can listen), then recall;
+// single words are finally typed.
 const stripEnd=(text:string)=>text.replace(/[.!?…]+$/u,'').trim();
-export function reviewFormat(source:ReviewSource,box:number):ReviewFormat{
+export function reviewFormat(source:ReviewSource,box:number,speaking=false):ReviewFormat{
  if(source.exercise||!source.word)return 'original';
  if(box===0)return 'meaning';
  if(box===1)return 'listen';
+ if(box===2&&speaking)return 'speak';
  return box>=3&&!/\s/.test(stripEnd(source.word.text))?'typed':'recall';
 }
 function hash(text:string){let h=0x811c9dc5;for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0;}return h;}
@@ -125,9 +127,11 @@ function generated(source:ReviewSource&{word:Word},format:Exclude<ReviewFormat,'
   const others=distractors(source,learned,w=>w.meaning,w=>meaningKey(w.meaning),s);
   return {lessons:others.map(o=>o.lesson),exercise:{...base,kind:'choice',wordId:wordId(lesson,word),title:'What does it mean?',instruction:`Choose the meaning of ${word.text}`,prompt:word.text,choices:withAnswer(word.meaning,others.map(o=>o.word.meaning),s),answer:word.meaning,retryFeedback:'Not this one. Listen again and try another meaning.',hint:from}};
  }
- if(format==='listen'||format==='recall'){
+ if(format==='listen'||format==='recall'||format==='speak'){
   const others=distractors(source,learned,w=>w.text,w=>normalizedDisplay(w.text),s);
   const choices=withAnswer(word.text,others.map(o=>o.word.text),s);
+  // Spoken Repeat; its choices are the quiet version if speaking stops during the session.
+  if(format==='speak')return {lessons:others.map(o=>o.lesson),exercise:{...base,kind:'speak',wordId:wordId(lesson,word),title:'Say it aloud.',instruction:'Listen, then say it in Russian.',prompt:word.text,choices,answer:word.text,translation:word.meaning,pronunciationGuide:word.pronunciation,retryFeedback:'Listen once more, then try again.',hint:`Sounds like: ${word.pronunciation}`}};
   return format==='listen'
    ?{lessons:others.map(o=>o.lesson),exercise:{...base,kind:'listen',wordId:wordId(lesson,word),title:'What did you hear?',instruction:'Listen, then choose what you heard.',prompt:word.text,choices,answer:word.text,retryFeedback:'Replay it and listen for the stressed syllable.',hint:from}}
    :{lessons:others.map(o=>o.lesson),exercise:{...base,kind:'choice',title:'Say it in Russian.',instruction:`Choose the Russian for “${word.meaning}”`,prompt:word.meaning,translation:word.meaning,choices,answer:word.text,retryFeedback:'Not quite. Say each option to yourself and try again.',hint:`Sounds like: ${word.pronunciation}`}};
@@ -138,13 +142,15 @@ function generated(source:ReviewSource&{word:Word},format:Exclude<ReviewFormat,'
 }
 
 // A synthetic lesson of real or generated exercises. Ids are namespaced by lesson so words from different lessons never collide.
-export function buildReviewSession(state:ReviewState,today:string,size=SESSION_SIZE):ReviewSession|null{
- const keys=dueKeys(state,today).filter(key=>catalog.byKey.has(key)).slice(0,size);
+export function buildReviewSession(state:ReviewState,today:string,size=SESSION_SIZE,speaking=false):ReviewSession|null{
+ // A Reply can only be practised aloud; without speaking it waits, still due, for a later session.
+ const replies=(key:string)=>{const e=catalog.byKey.get(key)?.exercise;return e?.kind==='speak'&&!!e.exchange;};
+ const keys=dueKeys(state,today).filter(key=>catalog.byKey.has(key)&&(speaking||!replies(key))).slice(0,size);
  if(!keys.length)return null;
  const learned=new Set(Object.keys(state.items).map(key=>key.split('/')[0]));
  const lessons=new Set<LessonDefinition>(),exercises:Exercise[]=[],items:ReviewSession['items']=[];
  for(const key of keys){
-  const source=catalog.byKey.get(key)!,format=reviewFormat(source,state.items[key].box);
+  const source=catalog.byKey.get(key)!,format=reviewFormat(source,state.items[key].box,speaking);
   lessons.add(source.lesson);
   if(format==='original'){exercises.push({...source.exercise!,id:key});}
   else{const built=generated(source as ReviewSource&{word:Word},format,learned,today);built.lessons.forEach(l=>lessons.add(l));exercises.push(built.exercise);}
@@ -163,7 +169,7 @@ export function reviewHomeCard(due:number):LearningCard|undefined{
 }
 
 const validItem=(v:any)=>!!v&&typeof v==='object'&&Number.isInteger(v.box)&&v.box>=0&&v.box<=MAX_BOX&&typeof v.due==='string'&&isCalendarDay(v.due)&&Number.isSafeInteger(v.lapses)&&v.lapses>=0&&Number.isSafeInteger(v.reviews)&&v.reviews>=0;
-const formats:readonly ReviewFormat[]=['original','meaning','listen','recall','typed','pocket'];
+const formats:readonly ReviewFormat[]=['original','meaning','listen','recall','typed','pocket','speak'];
 const validLog=(v:any)=>!!v&&typeof v.key==='string'&&catalog.byKey.has(v.key)&&typeof v.day==='string'&&isCalendarDay(v.day)&&typeof v.correct==='boolean'&&formats.includes(v.format);
 // Invalid or retired entries are dropped one by one; anything unreadable starts fresh and is re-seeded from passed lessons.
 export function restoreReview(raw:string|null):ReviewState{
