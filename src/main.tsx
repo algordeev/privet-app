@@ -7,6 +7,7 @@ import './gallery.css';
 import './site.css';
 import './native.css';
 import './nativeDark.css';
+import './nativeDarkPlayful.css';
 import {PRODUCT} from './config';
 import {appStorage,restoreStorageMirror} from './previewStorage';
 import {APPEARANCE_KEY,applyTheme,resolveTheme,restoreAppearance,systemPrefersDark} from './appearance';

@@ -145,3 +145,5 @@
 @media (prefers-reduced-motion:reduce) {
  .native-app .native-first-run *,.native-app .native-first-lesson * { scroll-behavior:auto!important; animation:none!important; transition:opacity 100ms linear!important; }
 }
+/* Colourful letter tiles around the robot: shown only in the dark theme (src/nativeDarkPlayful.css). */
+.native-app .first-hero-letters { display:none; }

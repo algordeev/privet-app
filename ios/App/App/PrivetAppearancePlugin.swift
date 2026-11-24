@@ -27,11 +27,11 @@ public class PrivetAppearancePlugin: CAPPlugin, CAPBridgedPlugin {
 }
 
 // What shows behind the web page (at launch, and past its edges): the app's page colour in light,
-// Graphite in dark. Keep in step with src/darkColours.ts (GRAPHITE.bg) and the light paper #f8f6f0.
+// night blue in dark. Keep in step with src/darkColours.ts (PALETTE.bg) and the light paper #f8f6f0.
 extension UIColor {
     static let privetPage = UIColor { traits in
         traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0x1a / 255, green: 0x1c / 255, blue: 0x1d / 255, alpha: 1)
+            ? UIColor(red: 0x12 / 255, green: 0x1a / 255, blue: 0x2b / 255, alpha: 1)
             : UIColor(red: 0xf8 / 255, green: 0xf6 / 255, blue: 0xf0 / 255, alpha: 1)
     }
 }

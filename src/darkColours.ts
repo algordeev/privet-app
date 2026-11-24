@@ -1,13 +1,18 @@
-// The dark theme's colours: the approved Graphite palette, and the rule that moves any light colour of
+// The dark theme's colours: the approved palette (PALETTE), and the rule that moves any light colour of
 // the app onto it. Used by scripts/build-dark-theme.mjs (which writes src/nativeDark.css) and by
 // screens that set colours inline, such as each lesson's tint on home.
 
-// Graphite, the approved dark palette (2026-11-24). Secondary text was lifted and given the light theme's
-// faint sage tint (2026-11-25): plain mid-grey captions everywhere made the app feel flat and grey.
-export const GRAPHITE={
- bg:'#1a1c1d',surface:'#242729',surface2:'#2f3335',line:'#373b3e',
- ink:'#eceeed',muted:'#b4bfba',faint:'#8f9a95',accent:'#74c7a8',button:'#2c8064',
+// The dark palette: Playful (chosen 2026-11-25, after Graphite felt flat and sad). A deep night-blue base,
+// a bright mint for buttons (with dark text and a chunky edge, see nativeDarkPlayful.css) and Privet's teal
+// for text. Earlier: Graphite greys (2026-11-24).
+export const PALETTE={
+ bg:'#121a2b',surface:'#1c2639',surface2:'#273249',line:'#2f3b55',
+ ink:'#f5f7fc',muted:'#b6c0d6',faint:'#8c97b0',accent:'#46e0a4',
+ button:'#3fd49a',buttonInk:'#08281c',buttonEdge:'#1f9e6c',
 } as const;
+// The in-between surfaces the light theme has (fills inside cards, tracks, lines) are worked out from
+// these: a night-blue hue, never a plain grey.
+const NIGHT={h:262,C:.035};
 
 // The brand teal has two approved dark values: the button fill, and the brighter teal for text and lines.
 const BRAND_TEAL='#246653';
@@ -43,8 +48,8 @@ function fromOklch({L,C,h}:{L:number;C:number;h:number}):number[]{
  return [0,0,0].map(()=>Math.round(fromLinear(Math.min(1,Math.max(0,L**3)))*255));
 }
 const hex=([r,g,b]:number[],a=1)=>'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('')+(a<1?Math.round(a*255).toString(16).padStart(2,'0'):'');
-const fixed=(name:keyof typeof GRAPHITE)=>{const c=parseColour(GRAPHITE[name]);return [c.r,c.g,c.b];};
-const fixedHex=(name:keyof typeof GRAPHITE)=>GRAPHITE[name];
+const fixed=(name:keyof typeof PALETTE)=>{const c=parseColour(PALETTE[name]);return [c.r,c.g,c.b];};
+const fixedHex=(name:keyof typeof PALETTE)=>PALETTE[name];
 const clamp=(v:number,lo:number,hi:number)=>Math.min(hi,Math.max(lo,v));
 const PAPER_L=oklch(parseColour('#f8f6f0')).L;
 
@@ -63,11 +68,11 @@ export function roleOf(property:string,customName=''):Role{
  return 'edge';
 }
 
-// Colour set A (chosen 2026-11-24): iOS's own dark-mode system colours, one per meaning. Surfaces stay
-// Graphite grey; colour goes on icons, numbers and labels, with a see-through tint of it behind pills,
+// One colour per meaning (set A from 2026-11-24, made brighter for the Playful palette). Surfaces stay
+// the night-blue surfaces; colour goes on icons, numbers and labels, with a see-through tint of it behind pills,
 // badges and tiles, and a stronger line around what is selected. The coral robot never changes.
 export const SYSTEM={
- streak:'#ff9f0a',gem:'#ffd60a',heart:'#ff6961',good:'#30d158',freeze:'#64d2ff',brand:GRAPHITE.accent,purple:'#bf5af2',
+ streak:'#ff9f1c',gem:'#ffd23f',heart:'#ff6b81',good:'#5df08f',freeze:'#59c3ff',brand:PALETTE.accent,purple:'#a98bff',
 } as const;
 export type Meaning=keyof typeof SYSTEM;
 // What a coloured part means: first from its class name, then from its hue. Peach is the light theme's
@@ -105,12 +110,12 @@ const rgba=(colour:string,alpha:number)=>{const c=parseColour(colour);return hex
 const tintAlpha=(C:number)=>clamp(C*4,.08,.2);
 // The large cards at the top of Streak and Gems, and the robot's stage in first run: grey, with only a
 // small glow of their colour behind the icon or the robot.
-export const heroBackground=(meaning:Meaning,at='50% 20%')=>`radial-gradient(45% 34% at ${at},${rgba(SYSTEM[meaning],.2)},transparent),${GRAPHITE.surface}`;
+export const heroBackground=(meaning:Meaning,at='50% 20%')=>`radial-gradient(45% 34% at ${at},${rgba(SYSTEM[meaning],.2)},transparent),${PALETTE.surface}`;
 
 // One light colour in one role -> its dark colour. `selector` is the CSS rule it comes from (empty for inline colours).
 export function darkColour(text:string,role:Role,selector='',{big=false}:{big?:boolean}={}):string{
  const c=parseColour(text),{L,C,h}=oklch(c),a=c.a;
- if(text.trim().toLowerCase()===BRAND_TEAL)return role==='fill'||role==='accent'?GRAPHITE.button:GRAPHITE.accent;
+ if(text.trim().toLowerCase()===BRAND_TEAL)return role==='fill'||role==='accent'?PALETTE.button:PALETTE.accent;
  const {meaning,own}=meaningDetail(h,selector),solid=SYSTEM[meaning];
  // A see-through light colour stays see-through: a 15% green scrim must not become a solid green screen,
  // and an 8% watermark letter must not become solid teal text.
@@ -120,7 +125,7 @@ export function darkColour(text:string,role:Role,selector='',{big=false}:{big?:b
   // even where the light theme drew it in a dark, muted shade.
   if(own&&C>=.035)return keep(solid);
   // Big green numbers and headings (stats, scores, XP) stay Privet green: teal in the dark.
-  if(big&&meaning==='brand'&&C>=.03)return keep(GRAPHITE.accent);
+  if(big&&meaning==='brand'&&C>=.03)return keep(PALETTE.accent);
  }
  // A named box gets a clean tint of its colour. Gold and orange only on small things (pills, badges,
  // icon tiles): over a larger box they read as brown or olive, so those boxes stay grey (their outline
@@ -140,31 +145,31 @@ export function darkColour(text:string,role:Role,selector='',{big=false}:{big?:b
   // Strong green body text (paragraphs, notes) reads as plain text in the dark; teal stays on things
   // that act like labels: links, buttons, headings, kickers, checks, icons and counts.
   if(role==='text'&&meaning==='brand'&&!own&&!big&&!LABEL.test(selector.split('|')[1]??selector))return keep(fixedHex('ink'));
-  if(role==='text'||role==='accent')return keep(meaning==='brand'&&role==='accent'&&L<.6?GRAPHITE.button:solid);
+  if(role==='text'||role==='accent')return keep(meaning==='brand'&&role==='accent'&&L<.6?PALETTE.button:solid);
   if(role==='edge')return rgba(solid,Math.min(a,.55));
   // Fills: light tints become a see-through tint; solid colours (buttons, bars, medals) stay solid.
   if(L>.8)return rgba(solid,tintAlpha(C)*a);
-  return keep(meaning==='brand'?GRAPHITE.button:solid);
+  return keep(meaning==='brand'?PALETTE.button:solid);
  }
  let rgb:number[];
  if(role==='text'){
   if(L>.9)return text;
   // Very light grey "text" in light is a watermark (a faint icon behind a number): it stays faint.
-  rgb=L>=.8?fromOklch({L:.38,C:.005,h:210}):fixed(L<.45?'ink':L<.7?'muted':'faint'); // the same steps as faintly coloured text
+  rgb=L>=.8?fromOklch({L:.38,C:NIGHT.C,h:NIGHT.h}):fixed(L<.45?'ink':L<.7?'muted':'faint'); // the same steps as faintly coloured text
  }else if(role==='fill'){
   if(L>.62){
    // Light neutrals keep their order of elevation: the page is darkest, cards a step up,
    // and the fills that sit inside cards (darker than paper in light) a step further.
    if(Math.abs(L-PAPER_L)<.006)rgb=fixed('bg');
    else if(L>.985)rgb=fixed('surface');
-   else{const d=L-PAPER_L;rgb=fromOklch({L:clamp(.235+(d>0?d*1.4:-d*1.9),.2,.46),C:.005,h:210});}
+   else{const d=L-PAPER_L;rgb=fromOklch({L:clamp(.215+(d>0?d*1.6:-d*2.4),.19,.46),C:NIGHT.C,h:NIGHT.h});}
   }else{
    if(a<.6)return text; // shadows and scrims stay dark
-   rgb=fromOklch({L:L<.4?.36:.42,C:.006,h:210}); // a dark button stays visible on the dark page
+   rgb=fromOklch({L:L<.4?.36:.42,C:NIGHT.C,h:NIGHT.h}); // a dark button stays visible on the dark page
   }
  }else if(role==='edge'){
   if(L<.5&&a<.6)return text; // shadows
-  rgb=L>.75?fromOklch({L:clamp(.33+(.95-L)*.4,.3,.42),C:.006,h:210}):fromOklch({L:clamp(1-L,.36,.75),C:.006,h:210});
+  rgb=L>.75?fromOklch({L:clamp(.33+(.95-L)*.4,.3,.42),C:NIGHT.C,h:NIGHT.h}):fromOklch({L:clamp(1-L,.36,.75),C:NIGHT.C,h:NIGHT.h});
  }else{
   if(L>.9)return text;
   rgb=fixed(L<.4?'ink':'muted');
@@ -172,3 +177,10 @@ export function darkColour(text:string,role:Role,selector='',{big=false}:{big?:b
  if(c.a<1&&role!=='text'&&L>.9)return hex(fixed('surface'),a); // white glass becomes dark glass
  return hex(rgb,a);
 }
+
+// A lesson's solid tile colour in the Playful dark theme: its own hue, bright enough for an emoji to sit on.
+export function brightTile(colour:string):string{
+ const {C,h}=oklch(parseColour(colour));
+ return hex(fromOklch({L:.76,C:clamp(C*2.2,.1,.16),h}));
+}
+export const tileTint=(colour:string)=>rgba(brightTile(colour),.2);
