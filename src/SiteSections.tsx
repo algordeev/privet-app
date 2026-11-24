@@ -1,7 +1,7 @@
 // Website sections for the course, the app's screens, the device family and the plans.
 import {lazy,Suspense,useEffect,useRef,useState,type CSSProperties,type RefObject} from 'react';
 import {nativeLessons} from './curriculum/catalog';
-import {EXERCISE_KINDS,courseWords,gemRules,plusYearly,siteDevices,siteLessons,sitePlans,ticker,type SiteDevice} from './siteContent';
+import {EXERCISE_KINDS,courseWords,practiseWays,gemRules,plusYearly,siteDevices,siteLessons,sitePlans,ticker,type SiteDevice} from './siteContent';
 import {lessonIcon,renderPracticeStrip,renderReceipt,renderWordCard,rowsToDataUrl} from './printRender';
 import {practiceStrip,progressReceipt,wordCard} from './printContent';
 import {emptyStats} from './nativeStats';
@@ -59,13 +59,13 @@ export function CourseSection(){
     <LessonIcon id={lesson.id}/><span className="site-lesson-number">LESSON {lesson.number}</span><h3>{lesson.title}</h3><p>{lesson.description}</p><span className="site-lesson-meta">{lesson.words} words · {lesson.steps} steps</span>
    </li>)}
   </ol>
-  <div className="site-kinds" data-reveal><span className="site-kinds-label">Six ways to practise</span><ul>{Object.entries(EXERCISE_KINDS).map(([kind,{label,example}])=><li key={kind} title={example}>{label}</li>)}</ul></div>
+  <div className="site-kinds" data-reveal><span className="site-kinds-label">{practiseWays}</span><ul>{Object.entries(EXERCISE_KINDS).map(([kind,{label,example}])=><li key={kind} title={example}>{label}</li>)}</ul></div>
  </section>;
 }
 
 const screens=[
  {id:'home',label:'Home',title:'Your next little win.',text:'Streak, gems, today’s review and the next lesson, all on one screen.'},
- {id:'lesson',label:'Lesson',title:'Small steps, real phrases.',text:'Tap to reveal, hear it in Russian, then use it. Pronunciation help sits under every line.'},
+ {id:'lesson',label:'Lesson',title:'Small steps, real phrases.',text:'Tap to reveal, hear it in Russian, say it yourself, then use it. Pronunciation help sits under every line.'},
  {id:'review',label:'Review',title:'Mistakes come back.',text:'Words you miss return sooner, words you know return later. Review never costs a heart.'},
  {id:'alphabet',label:'АБВ guide',title:'Every letter, close at hand.',text:'The letters of the current exercise first, the full alphabet one tap away, with audio.'},
  {id:'profile',label:'Profile',title:'Progress you can see.',text:'Current and best streak, finishes, XP and your last seven days.'},

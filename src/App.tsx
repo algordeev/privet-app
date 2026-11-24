@@ -6,7 +6,7 @@ import {useLesson} from './useLesson';
 import {LessonPanel} from './LessonPanel';
 import {SoundIcon} from './Icons';
 import {CourseSection,FamilySection,PlansSection,ScreensSection,Ticker,useReveal} from './SiteSections';
-import {roadmap} from './siteContent';
+import {practiseWays,roadmap} from './siteContent';
 
 function Arrow() {return <span aria-hidden="true">↗</span>;}
 
@@ -36,7 +36,7 @@ function App(){
    <section className="hero wrap" aria-labelledby="hero-title">
     <div className="hero-copy"><div className="eyebrow"><span className="live-dot"/> A SMALL START. A WHOLE NEW LANGUAGE.</div>
      <h1 id="hero-title">A little Russian.<br/>A little <span className="serif-accent">every day.</span></h1>
-     <p>From your first <span lang="ru">привет</span> to everyday conversations. Eight short lessons, a review that remembers what you missed, and, if you’d like, a desk robot, a keychain and a little printer cheering you on.</p>
+     <p>From your first <span lang="ru">привет</span> to everyday conversations. Eight short lessons to read, hear and say aloud, a review that remembers what you missed, and, if you’d like, a desk robot, a keychain and a little printer cheering you on.</p>
      <div className="hero-actions"><a href="#demo" className="button teal">Try a lesson <Arrow/></a><a className="text-link" href="#devices">Meet the family <span aria-hidden="true">↓</span></a></div>
      <div className="concept-label"><span className="apple-outline" aria-hidden="true">◉</span> iOS app <span>·</span> 3 Bluetooth devices <span>·</span> Interactive web demo</div>
     </div>
@@ -79,10 +79,10 @@ function App(){
    <CourseSection/>
    <section className="approach-section" id="approach" aria-labelledby="approach-title"><div className="wrap"><div className="section-heading" data-reveal><div><div className="eyebrow">03 / SMALL STEPS, REAL LANGUAGE</div><h2 id="approach-title">Less memorising.<br/><span className="serif-accent">More “oh, I get it.”</span></h2></div><p>A learning approach built around moments you’ll actually use. Start with a café. Take it from there.</p></div><div className="approach-grid site-approach-grid">
     <article data-reveal><span className="feature-number">GET FAMILIAR</span><div className="letter-example"><span lang="ru">Я</span><span className="letter-arrow">→</span><span>ya<small>“I”</small></span></div><h3>A new alphabet. One hello at a time.</h3><p>Meet Cyrillic inside useful words. A two-screen quick start covers the letters of your first lesson, and the АБВ guide is a tap away in every lesson.</p></article>
-    <article data-reveal><span className="feature-number">FIND YOUR VOICE</span><div className="stress-example" lang="ru">спа<span>си́</span>бо<small>spa-<b>SEE</b>-ba</small></div><h3>A little help, when you want it.</h3><p>Turn on stress marks to see where the emphasis goes. Pronunciation hints sit under every line until you don’t need them, and a Russian voice reads it aloud.</p></article>
+    <article data-reveal><span className="feature-number">FIND YOUR VOICE</span><div className="stress-example" lang="ru">спа<span>си́</span>бо<small>spa-<b>SEE</b>-ba</small></div><h3>A little help, when you want it.</h3><p>Turn on stress marks to see where the emphasis goes. Pronunciation hints sit under every line until you don’t need them, and a Russian voice reads it aloud. Then it’s your turn: say it back, and your iPhone checks the words right on the device.</p></article>
     <article data-reveal><span className="feature-number">MAKE IT USEFUL</span><div className="grammar-example"><span lang="ru">Я <b>хочу</b> чай.</span><small>I <b>want</b> tea.</small></div><h3>Grammar with somewhere to go.</h3><p>Я means “I.” Хочу means “want.” Put them together with чай, and you’ve got a real café order.</p></article>
     <article data-reveal><span className="feature-number">COME BACK STRONGER</span><div className="review-example"><span>↻</span><div lang="ru">кофе <small>coffee, not tea</small></div><i>↗</i></div><h3>Your mistakes make the next step.</h3><p>Mix up coffee and tea? Review brings it back tomorrow, then less often as it sticks. Review never costs a heart.</p></article>
-    <article data-reveal><span className="feature-number">KEEP IT FRESH</span><div className="site-kinds-example" aria-hidden="true"><span>Aa</span><span>☑</span><span>⇄</span><span>⌨</span><span>♪</span><span>⋈</span></div><h3>Six ways to practise.</h3><p>Reveal words, pick the meaning, build a sentence, type it, listen and choose, match the pairs. Each lesson mixes them.</p></article>
+    <article data-reveal><span className="feature-number">KEEP IT FRESH</span><div className="site-kinds-example" aria-hidden="true"><span>Aa</span><span>☑</span><span>⇄</span><span>⌨</span><span>♪</span><span>⋈</span><span><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5"/><path d="M3 7.5a5 5 0 0 0 10 0M8 12.5v2"/></svg></span></div><h3>{practiseWays}.</h3><p>Reveal words, pick the meaning, build a sentence, type it, listen and choose, match the pairs, say it aloud. Each lesson mixes them.</p></article>
     <article data-reveal><span className="feature-number">LITTLE WINS</span><div className="site-wins-example" aria-hidden="true"><span className="site-win-hearts">♥♥♥</span><span className="site-win-combo">×<b>5</b> combo</span><span className="site-win-streak">6 days</span><span className="site-win-gems">45</span></div><h3>Hearts, combos and a streak.</h3><p>Three hearts per lesson, XP for first-try combos, a daily streak with freezes for busy days, and gems you earn by learning.</p></article>
    </div></div></section>
    <ScreensSection/>

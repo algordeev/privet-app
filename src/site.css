@@ -61,10 +61,10 @@ html.site-reveal [data-reveal]:not([data-shown]){opacity:0;translate:0 28px}
 /* ---------- Approach (six cards) ---------- */
 .site-approach-grid{grid-template-columns:repeat(3,1fr);row-gap:48px}
 .site-approach-grid p{font-size:12px}
-.site-kinds-example{height:113px;margin-top:24px;border-radius:8px;background:#e5e9db;display:grid;grid-template-columns:repeat(6,34px);gap:8px;align-content:center;justify-content:center}
-.site-kinds-example span{height:34px;border-radius:8px;display:grid;place-items:center;background:#f3f4ec;color:#3e6243;font-size:15px;animation:site-kind 6s infinite}
-.site-kinds-example span:nth-child(2){animation-delay:1s}.site-kinds-example span:nth-child(3){animation-delay:2s}.site-kinds-example span:nth-child(4){animation-delay:3s}.site-kinds-example span:nth-child(5){animation-delay:4s}.site-kinds-example span:nth-child(6){animation-delay:5s}
-@keyframes site-kind{0%,16%{background:var(--teal);color:#fff;transform:translateY(-4px)}20%,100%{background:#f3f4ec;color:#3e6243;transform:none}}
+.site-kinds-example{height:113px;margin-top:24px;border-radius:8px;background:#e5e9db;display:grid;grid-template-columns:repeat(7,34px);gap:8px;align-content:center;justify-content:center}
+.site-kinds-example span{height:34px;border-radius:8px;display:grid;place-items:center;background:#f3f4ec;color:#3e6243;font-size:15px;animation:site-kind 7s infinite}
+.site-kinds-example span:nth-child(2){animation-delay:1s}.site-kinds-example span:nth-child(3){animation-delay:2s}.site-kinds-example span:nth-child(4){animation-delay:3s}.site-kinds-example span:nth-child(5){animation-delay:4s}.site-kinds-example span:nth-child(6){animation-delay:5s}.site-kinds-example span:nth-child(7){animation-delay:6s}
+@keyframes site-kind{0%,14%{background:var(--teal);color:#fff;transform:translateY(-4px)}17%,100%{background:#f3f4ec;color:#3e6243;transform:none}}
 .site-wins-example{height:113px;margin-top:24px;border-radius:8px;background:#e5e9db;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:8px 10px;padding:0 10px}
 .site-wins-example>span{font-size:12px;font-weight:600;padding:7px 11px;border-radius:999px;background:#f6f5ee;color:#3e5b48;display:flex;align-items:center;gap:6px}
 .site-win-hearts{color:#d0634a!important;letter-spacing:2px}
@@ -260,4 +260,5 @@ html.site-reveal [data-reveal]:not([data-shown]){opacity:0;translate:0 28px}
 /* Footer: Support · Privacy Policy · Terms of Use, readable and tappable despite the small footer type. */
 footer .site-legal{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px 14px;font-size:12px}
 footer .site-legal a{color:#5f6d5a;text-underline-offset:4px;padding:6px 0}
+@media(max-width:600px){.site-kinds-example{grid-template-columns:repeat(7,30px);gap:6px}.site-kinds-example span{height:30px}}
 @media(max-width:600px){footer .site-legal{font-size:11px;gap:2px 12px}}

@@ -15,6 +15,10 @@ export const EXERCISE_KINDS:Record<Exercise['kind'],{label:string;example:string
  speak:{label:'Say it aloud',example:'Repeat a word or reply out loud, checked on your iPhone.'},
 };
 
+// "Seven ways to practise": the number of exercise kinds, spelled out, so the copy can't drift from the list.
+const numberWords=['No','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve'];
+export const practiseWays=`${numberWords[Object.keys(EXERCISE_KINDS).length]} ways to practise`;
+
 export const siteLessons=nativeLessons.map(lesson=>({
  id:lesson.id,number:lesson.number,title:lesson.title,description:lesson.description,
  words:lesson.words.length,steps:lesson.exercises.length,
