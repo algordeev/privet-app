@@ -202,7 +202,7 @@ export const lesson:LessonDefinition={
    "review": "утром → in the morning",
    "success": "Yes: утром means “in the morning”. A useful word for this story.",
    "retryFeedback": "Think about the morning word from the first step. Check its ending.",
-   "hint": "Think of the time of day when your first coffee usually happens."
+   "hint": "Say it slowly: u-t-r-o-m. Five letters. The о sounds like “a” (U-tram), because the stress is on the first letter."
   }
  ],
  "summary": "You described your morning coffee, your work, an evening tea, and a quiet evening rest.",

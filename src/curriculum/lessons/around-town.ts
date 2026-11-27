@@ -201,7 +201,7 @@ export const lesson:LessonDefinition={
    "review": "прямо → Straight ahead!",
    "success": "Yes: прямо means “Straight ahead!”. A useful word for this story.",
    "retryFeedback": "The direction is one word. Listen again or check its letters.",
-   "hint": "Remember the direction that takes you ahead, without turning."
+   "hint": "Say it slowly: p-r-ya-m-a. Five letters; я is one letter for “ya”. The last letter is о: it sounds like “a” when it isn’t stressed."
   }
  ],
  "summary": "You stopped a stranger politely, asked where the metro is, understood three directions, and said thank you.",

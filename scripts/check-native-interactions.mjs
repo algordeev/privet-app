@@ -321,9 +321,13 @@ try{
   const typedStep=freshSession();typedStep.progress={...typedStep.progress,index:4,results:[true,true,true,true]};
   await open({[NATIVE_SESSION_KEY]:typedStep});await startCafe();await until(()=>!!document.querySelector('.translation-display'));
   assert.equal(await evaluate(()=>!!document.querySelector('input#translation')),false,'No text field (so no iPhone keyboard) by default');
-  const shown=()=>evaluate(()=>document.querySelector('.translation-display span[lang]')?.textContent??'');
-  const letter=l=>evaluate(l=>[...document.querySelectorAll('.letter-bank button')].find(b=>b.textContent===l).click(),l);
-  await letter('с');await letter('п');await letter('о');assert.equal(await shown(),'спо');
+  // One box per letter (7 for спасибо); Lesson 1 gives the first letter; each button shows its sound under the letter.
+  const shown=()=>evaluate(()=>[...document.querySelectorAll('.translation-box')].map(b=>b.textContent).join('').toLowerCase());
+  const letter=l=>evaluate(l=>[...document.querySelectorAll('.letter-bank button')].find(b=>b.firstChild?.textContent===l).click(),l);
+  assert.equal(await evaluate(()=>document.querySelectorAll('.translation-box').length),7,'One box per letter');
+  assert.equal(await shown(),'с','Lesson 1 gives the first letter');
+  assert.equal(await evaluate(()=>[...document.querySelectorAll('.letter-bank button small')].map(s=>s.textContent).join(' ')),'s p a ee b o','Each letter button shows its sound');
+  await letter('п');await letter('о');assert.equal(await shown(),'спо');
   await click('[aria-label="Delete last letter"]');assert.equal(await shown(),'сп');
   await click('.keyboard-switch .native-text-button','Use iPhone keyboard');await until(()=>!!document.querySelector('input#translation'));
   assert.equal(await evaluate(()=>document.querySelector('input#translation').value),'сп','The iPhone keyboard keeps what was typed');
@@ -331,9 +335,10 @@ try{
   assert.ok(await evaluate(()=>document.querySelector('.keyboard-switch').textContent.includes('🌐')));
   await click('.keyboard-switch .native-text-button','Use letter buttons');await until(()=>!!document.querySelector('.translation-display'));
   for(const l of Array.from('асибо'))await letter(l);assert.equal(await shown(),'спасибо');await assertNativeLayout();
+  assert.equal(await evaluate(()=>[...document.querySelectorAll('.letter-bank button[lang]')].every(b=>b.disabled)),true,'A full answer takes no more letters');
   await click('.lesson-bottom .button','Check answer');await until(()=>!!document.querySelector('.feedback.correct'));
   assert.equal(await evaluate(()=>!!document.querySelector('.keyboard-switch')),false,'No switch once answered');
-  console.log('PASS: typing uses letter buttons in the app’s own answer box; the iPhone keyboard is opt-in, keeps the typed letters, and switches back.');
+  console.log('PASS: typing uses letter buttons (with their sounds) in one box per letter, Lesson 1 gives the first letter, a full answer takes no more letters; the iPhone keyboard is opt-in, keeps the typed letters, and switches back.');
  }
  // Reminders: the one-time invitation, the iOS permission answer, Settings, and exactly what gets scheduled.
  {
@@ -1152,7 +1157,7 @@ try{
    if(e.kind==='vocabulary'){await evaluate(()=>document.querySelectorAll('.vocab-reveal').forEach(b=>b.click()));}
    else if(e.kind==='choice'||e.kind==='listen'){await evaluate(text=>{[...document.querySelectorAll('.choice')].find(b=>b.querySelector('.native-choice-copy > span').textContent===text).click();},e.answer);}
    else if(e.kind==='sentence'){for(const word of e.answer.split(' '))await evaluate(word=>{[...document.querySelectorAll('.word-bank button')].find(b=>!b.disabled&&b.textContent===word).click();},word);}
-   else if(e.kind==='typed'){for(const letter of Array.from(e.answer.toLowerCase()))await evaluate(letter=>{[...document.querySelectorAll('.letter-bank button')].find(b=>b.textContent===letter).click();},letter);}
+   else if(e.kind==='typed'){for(const letter of Array.from(e.answer.toLowerCase()))await evaluate(letter=>{[...document.querySelectorAll('.letter-bank button')].find(b=>b.firstChild?.textContent===letter).click();},letter);}
    // Speaking steps, as their quiet versions (no recogniser here): a Repeat is a listening or meaning choice;
    // a Reply is "Hear it", whose Continue counts it as done and moves straight on.
    else if(e.kind==='speak'&&!e.exchange){await evaluate(text=>{[...document.querySelectorAll('.choice')].find(b=>b.querySelector('.native-choice-copy > span').textContent===text).click();},e.quiet==='meaning'?e.translation:e.answer);}

@@ -203,7 +203,7 @@ export const lesson:LessonDefinition={
    "review": "завтра → tomorrow",
    "success": "Yes: завтра means “tomorrow”. A useful word for this story.",
    "retryFeedback": "Remember the next-day word from the invitation. Check each letter.",
-   "hint": "Not today: the next day. It starts with a z sound."
+   "hint": "Say it slowly: z-a-v-t-r-a. Six letters, and а comes twice. The в sounds like “f” here, but it’s written в."
   }
  ],
  "summary": "You invited Alex for a walk, agreed on tomorrow, and said a friendly goodbye.",

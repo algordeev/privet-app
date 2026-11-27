@@ -201,7 +201,7 @@ export const lesson:LessonDefinition={
    "review": "дома → at home",
    "success": "Yes: дома means “at home”. A useful word for this story.",
    "retryFeedback": "This word tells where, not what you do. Try its four letters again.",
-   "hint": "This short place word begins with a d sound."
+   "hint": "Say it slowly: d-o-m-a. Four letters. The stress is on the first one, so this о sounds like a real “o”."
   }
  ],
  "summary": "You said where you study, answered where you work, and asked a classmate about their day.",
