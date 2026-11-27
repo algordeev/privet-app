@@ -198,6 +198,7 @@ class PrivetBridgeViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(PrivetSpeechPlugin())
         bridge?.registerPluginInstance(PrivetAppearancePlugin())
         bridge?.registerPluginInstance(PrivetLiveActivityPlugin())
+        bridge?.registerPluginInstance(PrivetBackgroundPlugin())
         // Behind the page: the app's page colour, light or dark (not a fixed cream).
         view.backgroundColor = .privetPage
         webView?.backgroundColor = .privetPage

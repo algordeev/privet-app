@@ -26,6 +26,9 @@
 		A7C0FFEE00000000000000B5 /* PrivetLessonAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0FFEE00000000000000F5 /* PrivetLessonAttributes.swift */; };
 		A7C0FFEE00000000000000B6 /* PrivetLiveActivityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0FFEE00000000000000F6 /* PrivetLiveActivityPlugin.swift */; };
 		A7C0FFEE00000000000000B7 /* PrivetLessonAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0FFEE00000000000000F5 /* PrivetLessonAttributes.swift */; };
+		A7C0FFEE00000000000000B8 /* PrivetBackgroundPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0FFEE00000000000000F7 /* PrivetBackgroundPlugin.swift */; };
+		A7C0FFEE00000000000000B9 /* PrivetPrintAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0FFEE00000000000000F8 /* PrivetPrintAttributes.swift */; };
+		A7C0FFEE00000000000000BA /* PrivetPrintAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0FFEE00000000000000F8 /* PrivetPrintAttributes.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -74,6 +77,8 @@
 		A7C0FFEE00000000000000F4 /* PrivetAppearancePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivetAppearancePlugin.swift; sourceTree = "<group>"; };
 		A7C0FFEE00000000000000F5 /* PrivetLessonAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivetLessonAttributes.swift; sourceTree = "<group>"; };
 		A7C0FFEE00000000000000F6 /* PrivetLiveActivityPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivetLiveActivityPlugin.swift; sourceTree = "<group>"; };
+		A7C0FFEE00000000000000F7 /* PrivetBackgroundPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivetBackgroundPlugin.swift; sourceTree = "<group>"; };
+		A7C0FFEE00000000000000F8 /* PrivetPrintAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivetPrintAttributes.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -149,6 +154,8 @@
 				A7C0FFEE00000000000000F4 /* PrivetAppearancePlugin.swift */,
 				A7C0FFEE00000000000000F6 /* PrivetLiveActivityPlugin.swift */,
 				A7C0FFEE00000000000000F5 /* PrivetLessonAttributes.swift */,
+				A7C0FFEE00000000000000F7 /* PrivetBackgroundPlugin.swift */,
+				A7C0FFEE00000000000000F8 /* PrivetPrintAttributes.swift */,
 				A7C0FFEE00000000000000F2 /* Privet.storekit */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
@@ -281,6 +288,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A7C0FFEE00000000000000B7 /* PrivetLessonAttributes.swift in Sources */,
+				A7C0FFEE00000000000000BA /* PrivetPrintAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -295,6 +303,8 @@
 				A7C0FFEE00000000000000B4 /* PrivetAppearancePlugin.swift in Sources */,
 				A7C0FFEE00000000000000B5 /* PrivetLessonAttributes.swift in Sources */,
 				A7C0FFEE00000000000000B6 /* PrivetLiveActivityPlugin.swift in Sources */,
+				A7C0FFEE00000000000000B8 /* PrivetBackgroundPlugin.swift in Sources */,
+				A7C0FFEE00000000000000B9 /* PrivetPrintAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

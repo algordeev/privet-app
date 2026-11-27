@@ -33,7 +33,7 @@ function Progress({state,rate}:{state:PrinterState;rate:number}){
  if(!printing||!state.progress)return null;
  const {sent,total}=state.progress;
  const {printed,secondsLeft}=printEstimate({sent,total,elapsedMs:now-(state.printStartedAt??now),rowsPerSecond:rate});
- return <div className="native-printer-progress"><progress max={Math.max(1,total)} value={printed} aria-label="Printing progress"/><span>{printed>=total?'Almost done…':`About ${secondsLeft} s left`}</span>{!state.finishing&&<small>Keep Privet open until it finishes.</small>}</div>;
+ return <div className="native-printer-progress"><progress max={Math.max(1,total)} value={printed} aria-label="Printing progress"/><span>{printed>=total?'Almost done…':`About ${secondsLeft} s left`}</span></div>;
 }
 
 // Preview of exactly what will print (the 1-bit image), then Print / Cancel with progress.
@@ -59,7 +59,7 @@ export function PrinterSheet({printer,title,render,onClose}:{printer:PrinterCont
    <PrinterStatus state={state} remembered={printer.remembered()?.name} waiting={printer.autoTarget()?(printer.autoTarget()!.name||'Your printer'):undefined}/>
    <DevicePicker printer={printer} state={state}/>
    <Progress state={state} rate={printer.rate()}/>
-   <div className="native-printer-actions">{busy?<button className="native-physical-disconnect" onClick={printer.cancel}>{state.phase==='printing'?'Cancel printing':'Cancel'}</button>:<button className="button teal" disabled={!card||state.busy} onClick={()=>card&&printer.print(card.rows)}>{label} <span aria-hidden="true">→</span></button>}</div>
+   <div className="native-printer-actions">{busy?<button className="native-physical-disconnect" onClick={printer.cancel}>{state.phase==='printing'?'Cancel printing':'Cancel'}</button>:<button className="button teal" disabled={!card||state.busy} onClick={()=>card&&printer.print(card.rows,title)}>{label} <span aria-hidden="true">→</span></button>}</div>
   </div>
  </NativeSheet>;
 }

@@ -9,7 +9,8 @@ import WidgetKit
 // Live Activities can't animate continuously, so the face changes only with the state:
 // awake, or sleepy once the lesson has been left for an hour.
 
-private enum Palette {
+// Shared by both Live Activities (the lesson and printing).
+enum Palette {
     static let coralLight = Color(red: 0xf6 / 255, green: 0xa1 / 255, blue: 0x8a / 255)
     static let coral = Color(red: 0xe6 / 255, green: 0x81 / 255, blue: 0x69 / 255)
     static let coralShade = Color(red: 0xc9 / 255, green: 0x6c / 255, blue: 0x55 / 255)
