@@ -54,6 +54,7 @@ import {alphabetStrip,letterStrip,practiceStrip,recallStrip,progressReceipt,revi
 import {renderAlphabetStrip,renderLetterStrip,renderRecallStrip,renderPracticeStrip,renderReceipt,renderTestPage,renderWordCard,type Rendered} from './printRender';
 import {localDay} from './days';
 import {DEVICE} from './device';
+import {useLessonActivity} from './useLessonActivity';
 
 // The day the home robot last showed the connect prompt (once a day at most).
 export const CONNECT_PROMPT_KEY=`${PRODUCT.storageKey}-companion-prompt-day`;
@@ -140,6 +141,10 @@ function NativeAppContent({controllers,physical,onboarding,companion,activity,su
  const firstRunActive=nativeOnboarding&&firstRun.state.stage!=='done';
  useEffect(()=>{if(!isOnboardingPreview())return;const url=new URL(location.href);if(url.searchParams.get('replay')!=='1')return;url.searchParams.delete('replay');history.replaceState(history.state,'',url.href);firstRun.dispatch({type:'replay'});},[firstRun.dispatch]);
  const [view,setView]=useState<'home'|'lesson'|'review'|'profile'|'physical'|'plus'|'gems'|'streak'|'quick-start'|'settings'|'printer'>('home');
+ // The lesson in the Dynamic Island and on the Lock Screen while you're away (src/useLessonActivity.ts).
+ useLessonActivity({lesson:{id:controller.definition.id,number:Number(controller.definition.number),title:controller.definition.title},
+  active:view==='lesson'&&!firstRunActive,finished:controller.progress.complete||!!controller.progress.failed,
+  done:controller.progress.index,total:controller.definition.exercises.length});
  // A card to print: previewed in a sheet, connecting to the printer only when Print is tapped.
  const [printSheet,setPrintSheet]=useState<{title:string;render:()=>Rendered}|null>(null);
  // The reminder invitation appears once, on home, after the first finished lesson, while iOS has not been asked yet.
