@@ -51,6 +51,13 @@ export function gradeSpeech(candidates:readonly string[],accepted:readonly strin
  return close?{type:'close',heard:heard[0],missing:close.missing}:{type:'wrong',heard:heard[0]};
 }
 
+// A Reply where the learner said the other person's line (all of it, or most of a longer one) instead of
+// answering. Checked only after the answer itself came back wrong; it gets a free retry and a nudge.
+export function repeatsTheirLine(candidates:readonly string[],line:string):boolean{
+ const verdict=gradeSpeech(candidates,[line]);
+ return verdict.type==='match'||verdict.type==='close';
+}
+
 // What a graded spoken answer does. "Almost" (a phrase with a word missing) earns one free second
 // try per step: right then counts as right first time; a second miss costs a heart like any mistake.
 export type SpeakOutcome='pass'|'fail'|'almost'|'silence';

@@ -36,6 +36,10 @@
 .native-app .speak-reply.is-live { border-style:solid; border-color:#9fc3a9; background:#fffefa; color:#4b5e45; font-size:22px; font-weight:500; }
 .native-app .speak-reply.is-correct { border:1.5px solid #246653; background:#246653; color:#fff; font-size:24px; font-weight:600; animation:speak-bubble 460ms var(--spring) backwards; }
 .native-app .speak-reply.is-wrong { border:1.5px solid #ae7852; background:#fff8f1; color:#815329; font-size:22px; animation:app-shake 380ms ease-in-out backwards; }
+/* The English cue in a waiting Reply bubble: what to say, to be said in Russian (agreed 2026-11-27). */
+.native-app .speak-reply.is-cue { flex-direction:column; align-items:flex-end; gap:1px; border-color:#7fa58c; background:#fffdf7; text-align:right; }
+.native-app .speak-cue-say { display:flex; align-items:center; gap:7px; color:#234c38; font-size:18px; font-weight:600; }
+.native-app .speak-reply.is-cue small { color:#5f6c58; font-size:13px; }
 .native-app .speak-almost { min-height:0; margin-top:12px; }
 .native-app .speak-almost > * { animation:app-rise-in 280ms var(--ease) backwards; }
 .native-app .speak-heard-line { display:block; margin-top:6px; font-size:13px; opacity:.85; }

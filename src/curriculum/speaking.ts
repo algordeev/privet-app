@@ -11,7 +11,9 @@ import type {Exercise,LessonDefinition} from './types.ts';
 // listening step for the same phrase two steps later), "What does it mean?" from English `choices`.
 // A Reply is "Hear it": both lines play and it counts as done.
 type Repeat={wordId:string;choices:readonly [string,string,string];title:string;quiet?:'meaning'};
-type Reply={after:string;scene:string;translation:string;title:string;success:string;hint:string};
+// scene: the instruction, ending with what to say (agreed 2026-11-27); translation: the English cue in the reply bubble;
+// who: the other person, for "That's Anna's line." when the learner repeats their line instead of answering.
+type Reply={after:string;scene:string;translation:string;title:string;who:string;success:string;hint:string};
 
 const REPEAT_TEXT={instruction:'Listen, then say it in Russian.',retryFeedback:'Listen once more, then try again.'};
 const REPLY_TEXT={retryFeedback:'Listen to the line again, then say your reply.'};
@@ -19,35 +21,35 @@ const REPLY_TEXT={retryFeedback:'Listen to the line again, then say your reply.'
 const SPEAKING:Readonly<Record<string,{repeat:Repeat;reply:Reply}>>={
  cafe:{
   repeat:{wordId:'hi',choices:['Привет!','Спасибо!','кофе'],title:'Say hello.'},
-  reply:{after:'exchange',scene:'The barista hands you your tea.',translation:'Thank you!',title:'Your turn to reply.',success:'A warm thank you, said out loud.',hint:'Say Спасибо! · spa-SEE-ba'},
+  reply:{after:'exchange',scene:'The barista hands you your tea. Thank them.',translation:'Thank you!',title:'Answer the barista.',who:'the barista',success:'A warm thank you, said out loud.',hint:'Say Спасибо! · spa-SEE-ba'},
  },
  introductions:{
   repeat:{wordId:'ask-name',choices:['Как тебя зовут?','А тебя?','Очень приятно!'],title:'Ask a name.'},
-  reply:{after:'exchange',scene:'Alex tells you his name.',translation:'Nice to meet you!',title:'Say it to Alex.',success:'Очень приятно! Out loud, it sounds even warmer.',hint:'Say Очень приятно! · O-chin pri-YAT-na'},
+  reply:{after:'exchange',scene:'Alex tells you his name. Say you’re pleased to meet him.',translation:'Nice to meet you!',title:'Answer Alex.',who:'Alex',success:'Очень приятно! Out loud, it sounds even warmer.',hint:'Say Очень приятно! · O-chin pri-YAT-na'},
  },
  'around-town':{
   repeat:{wordId:'excuse',choices:['Извините!','Налево.','Спасибо!'],title:'Stop someone politely.'},
-  reply:{after:'exchange',scene:'A passer-by points the way.',translation:'Thank you!',title:'Thank the passer-by.',success:'Спасибо! You found the metro and said thanks.',hint:'Say Спасибо! · spa-SEE-ba'},
+  reply:{after:'exchange',scene:'A passer-by points the way. Thank them.',translation:'Thank you!',title:'Answer the passer-by.',who:'the passer-by',success:'Спасибо! You found the metro and said thanks.',hint:'Say Спасибо! · spa-SEE-ba'},
  },
  shopping:{
   repeat:{wordId:'price',choices:['Сколько стоит?','Вот, пожалуйста.','Да, спасибо.'],title:'Ask the price.'},
-  reply:{after:'exchange',scene:'The assistant checks your order.',translation:'Yes, thank you.',title:'Answer the assistant.',success:'Да, спасибо. Polite and clear.',hint:'Say Да, спасибо. · da spa-SEE-ba'},
+  reply:{after:'exchange',scene:'The assistant checks your order. Say yes, and thank them.',translation:'Yes, thank you.',title:'Answer the assistant.',who:'the assistant',success:'Да, спасибо. Polite and clear.',hint:'Say Да, спасибо. · da spa-SEE-ba'},
  },
  'daily-life':{
   repeat:{wordId:'work',choices:['I work.','I relax.','I drink coffee.'],title:'Talk about your day.',quiet:'meaning'},
-  reply:{after:'exchange',scene:'Anna asks about your evening.',translation:'I relax.',title:'Tell Anna.',success:'Я отдыхаю. A calm evening, said out loud.',hint:'Say Я отдыхаю. · ya at-di-HA-yu'},
+  reply:{after:'exchange',scene:'Anna asks about your evening. Tell her you relax.',translation:'I relax.',title:'Answer Anna.',who:'Anna',success:'Я отдыхаю. A calm evening, said out loud.',hint:'Say Я отдыхаю. · ya at-di-HA-yu'},
  },
  'making-plans':{
   repeat:{wordId:'walk',choices:['Давай гулять!','До завтра!','Давай!'],title:'Suggest a walk.'},
-  reply:{after:'exchange',scene:'Alex suggests a walk.',translation:'Let’s! / Sure!',title:'Say yes to Alex.',success:'Давай! Short and friendly.',hint:'Say Давай! · da-VAI'},
+  reply:{after:'exchange',scene:'Alex suggests a walk. Say yes.',translation:'Let’s! / Sure!',title:'Answer Alex.',who:'Alex',success:'Давай! Short and friendly.',hint:'Say Давай! · da-VAI'},
  },
  studies:{
   repeat:{wordId:'work',choices:['Where do you work? (informal)','And you? (informal)','I study.'],title:'Ask about work.',quiet:'meaning'},
-  reply:{after:'exchange',scene:'A classmate asks about you.',translation:'And I work.',title:'Answer your classmate.',success:'А я работаю. The little А makes the contrast.',hint:'Say А я работаю. · a ya ra-BO-ta-yu'},
+  reply:{after:'exchange',scene:'A classmate asks about you. Say that you work.',translation:'And I work.',title:'Answer your classmate.',who:'your classmate',success:'А я работаю. The little А makes the contrast.',hint:'Say А я работаю. · a ya ra-BO-ta-yu'},
  },
  culture:{
   repeat:{wordId:'interesting',choices:['Интересно!','Потом чай?','Да, давай!'],title:'Share your interest.'},
-  reply:{after:'exchange',scene:'Anna plans the museum and tea.',translation:'Yes, let’s!',title:'Accept Anna’s plan.',success:'Да, давай! Museum first, then tea.',hint:'Say Да, давай! · da da-VAI'},
+  reply:{after:'exchange',scene:'Anna plans the museum and tea. Say yes, let’s.',translation:'Yes, let’s!',title:'Answer Anna.',who:'Anna',success:'Да, давай! Museum first, then tea.',hint:'Say Да, давай! · da da-VAI'},
  },
 };
 
@@ -62,7 +64,7 @@ function replyStep(lesson:LessonDefinition,reply:Reply):Exercise{
  const source=lesson.exercises.find(e=>e.id===reply.after);
  if(!source?.exchange)throw new Error(`${lesson.id}: ${reply.after} has no dialogue line`);
  return {id:'reply',kind:'speak',exchange:source.exchange,title:reply.title,instruction:reply.scene,...REPLY_TEXT,prompt:source.exchange.text,
-  answer:source.answer,...(source.alsoAccepted?{alsoAccepted:source.alsoAccepted}:{}),translation:reply.translation,
+  answer:source.answer,...(source.alsoAccepted?{alsoAccepted:source.alsoAccepted}:{}),translation:reply.translation,replyTo:reply.who,
   review:`Replying out loud: ${source.answer}`,success:reply.success,hint:reply.hint};
 }
 

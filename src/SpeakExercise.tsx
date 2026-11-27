@@ -18,13 +18,14 @@ type ContentProps={
 export function SpeakContent({exercise,step,feedback,playing,audio,showReading,reading,display,onPlay}:ContentProps){
  const {phase,partial,heard,missing}=step;
  const live=phase==='listening'||phase==='checking';
- const wrong=feedback==='incorrect'||phase==='almost';
+ const wrong=feedback==='incorrect'||phase==='almost'||phase==='echo';
  const missed=(word:string)=>phase==='almost'&&missing.some(m=>m.toLocaleLowerCase('ru')===word.replace(/[^\p{L}\p{N}́-]/gu,'').toLocaleLowerCase('ru'));
  if(exercise.exchange){
   const ex=exercise.exchange;
   const reply=feedback==='correct'?<div className="speak-reply is-correct" lang="ru">{display(exercise.answer)}</div>
    :live?<div className="speak-reply is-live" lang="ru" aria-live="polite">{partial||<Dots/>}</div>
    :wrong&&heard?<div className="speak-reply is-wrong" lang="ru">{heard}</div>
+   :exercise.translation?<div className="speak-reply is-cue"><span className="speak-cue-say"><MicIcon/> “{exercise.translation}”</span><small>Say it in Russian</small></div>
    :<div className="speak-reply"><MicIcon/> Your reply</div>;
   return <div className="speak-chat">
    <div className="exchange speak-line"><span>{ex.speaker}</span><p lang="ru">{display(ex.text)}</p>{showReading&&reading&&<small className="native-russian-reading" lang="en">{reading}</small>}<small>{ex.meaning}</small>
@@ -32,6 +33,7 @@ export function SpeakContent({exercise,step,feedback,playing,audio,showReading,r
    </div>
    {reply}
    {phase==='almost'&&<AlmostNote missing={missing}/>}
+   {phase==='echo'&&<EchoNote who={exercise.replyTo} cue={exercise.translation}/>}
   </div>;
  }
  const words=exercise.prompt.split(/\s+/);
@@ -52,12 +54,18 @@ function AlmostNote({missing}:{missing:string[]}){
  return <div className="feedback incorrect speak-almost" role="status"><strong>Almost there.</strong><p>{missing.length?<>This word got lost: <b lang="ru">{missing.join(' ')}</b>. </>:null}Say the whole thing again. This try is free.</p></div>;
 }
 
+// A Reply where the learner said the other person's line: name it, and say what to answer instead.
+function EchoNote({who,cue}:{who?:string;cue?:string}){
+ const whose=who?`${who.charAt(0).toUpperCase()}${who.slice(1)}’s`:'Their';
+ return <div className="feedback incorrect speak-almost" role="status"><strong>That’s {whose} line.</strong><p>{cue?<>Now answer: say “{cue}” in Russian. </>:'Now say your answer. '}This try is free.</p></div>;
+}
+
 // The bottom button while a speaking step waits for an answer: Tap to speak, the listening bar, or Checking.
 export function SpeakButton({step,onSpeak,onRetry}:{step:SpeakStep;onSpeak:()=>void;onRetry:()=>void}){
  const {phase,bars}=step;
  if(phase==='listening')return <button className="button teal speak-button is-listening" onClick={step.stop} aria-label="Listening. Tap when you're done."><span className="speak-wave" aria-hidden="true">{bars.map((h,i)=><i key={i} style={{transform:`scaleY(${h.toFixed(2)})`}}/>)}</span>Listening… tap when done</button>;
  if(phase==='checking')return <button className="button teal speak-button is-checking" disabled><Dots/> Checking</button>;
- if(phase==='almost')return <button className="button teal" onClick={onRetry}>Try again <span>→</span></button>;
+ if(phase==='almost'||phase==='echo')return <button className="button teal" onClick={onRetry}>Try again <span>→</span></button>;
  return <button className="button teal speak-button" onClick={onSpeak}><MicIcon/> Tap to speak</button>;
 }
 

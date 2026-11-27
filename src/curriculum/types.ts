@@ -9,6 +9,8 @@ export type Exercise = {
  // versions: a Repeat is a listening choice from `choices`, or with quiet:'meaning' a meaning choice
  // (English `choices`, answer `translation`); a Reply is "Hear it" (both lines play, counts as done).
  quiet?:'meaning';
+ // A Reply's other person, as named in "That's Anna's line." when the learner repeats their line (e.g. 'Anna', 'the barista').
+ replyTo?:string;
  // match: [Russian, English] pairs, graded per pair as the learner taps them.
  pairs?:readonly (readonly [string,string])[];
 };

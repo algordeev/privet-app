@@ -1,13 +1,14 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import type {Exercise} from './curriculum/types';
-import {gradeSpeech,speakOutcome} from './speechMatch';
+import {gradeSpeech,repeatsTheirLine,speakOutcome} from './speechMatch';
 import {useForeground} from './useForeground';
 import {candidates,speechPlugin,speechRecognitionSupported} from './speechRecognition';
 
 // idle: waiting for "Tap to speak"; listening/checking: the microphone is open, then the final words;
-// almost: a phrase came back with a word missing (one free retry); silence: nothing heard (no grade);
+// almost: a phrase came back with a word missing (one free retry); echo: a Reply where the other person's
+// line was said instead of an answer (a free retry, every time); silence: nothing heard (no grade);
 // error: the microphone could not start.
-export type SpeakPhase='idle'|'listening'|'checking'|'almost'|'silence'|'error';
+export type SpeakPhase='idle'|'listening'|'checking'|'almost'|'echo'|'silence'|'error';
 const UNAVAILABLE=new Set(['NOT_AUTHORIZED','NO_ON_DEVICE','UNAVAILABLE']);
 const BARS=7;
 
@@ -58,7 +59,9 @@ export function useSpeakStep({exercise,stepKey,onGrade,onUnavailable}:{exercise:
    listening.current=false;
    if(id!==generation.current)return;
    const {exercise:e,onGrade:grade}=latest.current;
-   const verdict=gradeSpeech(candidates(result),[e.answer,...e.alsoAccepted??[]]);
+   const heardList=candidates(result);
+   const verdict=gradeSpeech(heardList,[e.answer,...e.alsoAccepted??[]]);
+   if(verdict.type==='wrong'&&e.exchange&&repeatsTheirLine(heardList,e.exchange.text)){setHeard(verdict.heard);setPhase('echo');return;}
    const outcome=speakOutcome(verdict,almostUsed.current);
    if(verdict.type!=='silence')setHeard(verdict.heard);
    if(outcome==='silence'){setPhase('silence');return;}
@@ -78,7 +81,7 @@ export function useSpeakStep({exercise,stepKey,onGrade,onUnavailable}:{exercise:
  useEffect(()=>{if(!foreground&&listening.current)void speechPlugin.stop().catch(()=>{});},[foreground]);
  // Closes the microphone early; the words heard so far are graded.
  const stop=useCallback(()=>{if(listening.current)void speechPlugin.stop().catch(()=>{});},[]);
- // Back to "Tap to speak" after Almost, silence or an error. The heart and first-try state are untouched.
+ // Back to "Tap to speak" after Almost, a repeated line, silence or an error. The heart and first-try state are untouched.
  const reset=useCallback(()=>{if(!listening.current){setPhase('idle');setPartial('');}},[]);
  return {phase,partial,heard,missing,bars,start,stop,reset};
 }

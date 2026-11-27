@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {gradeSpeech,spokenWords} from './speechMatch.ts';
+import {gradeSpeech,repeatsTheirLine,spokenWords} from './speechMatch.ts';
 import {candidates} from './speechRecognition.ts';
 
 test('spoken words ignore case, punctuation, hyphens, stress and ё', () => {
@@ -37,4 +37,12 @@ test('per-word alternatives become whole-answer candidates', () => {
   {text:'кофе',confidence:.9,alternatives:[]},{text:'пожалуй',confidence:.3,alternatives:['пожалуйста']}]});
  assert.deepEqual(list,['кофе пожалуй','кофе пожалуйста']);
  assert.equal(gradeSpeech(list,['Кофе, пожалуйста.']).type,'match');
+});
+
+test('a Reply notices when the learner repeats the other person\'s line instead of answering', () => {
+ assert.equal(repeatsTheirLine(['а вечером'],'А вечером?'),true);
+ assert.equal(repeatsTheirLine(['меня зовут'],'Меня зовут Алекс.'),true);
+ assert.equal(repeatsTheirLine(['Хлеб'],'Хлеб?'),true);
+ assert.equal(repeatsTheirLine(['я работаю'],'А вечером?'),false);
+ assert.equal(repeatsTheirLine([],'А вечером?'),false);
 });

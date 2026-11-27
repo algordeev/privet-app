@@ -367,6 +367,9 @@ html.native-platform[data-theme="dark"]{background-color:#121a2b}
 :where(html.native-platform[data-theme="dark"]) .native-app .speak-reply.is-live{border-color:#46e0a48c;background-color:#1c2639;color:#46e0a4}
 :where(html.native-platform[data-theme="dark"]) .native-app .speak-reply.is-correct{border-color:#46e0a4;background-color:#3fd49a;color:#08281c}
 :where(html.native-platform[data-theme="dark"]) .native-app .speak-reply.is-wrong{border-color:#ff6b818c;background-color:#ff6b811a;color:#ff6b81}
+:where(html.native-platform[data-theme="dark"]) .native-app .speak-reply.is-cue{border-color:#46e0a48c;background-color:#1c2639}
+:where(html.native-platform[data-theme="dark"]) .native-app .speak-cue-say{color:#f5f7fc}
+:where(html.native-platform[data-theme="dark"]) .native-app .speak-reply.is-cue small{color:#b6c0d6}
 :where(html.native-platform[data-theme="dark"]) .native-app .speak-button.is-listening{background-color:#3fd49a}
 :where(html.native-platform[data-theme="dark"]) .native-app .speak-button.is-checking,:where(html.native-platform[data-theme="dark"]) .native-app .speak-button.is-checking:disabled{background-color:#46e0a41a;color:#b6c0d6}
 :where(html.native-platform[data-theme="dark"]) .speak-wave i{background-color:#1c2639}
