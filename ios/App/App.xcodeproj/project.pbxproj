@@ -3,10 +3,13 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 60;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		22CB947A30BA1B2C00E71A80 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 22CB947930BA1B2B00E71A80 /* WidgetKit.framework */; };
+		22CB947C30BA1B2C00E71A80 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 22CB947B30BA1B2C00E71A80 /* SwiftUI.framework */; };
+		22CB948930BA1B3200E71A80 /* PrivetWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 22CB947730BA1B2B00E71A80 /* PrivetWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		2415ECFA17E07071C92A19FE /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 6A01CACA57AA1A4E544FDA51 /* PrivacyInfo.xcprivacy */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
@@ -20,10 +23,42 @@
 		A7C0FFEE00000000000000B1 /* PrivetStorePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0FFEE00000000000000F1 /* PrivetStorePlugin.swift */; };
 		A7C0FFEE00000000000000B3 /* PrivetSpeechPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0FFEE00000000000000F3 /* PrivetSpeechPlugin.swift */; };
 		A7C0FFEE00000000000000B4 /* PrivetAppearancePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0FFEE00000000000000F4 /* PrivetAppearancePlugin.swift */; };
+		A7C0FFEE00000000000000B5 /* PrivetLessonAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0FFEE00000000000000F5 /* PrivetLessonAttributes.swift */; };
+		A7C0FFEE00000000000000B6 /* PrivetLiveActivityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0FFEE00000000000000F6 /* PrivetLiveActivityPlugin.swift */; };
+		A7C0FFEE00000000000000B7 /* PrivetLessonAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0FFEE00000000000000F5 /* PrivetLessonAttributes.swift */; };
+		A7C0FFEE00000000000000B8 /* PrivetBackgroundPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0FFEE00000000000000F7 /* PrivetBackgroundPlugin.swift */; };
+		A7C0FFEE00000000000000B9 /* PrivetPrintAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0FFEE00000000000000F8 /* PrivetPrintAttributes.swift */; };
+		A7C0FFEE00000000000000BA /* PrivetPrintAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0FFEE00000000000000F8 /* PrivetPrintAttributes.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		22CB948730BA1B3200E71A80 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 22CB947630BA1B2B00E71A80;
+			remoteInfo = PrivetWidgetsExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		22CB948A30BA1B3200E71A80 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				22CB948930BA1B3200E71A80 /* PrivetWidgetsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
-		6A01CACA57AA1A4E544FDA51 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		22CB947730BA1B2B00E71A80 /* PrivetWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PrivetWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		22CB947930BA1B2B00E71A80 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		22CB947B30BA1B2C00E71A80 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -33,15 +68,43 @@
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
+		6A01CACA57AA1A4E544FDA51 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		A7C0FFEE00000000000000F1 /* PrivetStorePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivetStorePlugin.swift; sourceTree = "<group>"; };
+		A7C0FFEE00000000000000F2 /* Privet.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Privet.storekit; sourceTree = "<group>"; };
 		A7C0FFEE00000000000000F3 /* PrivetSpeechPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivetSpeechPlugin.swift; sourceTree = "<group>"; };
 		A7C0FFEE00000000000000F4 /* PrivetAppearancePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivetAppearancePlugin.swift; sourceTree = "<group>"; };
-		A7C0FFEE00000000000000F2 /* Privet.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Privet.storekit; sourceTree = "<group>"; };
+		A7C0FFEE00000000000000F5 /* PrivetLessonAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivetLessonAttributes.swift; sourceTree = "<group>"; };
+		A7C0FFEE00000000000000F6 /* PrivetLiveActivityPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivetLiveActivityPlugin.swift; sourceTree = "<group>"; };
+		A7C0FFEE00000000000000F7 /* PrivetBackgroundPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivetBackgroundPlugin.swift; sourceTree = "<group>"; };
+		A7C0FFEE00000000000000F8 /* PrivetPrintAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivetPrintAttributes.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		22CB948D30BA1B3200E71A80 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 22CB947630BA1B2B00E71A80 /* PrivetWidgetsExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		22CB947D30BA1B2C00E71A80 /* PrivetWidgets */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (22CB948D30BA1B3200E71A80 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = PrivetWidgets; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
 /* Begin PBXFrameworksBuildPhase section */
+		22CB947430BA1B2B00E71A80 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				22CB947C30BA1B2C00E71A80 /* SwiftUI.framework in Frameworks */,
+				22CB947A30BA1B2C00E71A80 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3011FED79650016851F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -53,11 +116,22 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		22CB947830BA1B2B00E71A80 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				22CB947930BA1B2B00E71A80 /* WidgetKit.framework */,
+				22CB947B30BA1B2C00E71A80 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		504EC2FB1FED79650016851F = {
 			isa = PBXGroup;
 			children = (
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
+				22CB947D30BA1B2C00E71A80 /* PrivetWidgets */,
+				22CB947830BA1B2B00E71A80 /* Frameworks */,
 				504EC3051FED79650016851F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -66,6 +140,7 @@
 			isa = PBXGroup;
 			children = (
 				504EC3041FED79650016851F /* App.app */,
+				22CB947730BA1B2B00E71A80 /* PrivetWidgetsExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -77,6 +152,10 @@
 				A7C0FFEE00000000000000F1 /* PrivetStorePlugin.swift */,
 				A7C0FFEE00000000000000F3 /* PrivetSpeechPlugin.swift */,
 				A7C0FFEE00000000000000F4 /* PrivetAppearancePlugin.swift */,
+				A7C0FFEE00000000000000F6 /* PrivetLiveActivityPlugin.swift */,
+				A7C0FFEE00000000000000F5 /* PrivetLessonAttributes.swift */,
+				A7C0FFEE00000000000000F7 /* PrivetBackgroundPlugin.swift */,
+				A7C0FFEE00000000000000F8 /* PrivetPrintAttributes.swift */,
 				A7C0FFEE00000000000000F2 /* Privet.storekit */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
@@ -94,6 +173,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		22CB947630BA1B2B00E71A80 /* PrivetWidgetsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 22CB948E30BA1B3200E71A80 /* Build configuration list for PBXNativeTarget "PrivetWidgetsExtension" */;
+			buildPhases = (
+				22CB947330BA1B2B00E71A80 /* Sources */,
+				22CB947430BA1B2B00E71A80 /* Frameworks */,
+				22CB947530BA1B2B00E71A80 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				22CB947D30BA1B2C00E71A80 /* PrivetWidgets */,
+			);
+			name = PrivetWidgetsExtension;
+			packageProductDependencies = (
+			);
+			productName = PrivetWidgetsExtension;
+			productReference = 22CB947730BA1B2B00E71A80 /* PrivetWidgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		504EC3031FED79650016851F /* App */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 504EC3161FED79650016851F /* Build configuration list for PBXNativeTarget "App" */;
@@ -101,10 +202,12 @@
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
+				22CB948A30BA1B3200E71A80 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				22CB948830BA1B3200E71A80 /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -120,9 +223,12 @@
 		504EC2FC1FED79650016851F /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastSwiftUpdateCheck = 0920;
+				LastSwiftUpdateCheck = 2650;
 				LastUpgradeCheck = 0920;
 				TargetAttributes = {
+					22CB947630BA1B2B00E71A80 = {
+						CreatedOnToolsVersion = 26.5;
+					};
 					504EC3031FED79650016851F = {
 						CreatedOnToolsVersion = 9.2;
 						LastSwiftMigration = 1100;
@@ -147,11 +253,19 @@
 			projectRoot = "";
 			targets = (
 				504EC3031FED79650016851F /* App */,
+				22CB947630BA1B2B00E71A80 /* PrivetWidgetsExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		22CB947530BA1B2B00E71A80 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3021FED79650016851F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -169,6 +283,15 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		22CB947330BA1B2B00E71A80 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A7C0FFEE00000000000000B7 /* PrivetLessonAttributes.swift in Sources */,
+				A7C0FFEE00000000000000BA /* PrivetPrintAttributes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3001FED79650016851F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -178,10 +301,22 @@
 				A7C0FFEE00000000000000B1 /* PrivetStorePlugin.swift in Sources */,
 				A7C0FFEE00000000000000B3 /* PrivetSpeechPlugin.swift in Sources */,
 				A7C0FFEE00000000000000B4 /* PrivetAppearancePlugin.swift in Sources */,
+				A7C0FFEE00000000000000B5 /* PrivetLessonAttributes.swift in Sources */,
+				A7C0FFEE00000000000000B6 /* PrivetLiveActivityPlugin.swift in Sources */,
+				A7C0FFEE00000000000000B8 /* PrivetBackgroundPlugin.swift in Sources */,
+				A7C0FFEE00000000000000B9 /* PrivetPrintAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		22CB948830BA1B3200E71A80 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 22CB947630BA1B2B00E71A80 /* PrivetWidgetsExtension */;
+			targetProxy = 22CB948730BA1B3200E71A80 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		504EC30B1FED79650016851F /* Main.storyboard */ = {
@@ -358,9 +493,102 @@
 			};
 			name = Release;
 		};
+		F0C0FFEE00000000000000D1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6925N9VUQT;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PrivetWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PrivetWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.algordeev.privet.PrivetWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F0C0FFEE00000000000000D2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6925N9VUQT;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PrivetWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PrivetWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.algordeev.privet.PrivetWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		22CB948E30BA1B3200E71A80 /* Build configuration list for PBXNativeTarget "PrivetWidgetsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F0C0FFEE00000000000000D1 /* Debug */,
+				F0C0FFEE00000000000000D2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		504EC2FF1FED79650016851F /* Build configuration list for PBXProject "App" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

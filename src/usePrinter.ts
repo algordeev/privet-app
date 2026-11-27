@@ -6,6 +6,8 @@ import {PRODUCT} from './config';
 import {printJob} from './printerProtocol';
 import {createNativePrinterDriver} from './printerDriver';
 import {BLE_USED_KEY} from './usePhysicalCompanion';
+import {createBackgroundTime} from './backgroundTime';
+import {createPrintActivity,PRINTED_SHOWN_MS,printSeconds} from './printActivity';
 import {createPrinterTransport,DEFAULT_PRINT_ROWS_PER_SECOND,initialPrinterState,learnRate,type PrinterDevice,type PrinterState,type PrinterTransport} from './printerTransport';
 
 // The thermal printer remembered by itself, apart from the companion (COMPANION_KEY), so the companion's
@@ -44,7 +46,8 @@ export function usePrinter(){
  if(!store.current)store.current={state:initialPrinterState(),listeners:new Set()};
  const transport=useRef<PrinterTransport|null>(null);
  // Rows waiting for a connection: Print while disconnected connects first, then prints.
- const pending=useRef<Uint8Array[]|undefined>(undefined);
+ // A print waiting for the connection: its rows, and its name for the island ("Alphabet strip").
+ const pending=useRef<{rows:Uint8Array[];title:string}|undefined>(undefined);
  const reconnect=useRef<{timer?:ReturnType<typeof setTimeout>;lostAt:number;running:boolean}>({lostAt:Date.now(),running:false});
  // Home's quiet look for a printer the app doesn't know yet, for the "printer found" card. "Not now"
  // (or Disconnect) ends it for this app session.
@@ -69,10 +72,23 @@ export function usePrinter(){
  const subscribe=useCallback((listener:()=>void)=>{store.current!.listeners.add(listener);return ()=>{store.current!.listeners.delete(listener);};},[]);
  // Always the Normal darkness (printJob's default), which suits the SC03h-type printers.
  // Each print the printer says it finished refines its speed, for the next print's progress and time left.
- const start=useCallback((rows:Uint8Array[])=>{void transport.current?.print(printJob(rows),{onOutcome:stats=>{
-  const rate=learnRate(learntRate(),stats);
-  if(rate!==undefined)try{appStorage.setItem(PRINTER_RATE_KEY,String(rate));}catch{/* The default speed stays. */}
- }});},[]);
+ // Extra time from iOS for each print, so leaving the app doesn't hold a print that's still being sent.
+ const backgroundTime=useRef<ReturnType<typeof createBackgroundTime>|null>(null);
+ // The print in the Dynamic Island and on the Lock Screen while you're away (src/printActivity.ts).
+ const activity=useRef(createPrintActivity());
+ const printedNow=useRef(false);
+ // Counts prints, so a finished print's delayed clean-up never ends the next print's island.
+ const printCount=useRef(0);
+ const start=useCallback((rows:Uint8Array[],title:string)=>{
+  printedNow.current=false;printCount.current++;
+  void backgroundTime.current?.begin();
+  activity.current.start(title,printSeconds(rows.length,printRate()));
+  void transport.current?.print(printJob(rows),{onOutcome:stats=>{
+   const rate=learnRate(learntRate(),stats);
+   if(rate!==undefined)try{appStorage.setItem(PRINTER_RATE_KEY,String(rate));}catch{/* The default speed stays. */}
+   if(stats.outcome==='done'){printedNow.current=true;activity.current.printed();}
+  }});
+ },[]);
  const setState=useCallback((next:PrinterState)=>{
   const previous=store.current!.state;
   store.current!.state=next;
@@ -83,8 +99,16 @@ export function usePrinter(){
     // Connected by hand: reconnecting by itself is on again.
     if(!next.auto)appStorage.removeItem(PRINTER_AUTO_OFF_KEY);
    }catch{/* Just not remembered. */}
-   const rows=pending.current;pending.current=undefined;
-   if(rows)setTimeout(()=>start(rows),0);
+   const waiting=pending.current;pending.current=undefined;
+   if(waiting)setTimeout(()=>start(waiting.rows,waiting.title),0);
+  }
+  // The print is over (printed, cancelled or failed): give the extra time back. If that happened while Privet
+  // was away, let the printer go now, as leaving the app would have done (it takes one connection at a time).
+  // A finished print shows "Printed ✓ Tear it off" for a moment first, still inside that extra time.
+  if(previous.phase==='printing'&&next.phase!=='printing'){
+   const extra=backgroundTime.current,count=printCount.current;
+   const finish=()=>{if(count!==printCount.current)return;activity.current.end();void activity.current.settled().then(()=>extra?.end());if(document.hidden)transport.current?.setActive(false,true);};
+   if(printedNow.current)setTimeout(finish,PRINTED_SHOWN_MS);else setTimeout(finish,0);
   }
   // Lost (not only by Disconnect): look quickly for a while.
   const linked=(phase:PrinterState['phase'])=>phase==='connected'||phase==='printing';
@@ -96,11 +120,14 @@ export function usePrinter(){
  useEffect(()=>{
   const actor=createPrinterTransport(createNativePrinterDriver(),setState,{supported:printingSupported,hidden:()=>document.hidden});
   transport.current=actor;
+  // If iOS ends the extra time while the print is still being sent, it's held as before.
+  const extra=createBackgroundTime(()=>{if(document.hidden)actor.setActive(false,true);});
+  backgroundTime.current=extra;
   let nativeActive=true;
   const visibility=()=>{
    // Only a real background holds a running print; being covered for a moment (Control Center, a banner,
-   // a system prompt) does not interrupt it.
-   const active=nativeActive&&!document.hidden;actor.setActive(active,document.hidden);
+   // a system prompt) does not interrupt it, and neither does leaving while iOS still gives extra time.
+   const active=nativeActive&&!document.hidden;actor.setActive(active,document.hidden&&!extra.active);
    // Back in the app: look quickly again, starting now.
    if(active){reconnect.current.lostAt=Date.now();lookAgain();}
   };
@@ -111,7 +138,7 @@ export function usePrinter(){
   if(printingSupported()){reconnect.current.running=true;reconnect.current.lostAt=Date.now();lookAgain();}
   return ()=>{
    reconnect.current.running=false;clearTimeout(reconnect.current.timer);
-   transport.current=null;pending.current=undefined;actor.dispose();setState(initialPrinterState());
+   transport.current=null;pending.current=undefined;actor.dispose();activity.current.end();backgroundTime.current=null;extra.dispose();setState(initialPrinterState());
    document.removeEventListener('visibilitychange',visibility);window.removeEventListener('pagehide',pagehide);
    void listener?.then(handle=>handle.remove()).catch(()=>{});
   };
@@ -119,11 +146,12 @@ export function usePrinter(){
  // Connect: looks for printers, connecting at once to the remembered one.
  const connect=useCallback(()=>{void transport.current?.scan({target:rememberedPrinter()?.deviceId});},[]);
  const choose=useCallback((id:string)=>{void transport.current?.connect(id);},[]);
- const print=useCallback((rows:Uint8Array[])=>{
+ // title: what's printing, as named in the print sheet ("Alphabet strip"), for the island.
+ const print=useCallback((rows:Uint8Array[],title='Card')=>{
   const t=transport.current,s=store.current!.state;if(!t)return;
-  if(s.phase==='connected'){start(rows);return;}
+  if(s.phase==='connected'){start(rows,title);return;}
   if(s.phase==='printing')return;
-  pending.current=rows;
+  pending.current={rows,title};
   // Not already looking or connecting (a quiet look becomes the visible scan).
   if((s.phase==='scanning'&&s.quiet)||(s.phase!=='scanning'&&s.phase!=='connecting'))void t.scan({target:rememberedPrinter()?.deviceId});
  },[start]);
