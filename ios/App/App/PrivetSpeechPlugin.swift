@@ -303,7 +303,7 @@ public class PrivetSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
         let audio = AVAudioSession.sharedInstance()
         if savedCategory == nil { savedCategory = (audio.category, audio.mode, audio.categoryOptions) }
         // defaultToSpeaker keeps the model word on the loudspeaker, not the earpiece, while recording.
-        try audio.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
+        try audio.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
         try audio.setActive(true)
     }
 
