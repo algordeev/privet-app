@@ -112,6 +112,18 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .translation-caret { width: 2px; height: 26px; border-radius: 1px; background: #397756; animation: app-caret 1s steps(1) infinite; }
 .native-app .translation-display:has(.translation-placeholder) .translation-caret { order: -1; margin-right: 6px; }
 @keyframes app-caret { 50% { opacity: 0; } }
+/* Typing with the letter buttons (agreed 2026-11-28): one box per letter, the next one marked, Lesson 1's given
+   letter quieter; each button shows its sound under the letter, and presses down like the other chunky buttons. */
+.native-app .translation-boxes { justify-content: center; gap: 6px; padding: 12px 10px; }
+.native-app .translation-box { display: grid; place-items: end center; width: 30px; height: 40px; padding-bottom: 3px; border-bottom: 2.5px solid #b9c8ae; color: #2d4d37; font-size: 24px; font-weight: 500; line-height: 1; }
+.native-app .translation-box.is-given { color: #6f7f66; }
+.native-app .translation-box.is-next { border-bottom-color: #246653; animation: app-caret-line 1.1s steps(1) infinite; }
+@keyframes app-caret-line { 50% { border-bottom-color: #b9c8ae; } }
+.native-app .translation-boxes.is-correct .translation-box { border-bottom-color: #4f9a52; }
+.native-app .letter-bank button.has-sound { display: grid; align-content: center; gap: 3px; min-height: 58px; line-height: 1; box-shadow: 0 3px 0 #d3dac8; transition: transform 80ms, box-shadow 80ms; }
+.native-app .letter-bank button.has-sound:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 #d3dac8; }
+.native-app .letter-bank button small { display: block; color: #5f6e57; font-size: 11px; font-style: italic; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .native-app .translation-box.is-next { animation: none; } }
 .native-app .keyboard-switch { margin: 12px 0 0; color: #68785e; font-size: 13px; text-align: center; }
 .native-app .keyboard-switch .native-text-button { display: inline-block; min-height: 44px; margin: 0; padding: 0 6px; font-size: 13px; }
 .native-app .lesson-hint { margin-top: 12px; }

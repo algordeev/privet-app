@@ -23,6 +23,7 @@ import {NativeSheet} from './NativeSheet';
 import {HearContent,MicIcon,SpeakButton,SpeakContent,SpeakToast} from './SpeakExercise';
 import {hearsReply,modelLine,presentExercise} from './speakSteps';
 import {useSpeakStep} from './useSpeakStep';
+import {answerLetters,boxes,givenLetters,letterSound} from './typingHelp';
 import type {SpeakingController} from './useSpeaking';
 function CloseIcon(){return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>;}
 export function LessonPanel({controller,native=false,onClose,onUpgrade,nextLesson,onReplay,onListen,onListenEnd,onHint,onReveal,onMatchPair,nativeCompanion,gems=0,onRefill,gemAward,completionDetails,practiceOnly=false,showFeatureTour=false,review=false,onPrintWord,onPrintPractice,onPrintLetter,speaking}:{speaking?:SpeakingController;onPrintLetter?:(letter:CyrillicLetter,words:readonly Word[])=>void;onPrintWord?:(wordId:string)=>void;onPrintPractice?:()=>void;review?:boolean;controller:LessonController;native?:boolean;onClose?:()=>void;onUpgrade?:()=>void;onReplay?:()=>void;onListen?:(text?:string)=>(()=>void)|void;onListenEnd?:()=>void;onHint?:()=>void;onReveal?:(wordId:string)=>void;onMatchPair?:(correct:boolean,matched:number)=>void;nextLesson?:{label:string;onOpen:()=>void};nativeCompanion?:NativeCompanionController;gems?:number;onRefill?:()=>void;gemAward?:GemBreakdown;completionDetails?:ReactNode;practiceOnly?:boolean;showFeatureTour?:boolean}){
@@ -40,6 +41,10 @@ export function LessonPanel({controller,native=false,onClose,onUpgrade,nextLesso
  const [phoneKeyboard,setPhoneKeyboard]=useState(false);
  useEffect(()=>setPhoneKeyboard(false),[progress.index]);
  const letterTyping=native&&!phoneKeyboard;
+ // Typing with the letter buttons: one box per letter, and Lesson 1 starts with the first letter filled in.
+ const typedLetters=exercise.kind==='typed'?answerLetters(exercise.answer).length:0;
+ const given=exercise.kind==='typed'?givenLetters(exercise.answer,exercise.given):'';
+ useEffect(()=>{if(letterTyping&&given&&!selected&&!progress.feedback)setSelected(given);},[letterTyping,given,selected,progress.feedback,progress.index]);
  const [listenFallbackAt,setListenFallbackAt]=useState<number|null>(null);
  const [pick,setPick]=useState<{ru?:string;en?:string}>({});
  const [mismatch,setMismatch]=useState<readonly [string,string]|null>(null);
@@ -126,11 +131,11 @@ export function LessonPanel({controller,native=false,onClose,onUpgrade,nextLesso
         {exercise.kind==='typed'&&<><label className="translation-label" htmlFor={letterTyping?undefined:'translation'}>“{exercise.translation}”</label>
          {letterTyping
           // The app's own answer box: letters come from the buttons below, so the iPhone keyboard never covers the exercise.
-          ?<div id="translation" className={`translation-input translation-display${progress.feedback?` is-${progress.feedback}`:''}`} role="textbox" aria-readonly="true" aria-label={`Your answer in Russian${selected?`: ${selected}`:', empty'}`}>
-            {selected?<span lang="ru">{selected}</span>:<span className="translation-placeholder">Tap the letters below</span>}{!progress.feedback&&<i className="translation-caret" aria-hidden="true"/>}
+          ?<div id="translation" className={`translation-input translation-display translation-boxes${progress.feedback?` is-${progress.feedback}`:''}`} role="textbox" aria-readonly="true" aria-label={`Your answer in Russian, ${typedLetters} letters${selected?`: ${selected}`:', empty'}`}>
+            {boxes(exercise.answer,selected).map((char,i)=><span key={i} lang="ru" className={`translation-box${i<given.length?' is-given':''}${!progress.feedback&&i===Array.from(selected).length?' is-next':''}`}>{char}</span>)}
            </div>
           :<input id="translation" ref={inputRef} className={`translation-input${progress.feedback?` is-${progress.feedback}`:''}`} value={selected} placeholder="Type in Russian…" lang="ru" autoFocus={native&&phoneKeyboard} autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} disabled={!!progress.feedback} onKeyDown={e=>{if(e.key==='Enter')check();}} onChange={e=>{setSelected(e.target.value);setThinkingAt(progress.index);}}/>}
-         {!(native&&phoneKeyboard)&&<div className="letter-bank" aria-label="Russian letter helpers">{exercise.letters!.map(letter=><button disabled={!!progress.feedback} key={letter} onClick={()=>{setSelected(s=>s+letter);if(!native)inputRef.current?.focus();}} lang="ru">{letter}</button>)}<button aria-label="Delete last letter" disabled={!!progress.feedback||!selected} onClick={()=>setSelected(s=>Array.from(s).slice(0,-1).join(''))}>⌫</button></div>}
+         {!(native&&phoneKeyboard)&&<div className="letter-bank" aria-label="Russian letter helpers">{exercise.letters!.map(letter=><button className={native&&preferences.pronunciation?'has-sound':undefined} disabled={!!progress.feedback||(letterTyping&&Array.from(selected).length>=typedLetters)} key={letter} onClick={()=>{setSelected(s=>s+letter);if(!native)inputRef.current?.focus();}} lang="ru">{letter}{native&&preferences.pronunciation&&<small lang="en">{letterSound(letter)}</small>}</button>)}<button aria-label="Delete last letter" disabled={!!progress.feedback||Array.from(selected).length<=(letterTyping?given.length:0)} onClick={()=>setSelected(s=>Array.from(s).slice(0,-1).join(''))}>⌫</button></div>}
          {native&&!progress.feedback&&<p className="keyboard-switch">{phoneKeyboard?<>Switch to Russian with 🌐 · <button className="native-text-button" onClick={()=>setPhoneKeyboard(false)}>Use letter buttons</button></>:<button className="native-text-button" onClick={()=>setPhoneKeyboard(true)}>{`Use ${DEVICE} keyboard`}</button>}</p>}
          {preferences.pronunciation&&(hintRequested||progress.feedback==='correct')&&<p className="pronunciation-guide">{exercise.pronunciationGuide}</p>}</>}
        </div>

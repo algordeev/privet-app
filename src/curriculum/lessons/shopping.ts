@@ -193,7 +193,7 @@ export const lesson:LessonDefinition={
    "review": "хлеб → bread",
    "success": "Yes: хлеб means “bread”. A useful word for this story.",
    "retryFeedback": "This is the short word for bread. Check the breathy first letter.",
-   "hint": "Four letters: the first sound is the breathy kh."
+   "hint": "Say it slowly: h-l-ye-b. Four letters; х is a breathy “h”. At the end, б sounds like “p”, but it’s written б."
   }
  ],
  "summary": "You asked a price, ordered bread, and paid politely with Вот, пожалуйста.",

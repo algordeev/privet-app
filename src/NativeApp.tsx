@@ -101,7 +101,21 @@ export function NativeHome({unlocked,controller,controllers,companion,activity,p
  const scroller=useRef<HTMLDivElement>(null);
  const passedIds=controllers.filter(item=>item.passed).map(item=>item.definition.id);
  const [restore]=useState(()=>!newlyPassedSince(passedIds));
- useLayoutEffect(()=>{if(scroller.current)scroller.current.scrollTop=restore?homeMemory.scroll:0;},[]);
+ // Home can still be growing when it appears (its cards finish laying out a moment later), and a scroll
+ // position past the end gets cut short. So keep putting it back while home grows, for up to a second, and
+ // stop as soon as it's reached or you touch or scroll home yourself.
+ useLayoutEffect(()=>{
+  const pane=scroller.current;if(!pane)return;
+  const target=restore?homeMemory.scroll:0;
+  pane.scrollTop=target;
+  if(target<=0||pane.scrollTop>=target-1||typeof ResizeObserver==='undefined')return;
+  const growth=new ResizeObserver(()=>{pane.scrollTop=target;if(pane.scrollTop>=target-1)stop();});
+  const stop=()=>{growth.disconnect();clearTimeout(timer);pane.removeEventListener('touchstart',stop);pane.removeEventListener('wheel',stop);};
+  const timer=setTimeout(stop,1000);
+  for(const child of Array.from(pane.children))growth.observe(child);
+  pane.addEventListener('touchstart',stop,{passive:true});pane.addEventListener('wheel',stop,{passive:true});
+  return stop;
+ },[]);
  useEffect(()=>{homeMemory.passed=new Set(passedIds);},[passedIds.join('|')]);
  return <div className="native-home-scroll" ref={scroller} onScroll={event=>{homeMemory.scroll=event.currentTarget.scrollTop;}}>
   <header className="native-home-header"><div className="wordmark"><span className="brand-icon" aria-hidden="true"><i/><i/></span>{PRODUCT.name}<span className="brand-dot">.</span></div><div className="native-home-tools"><button id="native-streak-open" className={`native-streak-badge${bumped.streak?' is-bumped':''}`} onClick={onStreak} aria-label={`${activity.summary.current}-day learning streak; open streak`}><StreakIcon/><span>{activity.summary.current}</span><span className="native-streak-unit">{activity.summary.current===1?'day':'days'}</span></button><button id="native-gems-open" className={`native-gems-pill${bumped.gems?' is-bumped':''}`} onClick={onGems} aria-label={`${activity.summary.gems} gems; open gems`}><span aria-hidden="true">◆</span> {activity.summary.gems}</button><button id="native-profile-open" className={`native-profile-open ${plus?'is-plus':''}`} onClick={onProfile} aria-label="Open your profile and statistics" aria-describedby={plus?'native-profile-plus-status':undefined}><ProfileIcon/>{plus&&<span className="native-profile-plus-tag" aria-hidden="true">PLUS</span>}</button>{plus&&<span id="native-profile-plus-status" className="native-sr-only">Plus active</span>}</div></header>

@@ -83,7 +83,7 @@ export const lesson:LessonDefinition={
    "review": "музей → museum",
    "success": "Yes: музей means “museum”. A useful word for this story.",
    "retryFeedback": "This cultural place ends in the short y letter. Check the middle letters too.",
-   "hint": "A cultural place with five letters; the last is the short y letter."
+   "hint": "Say it slowly: m-u-z-ye-y. Five letters; е is “ye”, and the word ends with й, the short “y”."
   },
   {
    "id": "listen",
