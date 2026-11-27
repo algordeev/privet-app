@@ -7,6 +7,7 @@ import {homeOrder} from './homeOrder';
 import {glideFrom,positions,reducedMotion,REORDER_DELAY,useHomeReorder} from './useHomeReorder';
 import {chapterOf,chapters,type Chapter} from './curriculum/chapters';
 import {lessonArt} from './lessonArt';
+import {brightTile,darkColour,tileTint} from './darkColours';
 import {homeMemory,newlyPassedSince} from './homeMemory';
 
 // Home's lessons, grouped into chapters. One card at a time is big (its drawn scene, phrases, progress and
@@ -21,7 +22,9 @@ const CYRILLIC='cyrillic',NONE='none';
 const LOCK_STAGGER=80,LOCK_OFF=900,GLOW=1500;
 type UnlockPhase='locked'|'opening'|'done'|null;
 
-const tint=(id:string)=>({'--t':lessonArt[id]?.tint,'--d':lessonArt[id]?.ink}) as CSSProperties;
+// Each lesson's colours, plus their dark-theme versions (used only in dark mode): a solid bright tile in the
+// lesson's own hue (--t-dark), a soft tint of it for the phrase chips (--t-tint) and its label colour (--d-dark).
+const tint=(id:string)=>{const art=lessonArt[id];return (art?{'--t':art.tint,'--d':art.ink,'--t-dark':brightTile(art.ink),'--t-tint':tileTint(art.ink),'--d-dark':darkColour(art.ink,'text')}:{}) as CSSProperties;};
 const best=({saved,progress}:LessonController)=>Math.max(saved.bestFirstTry??saved.completion?.results.filter(Boolean).length??0,progress.complete?progress.results.filter(Boolean).length:0);
 const action=(item:LessonController,open:boolean)=>!open?'Unlock with Plus':item.progress.complete?'See your results':item.passed?'Continue practice':lessonStarted(item)?'Continue lesson':'Start lesson';
 // A small drawn padlock; its shackle springs open while home shows Plus arriving.

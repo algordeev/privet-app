@@ -1,6 +1,7 @@
 // Real React interaction checks in isolated headless Chromium, with test-only
 // native-platform/voice shims. No device, radio, billing or simulator claims.
 import assert from 'node:assert/strict';
+const LIGHT={name:'prefers-color-scheme',value:'light'};
 import {existsSync} from 'node:fs';
 import {mkdtemp,readFile,rm,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -180,9 +181,11 @@ try{
  function finalStep(){const s=freshSession();s.progress={...s.progress,index:4,results:[true,true,true,true],attempts:1,feedback:'correct',bestCombo:5};s.selected='спасибо';return s;}
  const today=localDay(new Date(2026,9,17,12));
  await call('Page.enable');await call('Runtime.enable');
+ // The checks are written for the light theme: never inherit this Mac's dark appearance.
+ await call('Emulation.setEmulatedMedia',{features:[LIGHT]});
  for(const viewport of [{width:320,height:568},{width:375,height:667},{width:390,height:844},{width:430,height:932}]){
   await call('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:true});
-  await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+  await call('Emulation.setEmulatedMedia',{features:[LIGHT,{name:'prefers-reduced-motion',value:'reduce'}]});
   await open({[NATIVE_SESSION_KEY]:meaning()});await startCafe();
   for(let n=0;n<3;n++){
    await click('.choice','1tea');await click('.lesson-bottom .button','Check answer');
@@ -855,7 +858,7 @@ try{
  russianAudio=true;firstTime=true;
  for(const viewport of [{width:375,height:667},{width:430,height:932}]){
   await call('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:true});
-  await open();await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+  await open();await call('Emulation.setEmulatedMedia',{features:[LIGHT,{name:'prefers-reduced-motion',value:'reduce'}]});
   assert.ok((await firstHeading()).includes('Meet your Russian learning companion'));await capture('welcome');
   assert.equal(await evaluate(()=>document.querySelectorAll('.first-offer').length),0,'No offer before a completed lesson');
   await throughWelcome();
@@ -927,8 +930,8 @@ try{
  await call('Emulation.setDeviceMetricsOverride',{width:320,height:568,deviceScaleFactor:1,mobile:true});
  await open(atOffers);await assertNativeLayout();await scrollToCentre('.first-offer-free .button');await assertNativeLayout();
  assert.ok(await fitsOnScreen('.first-offer-free .button'));await scrollToCentre('.plus-buy');assert.ok(await fitsOnScreen('.plus-buy'));await capture('free');
- await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});await open();await evaluate(()=>document.querySelector('.first-actions .button').click());assert.ok(await evaluate(()=>document.querySelector('.first-scroll h1').textContent.includes('Listen and repeat')),'No-preference entrance keeps Continue immediately clickable');await capture('reduced-motion');
- await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await open();await click('.first-actions .button','Get started');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue with virtual companion');await click('.first-options button[aria-label="Conversations"]');await click('.first-actions .button','Continue');await click('.first-options button[aria-label="New to Russian"]');await click('.first-actions .button','A little Cyrillic first');assert.ok(await evaluate(()=>!!document.querySelector('[data-stage=alphabet]')));await assertNativeLayout();await click('.first-actions .button','Continue');assert.ok(await evaluate(()=>document.body.textContent.includes('Same shape. Different sound.')));await click('.first-actions .button','Ready for the mini-class');await capture('handoff');await capture('reduced-motion');await assertNativeLayout();
+ await call('Emulation.setEmulatedMedia',{features:[LIGHT,{name:'prefers-reduced-motion',value:'no-preference'}]});await open();await evaluate(()=>document.querySelector('.first-actions .button').click());assert.ok(await evaluate(()=>document.querySelector('.first-scroll h1').textContent.includes('Listen and repeat')),'No-preference entrance keeps Continue immediately clickable');await capture('reduced-motion');
+ await call('Emulation.setEmulatedMedia',{features:[LIGHT,{name:'prefers-reduced-motion',value:'reduce'}]});await open();await click('.first-actions .button','Get started');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue');await click('.first-actions .button','Continue with virtual companion');await click('.first-options button[aria-label="Conversations"]');await click('.first-actions .button','Continue');await click('.first-options button[aria-label="New to Russian"]');await click('.first-actions .button','A little Cyrillic first');assert.ok(await evaluate(()=>!!document.querySelector('[data-stage=alphabet]')));await assertNativeLayout();await click('.first-actions .button','Continue');assert.ok(await evaluate(()=>document.body.textContent.includes('Same shape. Different sound.')));await click('.first-actions .button','Ready for the mini-class');await capture('handoff');await capture('reduced-motion');await assertNativeLayout();
  console.log('PASS: buying monthly Plus on the onboarding paywall finishes the welcome; Continue is never blocked by entrance motion; offers and onboarding controls fit at 320×568 and 430×932.');
 
  // A first-time owner can pair before personalization, without leaving onboarding.
@@ -1170,7 +1173,7 @@ try{
    assert.equal(await evaluate(()=>document.querySelector('.score strong').textContent.replace(/\s/g,'')),`${lesson.exercises.length}/${lesson.exercises.length}`,`${lesson.id}: every step correct on the first try`);
    await assertNativeLayout();
    // The move is animated only without Reduce Motion (an earlier check leaves it on).
-   if(lesson===nativeLessons[2])await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
+   if(lesson===nativeLessons[2])await call('Emulation.setEmulatedMedia',{features:[LIGHT,{name:'prefers-reduced-motion',value:'no-preference'}]});
    await click('[aria-label="Return to app home"]');
    if(lesson===nativeLessons[3]){
     // With Reduce Motion the new order shows at once, without movement.
@@ -1194,7 +1197,7 @@ try{
     await pause(400);await scrollToCentre('.native-completed-title');await capture('reorder-after');
     assert.equal(await evaluate(()=>document.querySelector('.home-hero h2').id),`native-card-${nativeLessons[0].id}`,'Lesson 1 stays up next');
     await assertNativeLayout();
-    await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+    await call('Emulation.setEmulatedMedia',{features:[LIGHT,{name:'prefers-reduced-motion',value:'reduce'}]});
    }
   }
   console.log('PASS 320×568: lessons 3–8 play start to finish (vocabulary, choice, listening, matching, building, typing), all first-try correct, with no horizontal overflow at any step; a passed lesson glides down under Completed.');
@@ -1234,7 +1237,7 @@ try{
   await click('[aria-label="Return to app home"]');
   // Buying from the locked lesson 4 row goes back to home, still locked at first; the locks open in turn, top to
   // bottom, then home is redrawn with Plus and lesson 4 glows. Tapping it then opens it as usual.
-  await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
+  await call('Emulation.setEmulatedMedia',{features:[LIGHT,{name:'prefers-reduced-motion',value:'no-preference'}]});
   await openCard(nativeLessons[3].id,'Unlock with Plus');await until(()=>!!document.querySelector('#native-plus-title'));
   await click('.plus-buy',`Continue · ${PLUS_YEARLY_PRICE}/year`);
   await until(()=>!!document.querySelector('.home-lessons'));
@@ -1249,7 +1252,7 @@ try{
   assert.ok(await evaluate(id=>document.activeElement===document.querySelector(`#native-card-${id} ~ .button`),nativeLessons[3].id),'Focus rests on the tapped lesson');
   await capture('unlocked');
   await until(()=>!document.querySelector('.home-lessons')?.dataset.unlock);await assertNativeLayout();
-  await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+  await call('Emulation.setEmulatedMedia',{features:[LIGHT,{name:'prefers-reduced-motion',value:'reduce'}]});
   await openCard(nativeLessons[3].id);await until(title=>document.querySelector('.app-navigation strong')?.textContent===title,nativeLessons[3].title);
   await click('[aria-label="Return to app home"]');
   // Buying from the lesson 3 results also returns home with lesson 4 glowing; with Reduce Motion it is unlocked at once.

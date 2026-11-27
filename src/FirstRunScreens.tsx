@@ -39,7 +39,7 @@ export const STORY_PAGES=[
 
 export function WelcomeGreeting({companion,heading}:{companion:NativeCompanionController;heading:Heading}){
  return <>
-  <div className="first-robot first-hero-robot"><NativeRobot companion={companion} size="greeting"/><span className="first-hello" lang="ru">Привет!</span></div>
+  <div className="first-robot first-hero-robot"><NativeRobot companion={companion} size="greeting"/><span className="first-hello" lang="ru">Привет!</span><span className="first-hero-letters" aria-hidden="true" lang="ru"><i>П</i><i>Р</i><i>И</i><i>В</i></span></div>
   <p className="native-kicker">RUSSIAN THAT REACTS TO YOU</p>
   <h1 ref={heading} tabIndex={-1}>Meet your Russian learning companion</h1>
   <p>Learn practical Russian while your companion listens, thinks and celebrates with you.</p>

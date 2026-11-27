@@ -12,7 +12,8 @@
     "build:native": "tsc -b && vite build --mode native --base=./ --outDir dist-native",
     "sync:ios": "npm run build:native && cap sync ios",
     "test:shells": "node scripts/check-shells.mjs",
-    "test:interactions": "node scripts/check-native-interactions.mjs"
+    "test:interactions": "node scripts/check-native-interactions.mjs",
+    "build:dark": "node scripts/build-dark-theme.mjs"
   },
   "dependencies": {
     "@capacitor-community/bluetooth-le": "^8.3.0",

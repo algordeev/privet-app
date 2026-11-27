@@ -481,6 +481,10 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
    through any delay) rather than `both`: WebKit then drops each animation's layer once it finishes. */
 .native-app .button { transition: background .2s, transform 120ms var(--ease); }
 .native-app .button:active:not(:disabled) { transform: scale(.98); }
+/* Chunky main buttons (chosen 2026-11-25, option A): a deep green edge underneath, pressed down when tapped.
+   Disabled buttons stay flat. Dark mode restyles the edge in nativeDarkPlayful.css. */
+.native-app .button.teal:not(:disabled), .native-app .native-review-bar, .native-app .native-tour-card .native-tour-next { box-shadow: 0 4px 0 #164b32; }
+.native-app .button.teal:active:not(:disabled), .native-app .native-review-bar:active, .native-app .native-tour-card .native-tour-next:active { transform: translateY(2px); box-shadow: 0 2px 0 #164b32; }
 .native-home-scroll > * { animation: app-rise-in 340ms var(--ease) backwards; animation-delay: calc(var(--i,0) * 50ms); }
 .native-home-scroll > .native-lesson-list { animation: none; }
 .native-home-scroll > :nth-child(2) { --i: 1; }
@@ -769,7 +773,8 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
 .native-app .native-lesson-list[data-settled] > * { animation:none; }
 
 /* Review: a slim bar under the robot's greeting while words are due. */
-.native-app .native-review-bar { display:flex; align-items:center; gap:10px; width:100%; min-height:48px; padding:10px 14px; border-radius:15px; background:#2f6b4b; color:#fffdf7; font-size:14px; font-weight:600; text-align:left; }
+/* margin-bottom: 9px of clear space under its 4px edge. */
+.native-app .native-review-bar { display:flex; align-items:center; gap:10px; width:100%; min-height:48px; margin-bottom:13px; padding:10px 14px; border-radius:15px; background:#2f6b4b; color:#fffdf7; font-size:14px; font-weight:600; text-align:left; }
 .native-app .native-review-bar-icon { font-size:17px; }
 .native-app .native-review-bar-text { flex:1; min-width:0; }
 .native-app .native-review-bar-text small { display:block; font-size:11.5px; font-weight:400; opacity:.85; }
@@ -814,3 +819,9 @@ html.native-platform body, html.native-platform #root { margin: 0; height: 100%;
  .native-app .home-lessons[data-unlock] *, .native-app .home-lessons[data-unlock] *::after { animation:none !important; transition:none !important; }
  .native-app .home-lessons[data-unlock="done"] { animation:app-fade-in 400ms ease-out; }
 }
+/* Settings › Appearance: three choices side by side. */
+.native-app .native-appearance { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; padding:4px; border-radius:14px; background:#eef0e6; }
+.native-app .native-appearance-option { position:relative; display:grid; border:0; background:transparent; font:inherit; justify-items:center; gap:4px; padding:10px 4px 9px; border-radius:11px; color:#627458; font-size:13px; font-weight:600; cursor:pointer; }
+.native-app .native-appearance-option svg { width:24px; height:24px; }
+.native-app .native-appearance-option[aria-checked=true] { background:#fffdf7; color:#232b29; box-shadow:0 1px 3px #23372c24, 0 0 0 1.5px #246653; }
+.native-app .native-settings-card > .native-appearance-note { margin:10px 0 0; font-size:13px; }
