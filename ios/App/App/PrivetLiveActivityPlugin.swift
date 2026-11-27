@@ -2,7 +2,7 @@ import ActivityKit
 import Capacitor
 import Foundation
 
-// The lesson Live Activity (src/useLessonActivity.ts). It starts when a lesson opens, because iOS only lets an
+// The Live Activity for a lesson or a review (src/useLessonActivity.ts). It starts when one opens, because iOS only lets an
 // activity start while the app is in front; the island and Lock Screen show it only once you leave the app.
 // Needs iOS 16.2; on older iPhones every call quietly does nothing.
 @objc(PrivetLiveActivityPlugin)
@@ -30,8 +30,7 @@ public class PrivetLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         let attributes = PrivetLessonAttributes(
             lessonId: call.getString("lessonId") ?? "",
-            lessonNumber: call.getInt("lessonNumber") ?? 0,
-            lessonTitle: call.getString("lessonTitle") ?? ""
+            title: call.getString("title") ?? ""
         )
         let state = Self.state(from: call)
         Task {

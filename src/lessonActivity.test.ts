@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {lessonActivityState} from './useLessonActivity.ts';
+import {lessonActivityState,lessonActivityTitle,reviewActivityTitle} from './useLessonActivity.ts';
 
 test('the lesson island keeps its step count in range', () => {
  assert.deepEqual(lessonActivityState(6,12),{done:6,total:12});
@@ -16,4 +16,10 @@ test('the app still supports iOS 15 while the widget extension needs 16.2', () =
  assert.match(project,/IPHONEOS_DEPLOYMENT_TARGET = 15\.0;[\s\S]*IPHONEOS_DEPLOYMENT_TARGET = 16\.2;/,'the first deployment target must be the app\'s 15.0');
  assert.doesNotMatch(project.slice(0,project.indexOf('IPHONEOS_DEPLOYMENT_TARGET = 15.0;')),/IPHONEOS_DEPLOYMENT_TARGET/);
  assert.match(readFileSync(new URL('../ios/App/CapApp-SPM/Package.swift',import.meta.url),'utf8'),/platforms: \[\.iOS\(\.v15\)\]/);
+});
+
+test('the island is titled by lesson, or by the number of words in a review', () => {
+ assert.equal(lessonActivityTitle(5,'Daily life'),'Lesson 5 · Daily life');
+ assert.equal(reviewActivityTitle(8),'Review · 8 words');
+ assert.equal(reviewActivityTitle(1),'Review · 1 word');
 });

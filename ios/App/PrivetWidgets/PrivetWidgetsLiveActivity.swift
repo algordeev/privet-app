@@ -2,7 +2,7 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
-// The lesson Live Activity: the coral robot head with its green OLED face, and your place in the lesson.
+// The lesson (or review) Live Activity: the coral robot head with its green OLED face, and your place in it.
 // Agreed 2026-11-27: https://claude.ai/artifact/8GBaqd68M3urexcsbjrhkT. The data comes from
 // App/PrivetLessonAttributes.swift. It doesn't show the companion (the user dropped that line, 2026-11-27), so it
 // looks the same whichever companion is connected, or none.
@@ -73,7 +73,7 @@ private extension ActivityViewContext where Attributes == PrivetLessonAttributes
     }
     var stepText: String { "\(state.done)/\(state.total)" }
     var fraction: Double { Double(min(state.done, state.total)) / Double(max(1, state.total)) }
-    var title: String { "Lesson \(attributes.lessonNumber) · \(attributes.lessonTitle)" }
+    var title: String { attributes.title }
 }
 
 private struct ProgressBar: View {
@@ -154,7 +154,7 @@ private struct LockScreenView: View {
 
 // Xcode previews of the Lock Screen card (halfway through a lesson). Previews need iOS 17.
 @available(iOS 17.0, *)
-#Preview("Lock Screen", as: .content, using: PrivetLessonAttributes(lessonId: "daily-life", lessonNumber: 5, lessonTitle: "Daily life")) {
+#Preview("Lock Screen", as: .content, using: PrivetLessonAttributes(lessonId: "daily-life", title: "Lesson 5 · Daily life")) {
     PrivetWidgetsLiveActivity()
 } contentStates: {
     PrivetLessonAttributes.ContentState(done: 6, total: 12)

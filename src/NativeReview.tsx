@@ -9,6 +9,7 @@ import type {NativeStatsController} from './useNativeStats';
 import type {ReviewSession} from './review';
 import type {ReviewController} from './useReview';
 import type {NativeCompanionController} from './useNativeCompanion';
+import {reviewActivityTitle,useLessonActivity} from './useLessonActivity';
 import type {PhysicalCompanionController} from './usePhysicalCompanion';
 
 // Home: a slim one-line bar while words are due for review; nothing otherwise.
@@ -32,5 +33,8 @@ export function NativeReviewSession({speaking,session,sessionId,shared,review,co
   if(action.type==='continue'&&!previous.complete&&next.complete&&!next.failed)review.finish(session,next.results);
  }});
  useEffect(()=>{controller.lessonHeading.current?.focus({preventScroll:true});},[]);
+ // The same island as a lesson, while you're away mid-review: reviews keep the streak too.
+ useLessonActivity({lesson:{id:'review',title:reviewActivityTitle(session.items.length)},active:true,
+  finished:controller.progress.complete||!!controller.progress.failed,done:controller.progress.index,total:session.definition.exercises.length});
  return <div className="native-lesson-view"><LessonPanel controller={controller} native review speaking={speaking} onListen={physical.onListen} onListenEnd={physical.onListenEnd} onHint={physical.onHint} onReveal={physical.onReveal} onMatchPair={physical.onMatchPair} nativeCompanion={companion} onPrintLetter={onPrintLetter} onPrintPractice={onPrint&&controller.progress.complete?()=>onPrint(session,controller.progress.results):undefined} onClose={onClose}/></div>;
 }
