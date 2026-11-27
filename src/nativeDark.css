@@ -242,6 +242,8 @@ html.native-platform[data-theme="dark"]{background-color:#121a2b}
 :where(html.native-platform[data-theme="dark"]) .native-app .match-item{background-color:#1c2639}
 :where(html.native-platform[data-theme="dark"]) .native-app .match-item.matched,:where(html.native-platform[data-theme="dark"]) .native-app .match-item.matched:disabled{background-color:#5df08f2e;border-color:#5df08f8c;box-shadow:0 0 0 1px #5df08f8c;color:#5df08f}
 :where(html.native-platform[data-theme="dark"]) .native-app .match-item.matched .native-russian-reading{color:#5df08f}
+:where(html.native-platform[data-theme="dark"]) .native-app .button.teal:not(:disabled),:where(html.native-platform[data-theme="dark"]) .native-app .native-review-bar,:where(html.native-platform[data-theme="dark"]) .native-app .native-tour-card .native-tour-next{box-shadow:0 4px 0 #46e0a48c}
+:where(html.native-platform[data-theme="dark"]) .native-app .button.teal:active:not(:disabled),:where(html.native-platform[data-theme="dark"]) .native-app .native-review-bar:active,:where(html.native-platform[data-theme="dark"]) .native-app .native-tour-card .native-tour-next:active{box-shadow:0 2px 0 #46e0a48c}
 :where(html.native-platform[data-theme="dark"]) .native-app .app-progress-track > .done{background-color:#5df08f}
 :where(html.native-platform[data-theme="dark"]) .native-app .app-progress-track > span::after{background-color:#3fd49a}
 :where(html.native-platform[data-theme="dark"]) .native-app .choice.answer-correct{background-color:#5df08f1a;border-color:#5df08f8c;box-shadow:0 0 0 1px #5df08f8c}
